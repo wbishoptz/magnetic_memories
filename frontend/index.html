@@ -39,7 +39,7 @@
     <section class="card">
       <h2>Upload your photos</h2>
 
-      <!-- The clickable drop area -->
+      <!-- The clickable drop area (grid previews) -->
       <form id="mm-dropzone" class="dropzone">
         <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
       </form>
@@ -65,9 +65,9 @@
       </div>
     </section>
 
-    <!-- Pay -->
-    <section class="card actions">
-      <button id="payBtn" disabled>Pay securely</button>
+    <!-- Pay (centered, prominent) -->
+    <section class="card actions actions-centered">
+      <button id="payBtn" class="cta" disabled>Pay securely</button>
       <div id="status" class="status"></div>
     </section>
 
@@ -78,14 +78,14 @@
     </footer>
   </main>
 
-  <!-- Upgrade modal -->
+  <!-- Upgrade/Downgrade modal -->
   <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
     <div class="modal-card">
-      <h3 id="upgrade-title">Add more magnets?</h3>
+      <h3 id="upgrade-title">Change pack size?</h3>
       <p id="upgrade-text" class="modal-text"></p>
       <div class="modal-actions">
-        <button id="upgrade-confirm" class="btn-primary">Upgrade</button>
-        <button id="upgrade-keep" class="btn-ghost">Keep current &amp; remove extras</button>
+        <button id="upgrade-confirm" class="btn-primary">Confirm</button>
+        <button id="upgrade-keep" class="btn-ghost">Cancel</button>
       </div>
     </div>
   </div>

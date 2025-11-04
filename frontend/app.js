@@ -1,6 +1,7 @@
 // --- Simple state ---
 let selectedPack = 3;
 let requiredCount = 3;
+let previousPack = 3;
 let customerEmail = "";
 let emailTouched = false;
 
@@ -18,12 +19,13 @@ const progressBar = document.getElementById("upload-progress-bar");
 
 // Modal elements
 const modal = document.getElementById("upgrade-modal");
+const modalTitle = document.getElementById("upgrade-title");
 const modalText = document.getElementById("upgrade-text");
 const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep = document.getElementById("upgrade-keep");
 
-let pendingOverflowCount = 0;
-let suggestedPack = null;
+let modalMode = "upgrade"; // 'upgrade' | 'downgrade'
+let pendingTargetPack = null;
 
 // --- Email validation UI helper ---
 function setEmailValidityUI(isValid) {
@@ -40,7 +42,7 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Update the visible file counter (use all files for instant accuracy) ---
+// --- Update the visible file counter (instant accuracy) ---
 function updatePhotoCount() {
   const count = myDropzone.files.length;
   photoCountEl.textContent = String(count);
@@ -50,8 +52,36 @@ function updatePhotoCount() {
 // --- Pack selector wiring ---
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
-    selectedPack = parseInt(radio.value, 10);
-    requiredCount = selectedPack;
+    const newPack = parseInt(radio.value, 10);
+    const currentCount = myDropzone ? myDropzone.files.length : 0;
+
+    // If downgrading AND too many photos for the new pack => prompt
+    if (newPack < selectedPack && currentCount > newPack) {
+      // Revert radio UI to previous pack for now
+      const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
+      if (prevRadio) prevRadio.checked = true;
+
+      // Show downgrade modal
+      modalMode = "downgrade";
+      pendingTargetPack = newPack;
+      const toRemove = currentCount - newPack;
+
+      modalTitle.textContent = "Reduce pack size?";
+      modalText.textContent =
+        `You currently have ${currentCount} photos selected. ` +
+        `If you move to a pack of ${newPack}, we’ll remove ${toRemove} photo(s). ` +
+        `Do you want to continue?`;
+
+      modalConfirm.textContent = `Downgrade to ${newPack}`;
+      modalKeep.textContent = "Cancel";
+      modal.classList.remove("hidden");
+      return;
+    }
+
+    // Otherwise apply immediately (upgrade or fitting downgrade)
+    previousPack = selectedPack;
+    selectedPack = newPack;
+    requiredCount = newPack;
     requiredCountEl.textContent = String(requiredCount);
     if (myDropzone) {
       myDropzone.options.maxFiles = requiredCount;
@@ -95,41 +125,46 @@ const myDropzone = new Dropzone(dzElement, {
   dictRemoveFile: "Remove",
 });
 
-function showUpgradeModal(total, allowed) {
-  pendingOverflowCount = Math.max(0, total - allowed);
-  // Smallest pack that fits the total count
-  suggestedPack = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
-
-  modalText.textContent =
-    `You selected a pack of ${allowed}, but added ${total} photos. ` +
-    `Would you like to upgrade to ${suggestedPack} magnets for £${prices[suggestedPack]}?`;
-
-  modal.classList.remove("hidden");
-}
-
-function hideUpgradeModal() {
-  modal.classList.add("hidden");
-  pendingOverflowCount = 0;
-  suggestedPack = null;
-}
-
-// on thumbnails changed
+// Keep count and button state in sync
 myDropzone.on("addedfile", updatePhotoCount);
 myDropzone.on("removedfile", updatePhotoCount);
 
-// If a batch pushes over the limit, offer upgrade
+// If batch pushes over the limit (upgrade suggestion)
 myDropzone.on("addedfiles", () => {
   const total = myDropzone.files.length;
   if (total > requiredCount) {
-    showUpgradeModal(total, requiredCount);
+    // Suggest the smallest pack that fits
+    const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
+    modalMode = "upgrade";
+    pendingTargetPack = suggested;
+
+    modalTitle.textContent = "Add more magnets?";
+    modalText.textContent =
+      `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
+      `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
+
+    modalConfirm.textContent = `Upgrade to ${suggested}`;
+    modalKeep.textContent   = "Keep current & remove extras";
+    modal.classList.remove("hidden");
   }
 });
 
-// Also react if Dropzone fires the maxfilesexceeded event (single add over)
+// Also react to maxfilesexceeded (single add over)
 myDropzone.on("maxfilesexceeded", () => {
   const total = myDropzone.files.length;
   if (total > requiredCount) {
-    showUpgradeModal(total, requiredCount);
+    const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
+    modalMode = "upgrade";
+    pendingTargetPack = suggested;
+
+    modalTitle.textContent = "Add more magnets?";
+    modalText.textContent =
+      `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
+      `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
+
+    modalConfirm.textContent = `Upgrade to ${suggested}`;
+    modalKeep.textContent   = "Keep current & remove extras";
+    modal.classList.remove("hidden");
   }
 });
 
@@ -138,28 +173,47 @@ myDropzone.on("totaluploadprogress", (progress) => {
   progressBar.style.width = `${progress}%`;
 });
 
-// Modal actions
+// --- Modal actions (handles both upgrade & downgrade) ---
 modalConfirm.addEventListener("click", () => {
-  if (!suggestedPack) return;
-  // Update pack to suggested, sync radio UI
-  selectedPack = suggestedPack;
-  requiredCount = suggestedPack;
+  if (!pendingTargetPack) return;
+
+  // Apply the new pack
+  previousPack = selectedPack;
+  selectedPack = pendingTargetPack;
+  requiredCount = pendingTargetPack;
   requiredCountEl.textContent = String(requiredCount);
-  const radio = document.querySelector(`input[name="pack"][value="${suggestedPack}"]`);
+
+  // Sync radio UI
+  const radio = document.querySelector(`input[name="pack"][value="${pendingTargetPack}"]`);
   if (radio) radio.checked = true;
+
+  // Trim extras if needed
+  while (myDropzone.files.length > requiredCount) {
+    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+  }
+
   myDropzone.options.maxFiles = requiredCount;
   statusEl.textContent = "";
-  hideUpgradeModal();
+  modal.classList.add("hidden");
+  pendingTargetPack = null;
   updatePhotoCount();
 });
 
 modalKeep.addEventListener("click", () => {
-  // Remove extras from the end
-  while (myDropzone.files.length > requiredCount) {
-    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+  if (modalMode === "upgrade") {
+    // Keep current pack and remove extras
+    while (myDropzone.files.length > requiredCount) {
+      myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+    }
+    statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
+  } else if (modalMode === "downgrade") {
+    // Cancel downgrade — keep previous selection visually
+    const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
+    if (prevRadio) prevRadio.checked = true;
   }
-  statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
-  hideUpgradeModal();
+
+  modal.classList.add("hidden");
+  pendingTargetPack = null;
   updatePhotoCount();
 });
 
