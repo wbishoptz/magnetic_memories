@@ -10,6 +10,8 @@ const requiredCountEl = document.getElementById("required-count");
 const emailInput = document.getElementById("email");
 const payBtn = document.getElementById("payBtn");
 const statusEl = document.getElementById("status");
+const dzElement = document.getElementById("mm-dropzone");
+const fileInput = document.getElementById("fileInput");
 
 // --- Pack selector wiring ---
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
@@ -32,7 +34,6 @@ emailInput.addEventListener("input", () => {
 
 // --- Dropzone setup ---
 Dropzone.autoDiscover = false;
-const dzElement = document.getElementById("mm-dropzone");
 
 const myDropzone = new Dropzone(dzElement, {
   url: "/api/upload",            // overridden with ?orderId=... later
@@ -44,8 +45,29 @@ const myDropzone = new Dropzone(dzElement, {
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  clickable: ["#mm-dropzone", "#fileInput"],
+  clickable: false, // we'll handle clicking ourselves to be extra-reliable
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
+});
+
+// Manual click → open hidden input (works on desktop & mobile)
+dzElement.addEventListener("click", () => fileInput.click());
+// Keyboard accessibility
+dzElement.setAttribute("tabindex", "0");
+dzElement.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") fileInput.click();
+});
+
+// When files selected via hidden input, push them into Dropzone
+fileInput.addEventListener("change", () => {
+  const files = Array.from(fileInput.files || []);
+  for (const f of files) {
+    // Respect maxFiles
+    if (myDropzone.files.length >= requiredCount) break;
+    myDropzone.addFile(f);
+  }
+  // Clear the input so selecting the same file again still triggers change
+  fileInput.value = "";
+  enforcePayButtonState();
 });
 
 myDropzone.on("addedfile", enforcePayButtonState);
