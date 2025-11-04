@@ -44,14 +44,25 @@
         <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
       </form>
 
-      <!-- Hidden input (mobile/manual fallback if needed) -->
+      <!-- Hidden input (fallback if needed) -->
       <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
 
-      <ul id="upload-rules" class="hint">
-        <li>Accepted: JPG, PNG, HEIC</li>
-        <li>Max file size: 10 MB each</li>
-        <li>Exactly <span id="required-count">3</span> images required for your selected pack</li>
-      </ul>
+      <!-- Counter + rules -->
+      <div class="upload-meta">
+        <div class="counter">
+          <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
+        </div>
+        <ul id="upload-rules" class="hint">
+          <li>Accepted: JPG, PNG, HEIC</li>
+          <li>Max file size: 10 MB each</li>
+          <li>Click a thumbnail to remove it if needed</li>
+        </ul>
+      </div>
+
+      <!-- Overall progress bar (appears during uploads) -->
+      <div class="progress" id="upload-progress" aria-hidden="true">
+        <div class="progress-bar" id="upload-progress-bar" style="width:0%"></div>
+      </div>
     </section>
 
     <!-- Pay -->

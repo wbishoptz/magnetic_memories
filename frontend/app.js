@@ -11,6 +11,9 @@ const requiredCountEl = document.getElementById("required-count");
 const emailInput = document.getElementById("email");
 const payBtn = document.getElementById("payBtn");
 const statusEl = document.getElementById("status");
+const photoCountEl = document.getElementById("photo-count");
+const progressWrap = document.getElementById("upload-progress");
+const progressBar = document.getElementById("upload-progress-bar");
 
 // --- Email validation UI helper ---
 function setEmailValidityUI(isValid) {
@@ -18,15 +21,19 @@ function setEmailValidityUI(isValid) {
   const errEl = document.getElementById("emailError");
 
   if (!emailTouched) {
-    // Hide everything before the user interacts
     emailEl.classList.remove("input-error");
     errEl.style.display = "none";
     return;
   }
-
   emailEl.classList.toggle("input-error", !isValid);
   errEl.style.display = isValid ? "none" : "block";
   emailEl.setAttribute("aria-invalid", String(!isValid));
+}
+
+// --- Update the visible file counter ---
+function updatePhotoCount() {
+  const count = myDropzone.getAcceptedFiles().length;
+  photoCountEl.textContent = String(count);
 }
 
 // --- Pack selector wiring ---
@@ -38,6 +45,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     if (myDropzone) {
       myDropzone.options.maxFiles = requiredCount;
       enforcePayButtonState();
+      updatePhotoCount();
     }
   });
 });
@@ -53,7 +61,7 @@ emailInput.addEventListener("input", () => {
 
 emailInput.addEventListener("blur", () => {
   emailTouched = true;
-  const valid = /\S+@\S+\.\S+/.test(customerEmail);
+  const valid = /\S+@\S+\.\S+/.test(emailInput.value.trim());
   setEmailValidityUI(valid);
 });
 
@@ -64,21 +72,26 @@ Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
 const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload", // overridden per upload with ?orderId=...
+  url: "/api/upload",            // overridden per upload with ?orderId=...
   method: "post",
-  autoProcessQueue: false, // we upload manually after creating the order
+  autoProcessQueue: false,       // we upload manually after creating the order
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 10, // MB
+  maxFilesize: 10,               // MB
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  clickable: ["#mm-dropzone", "#fileInput"], // allow clicking anywhere
+  clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
 });
 
-myDropzone.on("addedfile", enforcePayButtonState);
-myDropzone.on("removedfile", enforcePayButtonState);
+myDropzone.on("addedfile", () => { updatePhotoCount(); enforcePayButtonState(); });
+myDropzone.on("removedfile", () => { updatePhotoCount(); enforcePayButtonState(); });
+
+// Overall upload progress (0–100)
+myDropzone.on("totaluploadprogress", (progress) => {
+  progressBar.style.width = `${progress}%`;
+});
 
 // Enable Pay only when: valid email + exactly required file count
 function enforcePayButtonState() {
@@ -108,25 +121,28 @@ payBtn.addEventListener("click", async () => {
 
     // 2) Upload each file to /api/upload?orderId=...
     statusEl.textContent = "Uploading photos…";
+    progressWrap.style.display = "block";
+    progressWrap.setAttribute("aria-hidden", "false");
+    progressBar.style.width = "0%";
+
     const files = myDropzone.getAcceptedFiles();
 
     for (const file of files) {
       const form = new FormData();
       form.append("file", file, file.name);
 
-      const upRes = await fetch(
-        `/api/upload?orderId=${encodeURIComponent(orderId)}`,
-        {
-          method: "POST",
-          body: form,
-        }
-      );
+      const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
+        method: "POST",
+        body: form,
+      });
 
       if (!upRes.ok) {
         const txt = await upRes.text().catch(() => "");
         throw new Error(txt || "Upload failed");
       }
     }
+
+    progressBar.style.width = "100%";
 
     // 3) Create SumUp checkout
     statusEl.textContent = `Creating checkout (£${prices[selectedPack]})…`;
@@ -149,9 +165,14 @@ payBtn.addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     statusEl.textContent =
-      err && err.message
-        ? `Error: ${err.message}`
-        : "Something went wrong. Please try again.";
+      err && err.message ? `Error: ${err.message}` : "Something went wrong. Please try again.";
     payBtn.disabled = false;
+  } finally {
+    // Hide bar next time the user tries again
+    setTimeout(() => {
+      progressWrap.style.display = "none";
+      progressWrap.setAttribute("aria-hidden", "true");
+      progressBar.style.width = "0%";
+    }, 500);
   }
 });
