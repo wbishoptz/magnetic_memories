@@ -1,95 +1,110 @@
+:root {
+  --bg: #0b0c10;
+  --card: #121318;
+  --text: #e8e8e8;
+  --muted: #a7a7a7;
+  --accent: #59c9a5;
+  --danger: #ff6666;
+}
+
+* { box-sizing: border-box; }
+
 body {
-  font-family: system-ui, sans-serif;
-  background-color: #121212;
-  color: #f4f4f4;
   margin: 0;
-  padding: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1000px 600px at 50% -200px, #1a1c24, var(--bg));
+  color: var(--text);
 }
 
 .container {
-  max-width: 700px;
+  max-width: 780px;
   margin: 40px auto;
-  padding: 20px;
+  padding: 0 16px;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-header h1 {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
+h1 { font-size: 2rem; margin: 0 0 6px; }
+.subtitle { margin: 0 0 24px; color: var(--muted); }
 
 .card {
-  background: #1e1e1e;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
 }
 
-.pack-options label {
-  display: block;
-  margin: 8px 0;
+.packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.packs label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
 }
 
 input[type="email"] {
   width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: #fff;
-  font-size: 1rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  outline: none;
 }
 
-button {
-  background: #32d296;
-  color: #000;
-  padding: 12px 20px;
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+.actions { display: flex; align-items: center; gap: 16px; }
+
+button#payBtn {
+  background: var(--accent);
+  color: #081a12;
   border: none;
-  border-radius: 8px;
-  font-weight: bold;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+button#payBtn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.status { color: var(--muted); font-size: 0.95rem; }
+
+.tiny { color: var(--muted); font-size: 0.8rem; text-align: center; }
+
+/* --- Dropzone visibility fix --- */
+#mm-dropzone {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 25px;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#mm-dropzone .dz-message {
+  color: var(--muted);
   font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-button:disabled {
-  background: #444;
-  color: #aaa;
-  cursor: not-allowed;
-}
-
-.hint {
-  color: #aaa;
-  font-size: 0.9rem;
-  margin-top: 8px;
-}
-
-/* Dropzone overrides */
-.dropzone {
-  border: 2px dashed #666;
-  border-radius: 8px;
-  background: #222;
-  color: #ccc;
-  padding: 30px;
   text-align: center;
-  cursor: pointer;
 }
 
-.dropzone.dz-started .dz-message {
-  display: none;
-}
+#mm-dropzone.dz-started .dz-message { display: none; }
 
 /* --- Inline validation for email --- */
 .input-error {
   border: 2px solid #ff5d5d !important;
   background: rgba(255, 93, 93, 0.08) !important;
 }
-
 .error-text {
   color: #ff8a8a;
   font-size: 0.9rem;

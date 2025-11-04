@@ -1,10 +1,15 @@
-let selectedPack = null;
+// --- Simple state ---
+let selectedPack = 3;
+let requiredCount = 3;
 let customerEmail = "";
-let uploadedFiles = [];
 
-const payButton = document.getElementById("payButton");
+const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+
+// --- Elements ---
+const requiredCountEl = document.getElementById("required-count");
 const emailInput = document.getElementById("email");
-const statusText = document.getElementById("status");
+const payBtn = document.getElementById("payBtn");
+const statusEl = document.getElementById("status");
 
 // --- Email validation UI helper ---
 function setEmailValidityUI(isValid) {
@@ -15,77 +20,116 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Enforce pay button enable/disable state ---
-function enforcePayButtonState() {
-  const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
-  const correctFiles =
-    uploadedFiles.length > 0 && uploadedFiles.length === Number(selectedPack);
-  payButton.disabled = !(selectedPack && validEmail && correctFiles);
-}
-
-// --- Listen for pack selection ---
+// --- Pack selector wiring ---
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
-  radio.addEventListener("change", (e) => {
-    selectedPack = e.target.value;
-    enforcePayButtonState();
+  radio.addEventListener("change", () => {
+    selectedPack = parseInt(radio.value, 10);
+    requiredCount = selectedPack;
+    requiredCountEl.textContent = String(requiredCount);
+    if (myDropzone) {
+      myDropzone.options.maxFiles = requiredCount;
+      enforcePayButtonState();
+    }
   });
 });
 
-// --- Listen for email input ---
+// --- Email input wiring ---
 emailInput.addEventListener("input", () => {
   customerEmail = emailInput.value.trim();
   const valid = /\S+@\S+\.\S+/.test(customerEmail);
   setEmailValidityUI(valid);
   enforcePayButtonState();
 });
+setEmailValidityUI(false); // initial state
 
-// --- Dropzone configuration ---
+// --- Dropzone setup ---
 Dropzone.autoDiscover = false;
+const dzElement = document.getElementById("mm-dropzone");
 
-const dropzone = new Dropzone("#photoDropzone", {
-  url: "#", // handled manually
-  autoProcessQueue: false,
-  maxFilesize: 10, // MB
+const myDropzone = new Dropzone(dzElement, {
+  url: "/api/upload",            // overridden per upload with ?orderId=...
+  method: "post",
+  autoProcessQueue: false,       // we upload manually after creating the order
+  uploadMultiple: false,
+  parallelUploads: 2,
+  maxFilesize: 10,               // MB
+  maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
-  addRemoveLinks: true,
-  init: function () {
-    this.on("addedfile", (file) => {
-      uploadedFiles.push(file);
-      enforcePayButtonState();
-    });
-    this.on("removedfile", (file) => {
-      uploadedFiles = uploadedFiles.filter((f) => f !== file);
-      enforcePayButtonState();
-    });
-  },
+  createImageThumbnails: true,
+  clickable: ["#mm-dropzone", "#fileInput"], // allow clicking anywhere
+  dictDefaultMessage: "Drag & drop photos here, or click to choose",
 });
 
-// --- Pay button handler ---
-payButton.addEventListener("click", async () => {
-  if (payButton.disabled) return;
-  statusText.textContent = "Uploading and preparing checkout...";
-  payButton.disabled = true;
+myDropzone.on("addedfile", enforcePayButtonState);
+myDropzone.on("removedfile", enforcePayButtonState);
 
+// Enable Pay only when: valid email + exactly required file count
+function enforcePayButtonState() {
+  const fileCount = myDropzone.getAcceptedFiles().length;
+  const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
+  const exactCount = fileCount === requiredCount;
+  payBtn.disabled = !(validEmail && exactCount);
+}
+
+// --- Pay flow ---
+payBtn.addEventListener("click", async () => {
   try {
-    const formData = new FormData();
-    formData.append("email", customerEmail);
-    formData.append("pack", selectedPack);
+    payBtn.disabled = true;
+    statusEl.textContent = "Creating order…";
 
-    uploadedFiles.forEach((file) => formData.append("photos", file));
-
-    const res = await fetch("/api/order", {
+    // 1) Create draft order (JSON)
+    const orderRes = await fetch("/api/order", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: customerEmail, packSize: selectedPack }),
+    });
+    if (!orderRes.ok) {
+      const txt = await orderRes.text().catch(() => "");
+      throw new Error(txt || "Order creation failed");
+    }
+    const { orderId } = await orderRes.json();
+
+    // 2) Upload each file to /api/upload?orderId=...
+    statusEl.textContent = "Uploading photos…";
+    const files = myDropzone.getAcceptedFiles();
+
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file, file.name);
+
+      const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
+        method: "POST",
+        body: form,
+      });
+
+      if (!upRes.ok) {
+        const txt = await upRes.text().catch(() => "");
+        throw new Error(txt || "Upload failed");
+      }
+    }
+
+    // 3) Create SumUp checkout
+    statusEl.textContent = `Creating checkout (£${prices[selectedPack]})…`;
+    const ckRes = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
     });
 
-    const data = await res.json();
+    if (!ckRes.ok) {
+      const txt = await ckRes.text().catch(() => "");
+      throw new Error(txt || "Checkout creation failed");
+    }
 
-    if (!res.ok) throw new Error(data.error || "Order creation failed.");
+    const { checkoutUrl } = await ckRes.json();
 
-    window.location.href = data.checkout_url;
+    // 4) Redirect to SumUp hosted checkout
+    statusEl.textContent = "Redirecting to secure payment…";
+    window.location.href = checkoutUrl;
+
   } catch (err) {
-    statusText.textContent = `Error: ${err.message}`;
-  } finally {
-    enforcePayButtonState();
+    console.error(err);
+    statusEl.textContent = (err && err.message) ? `Error: ${err.message}` : "Something went wrong. Please try again.";
+    payBtn.disabled = false;
   }
 });
