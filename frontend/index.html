@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Dropzone CSS (CDN) -->
-  <link rel="stylesheet" href="https://unpkg.com/dropzone@6/dist/dropzone.css" />
+  <!-- Local Dropzone CSS (self-hosted to avoid CSP/CDN issues) -->
+  <link rel="stylesheet" href="./vendor/dropzone.css" />
 </head>
 <body>
   <main class="container">
@@ -66,8 +66,9 @@
     </footer>
   </main>
 
-  <!-- Dropzone JS (CDN) -->
-  <script src="https://unpkg.com/dropzone@6/dist/dropzone-min.js"></script>
+  <!-- Local Dropzone JS (self-hosted) -->
+  <script src="./vendor/dropzone.min.js"></script>
+  <!-- Your app logic -->
   <script src="./app.js"></script>
 </body>
 </html>
