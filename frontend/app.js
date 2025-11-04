@@ -16,6 +16,8 @@ const statusEl = document.getElementById("status");
 const photoCountEl = document.getElementById("photo-count");
 const progressWrap = document.getElementById("upload-progress");
 const progressBar = document.getElementById("upload-progress-bar");
+const countHelp = document.getElementById("count-help");
+const toastEl = document.getElementById("toast");
 
 // Modal elements
 const modal = document.getElementById("upgrade-modal");
@@ -26,6 +28,19 @@ const modalKeep = document.getElementById("upgrade-keep");
 
 let modalMode = "upgrade"; // 'upgrade' | 'downgrade'
 let pendingTargetPack = null;
+
+// --- Toast helper ---
+let toastTimer = null;
+function showToast(message, type = "ok") {
+  toastEl.textContent = message;
+  toastEl.classList.remove("ok", "warn", "error");
+  toastEl.classList.add(type);
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, 1800);
+}
 
 // --- Email validation UI helper ---
 function setEmailValidityUI(isValid) {
@@ -42,52 +57,68 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Dropzone instance (init below) ---
+// --- Dropzone instance ---
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
 const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload",            // overridden per upload with ?orderId=...
+  url: "/api/upload",
   method: "post",
-  autoProcessQueue: false,       // we upload manually after creating the order
+  autoProcessQueue: false,
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 10,               // MB
+  maxFilesize: 10,
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  addRemoveLinks: true,          // show "Remove" on each thumbnail
+  addRemoveLinks: true,
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
   dictRemoveFile: "Remove",
 });
 
 // --- Helpers ---
+function updateCountHelp() {
+  const count = myDropzone.files.length;
+  const need = requiredCount;
+  countHelp.classList.remove("ok", "warn", "error");
+
+  if (count === need) {
+    countHelp.textContent = `Perfect — you have exactly ${need} photos.`;
+    countHelp.classList.add("ok");
+  } else if (count < need) {
+    const remaining = need - count;
+    countHelp.textContent = `You need exactly ${need} photos — add ${remaining} more.`;
+    countHelp.classList.add("warn");
+  } else {
+    const extra = count - need;
+    countHelp.textContent = `You need exactly ${need} photos — remove ${extra} photo${extra > 1 ? "s" : ""}.`;
+    countHelp.classList.add("error");
+  }
+}
+
 function updatePhotoCount() {
   const count = myDropzone.files.length;
   photoCountEl.textContent = String(count);
+  updateCountHelp();
   enforcePayButtonState();
 }
 
-// Clear Dropzone's “max files” error state from previews
+// Clear Dropzone's “max files” error state
 function clearMaxFilesErrors() {
   myDropzone.files.forEach((file) => {
     const pe = file.previewElement;
     if (!pe) return;
-    // If preview has error class, clear it and its message
     if (pe.classList.contains("dz-error")) {
       pe.classList.remove("dz-error");
       const msgEl = pe.querySelector("[data-dz-errormessage]");
       if (msgEl) msgEl.textContent = "";
     }
-    // Normalize file status back to a safe state
     if (file.status === Dropzone.ERROR) {
-      // Dropzone 5 status constants
-      file.status = Dropzone.ADDED;   // back to a normal, non-error preview
+      file.status = Dropzone.ADDED;
       file.accepted = true;
     }
   });
-  // Refresh UI states
   myDropzone.updateTotalUploadProgress();
   enforcePayButtonState();
 }
@@ -98,13 +129,10 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     const newPack = parseInt(radio.value, 10);
     const currentCount = myDropzone ? myDropzone.files.length : 0;
 
-    // If downgrading AND too many photos for the new pack => prompt
     if (newPack < selectedPack && currentCount > newPack) {
-      // Revert radio UI to previous pack for now
       const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
       if (prevRadio) prevRadio.checked = true;
 
-      // Show downgrade modal
       modalMode = "downgrade";
       pendingTargetPack = newPack;
       const toRemove = currentCount - newPack;
@@ -121,16 +149,14 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
       return;
     }
 
-    // Otherwise apply immediately (upgrade or fitting downgrade)
     previousPack = selectedPack;
     selectedPack = newPack;
     requiredCount = newPack;
     requiredCountEl.textContent = String(requiredCount);
-    if (myDropzone) {
-      myDropzone.options.maxFiles = requiredCount;
-      clearMaxFilesErrors();   // <-- clear any stale error badges
-      updatePhotoCount();
-    }
+    myDropzone.options.maxFiles = requiredCount;
+    clearMaxFilesErrors();
+    updatePhotoCount();
+    showToast(`Pack set to ${newPack} magnets`, "ok");
   });
 });
 
@@ -147,13 +173,19 @@ emailInput.addEventListener("blur", () => {
   const valid = /\S+@\S+\.\S+/.test(emailInput.value.trim());
   setEmailValidityUI(valid);
 });
-setEmailValidityUI(false); // initial state
+setEmailValidityUI(false);
 
 // --- Dropzone events ---
-myDropzone.on("addedfile", updatePhotoCount);
-myDropzone.on("removedfile", updatePhotoCount);
+myDropzone.on("addedfile", () => {
+  updatePhotoCount();
+  showToast("Photo added", "ok");
+});
 
-// If batch pushes over the limit (upgrade suggestion)
+myDropzone.on("removedfile", () => {
+  updatePhotoCount();
+  showToast("Photo removed", "warn");
+});
+
 myDropzone.on("addedfiles", () => {
   const total = myDropzone.files.length;
   if (total > requiredCount) {
@@ -172,7 +204,6 @@ myDropzone.on("addedfiles", () => {
   }
 });
 
-// Also react to maxfilesexceeded (single add over)
 myDropzone.on("maxfilesexceeded", () => {
   const total = myDropzone.files.length;
   if (total > requiredCount) {
@@ -191,54 +222,49 @@ myDropzone.on("maxfilesexceeded", () => {
   }
 });
 
-// Overall upload progress (0–100)
+// Upload progress
 myDropzone.on("totaluploadprogress", (progress) => {
   progressBar.style.width = `${progress}%`;
 });
 
-// --- Modal actions (handles both upgrade & downgrade) ---
+// --- Modal actions (upgrade & downgrade) ---
 modalConfirm.addEventListener("click", () => {
   if (!pendingTargetPack) return;
 
-  // Apply the new pack
   previousPack = selectedPack;
   selectedPack = pendingTargetPack;
   requiredCount = pendingTargetPack;
   requiredCountEl.textContent = String(requiredCount);
 
-  // Sync radio UI
   const radio = document.querySelector(`input[name="pack"][value="${pendingTargetPack}"]`);
   if (radio) radio.checked = true;
 
-  // Trim extras if needed
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
 
   myDropzone.options.maxFiles = requiredCount;
-
-  // **Fix:** clear stale "you can not upload any more files" badges
   clearMaxFilesErrors();
 
   statusEl.textContent = "";
   modal.classList.add("hidden");
   pendingTargetPack = null;
   updatePhotoCount();
+  showToast(`Pack set to ${selectedPack} magnets`, "ok");
 });
 
 modalKeep.addEventListener("click", () => {
   if (modalMode === "upgrade") {
-    // Keep current pack and remove extras
     while (myDropzone.files.length > requiredCount) {
       myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
     }
     statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
-    // **Fix:** make sure remaining previews don't show the old error badge
     clearMaxFilesErrors();
+    showToast("Kept current pack", "warn");
   } else if (modalMode === "downgrade") {
-    // Cancel downgrade — keep previous selection visually
     const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
     if (prevRadio) prevRadio.checked = true;
+    showToast("Cancelled downgrade", "warn");
   }
 
   modal.classList.add("hidden");
@@ -246,7 +272,7 @@ modalKeep.addEventListener("click", () => {
   updatePhotoCount();
 });
 
-// Enable Pay only when: valid email + exactly required file count
+// Enable Pay only with valid email + exact count
 function enforcePayButtonState() {
   const fileCount = myDropzone.files.length;
   const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
@@ -260,7 +286,6 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     statusEl.textContent = "Creating order…";
 
-    // 1) Create draft order (JSON)
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -272,13 +297,12 @@ payBtn.addEventListener("click", async () => {
     }
     const { orderId } = await orderRes.json();
 
-    // 2) Upload each file to /api/upload?orderId=...
     statusEl.textContent = "Uploading photos…";
     progressWrap.style.display = "block";
     progressWrap.setAttribute("aria-hidden", "false");
     progressBar.style.width = "0%";
 
-    const files = myDropzone.files.slice(); // copy in case array mutates
+    const files = myDropzone.files.slice();
     for (const file of files) {
       const form = new FormData();
       form.append("file", file, file.name);
@@ -294,7 +318,6 @@ payBtn.addEventListener("click", async () => {
 
     progressBar.style.width = "100%";
 
-    // 3) Create SumUp checkout
     statusEl.textContent = `Creating checkout (£${prices[selectedPack]})…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
@@ -309,13 +332,11 @@ payBtn.addEventListener("click", async () => {
 
     const { checkoutUrl } = await ckRes.json();
 
-    // 4) Redirect to SumUp hosted checkout
     statusEl.textContent = "Redirecting to secure payment…";
     window.location.href = checkoutUrl;
   } catch (err) {
     console.error(err);
-    statusEl.textContent =
-      err && err.message ? `Error: ${err.message}` : "Something went wrong. Please try again.";
+    statusEl.textContent = err && err.message ? `Error: ${err.message}` : "Something went wrong. Please try again.";
     payBtn.disabled = false;
   } finally {
     setTimeout(() => {
