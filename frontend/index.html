@@ -31,7 +31,7 @@
     <!-- Email -->
     <section class="card">
       <h2>Your email</h2>
-      <input id="email" type="email" placeholder="you@example.com" required />
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required />
       <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
       <p class="hint">We’ll send your order confirmation here.</p>
     </section>
@@ -40,7 +40,8 @@
     <section class="card">
       <h2>Upload your photos</h2>
 
-      <form id="mm-dropzone" class="dropzone">
+      <!-- prevent accidental form submission -->
+      <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
         <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
       </form>
 
@@ -67,7 +68,7 @@
 
     <!-- Pay -->
     <section class="card actions actions-centered">
-      <button id="payBtn" class="cta" disabled>Pay securely</button>
+      <button id="payBtn" class="cta" type="button" disabled>Pay securely</button>
       <div id="status" class="status"></div>
     </section>
 
@@ -84,8 +85,8 @@
       <h3 id="upgrade-title">Change pack size?</h3>
       <p id="upgrade-text" class="modal-text"></p>
       <div class="modal-actions">
-        <button id="upgrade-confirm" class="btn-primary">Confirm</button>
-        <button id="upgrade-keep" class="btn-ghost">Cancel</button>
+        <button id="upgrade-confirm" class="btn-primary" type="button">Confirm</button>
+        <button id="upgrade-keep" class="btn-ghost" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -98,8 +99,8 @@
         <img id="crop-image" src="" alt="Crop preview" />
       </div>
       <div class="modal-actions">
-        <button id="crop-save" class="btn-primary">Save Crop</button>
-        <button id="crop-cancel" class="btn-ghost">Cancel</button>
+        <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
+        <button id="crop-cancel" class="btn-ghost" type="button">Cancel</button>
       </div>
     </div>
   </div>
