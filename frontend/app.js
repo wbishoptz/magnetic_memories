@@ -1,144 +1,91 @@
-// --- Simple state ---
-let selectedPack = 3;
-let requiredCount = 3;
+let selectedPack = null;
 let customerEmail = "";
+let uploadedFiles = [];
 
-const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
-
-// --- Elements ---
-const requiredCountEl = document.getElementById("required-count");
+const payButton = document.getElementById("payButton");
 const emailInput = document.getElementById("email");
-const payBtn = document.getElementById("payBtn");
-const statusEl = document.getElementById("status");
-const dzElement = document.getElementById("mm-dropzone");
-const fileInput = document.getElementById("fileInput");
+const statusText = document.getElementById("status");
 
-// --- Pack selector wiring ---
+// --- Email validation UI helper ---
+function setEmailValidityUI(isValid) {
+  const emailEl = document.getElementById("email");
+  const errEl = document.getElementById("emailError");
+  emailEl.classList.toggle("input-error", !isValid);
+  errEl.style.display = isValid ? "none" : "block";
+  emailEl.setAttribute("aria-invalid", String(!isValid));
+}
+
+// --- Enforce pay button enable/disable state ---
+function enforcePayButtonState() {
+  const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
+  const correctFiles =
+    uploadedFiles.length > 0 && uploadedFiles.length === Number(selectedPack);
+  payButton.disabled = !(selectedPack && validEmail && correctFiles);
+}
+
+// --- Listen for pack selection ---
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
-  radio.addEventListener("change", () => {
-    selectedPack = parseInt(radio.value, 10);
-    requiredCount = selectedPack;
-    requiredCountEl.textContent = String(requiredCount);
-    if (myDropzone) {
-      myDropzone.options.maxFiles = requiredCount;
-      enforcePayButtonState();
-    }
+  radio.addEventListener("change", (e) => {
+    selectedPack = e.target.value;
+    enforcePayButtonState();
   });
 });
 
-// --- Email input wiring ---
+// --- Listen for email input ---
 emailInput.addEventListener("input", () => {
   customerEmail = emailInput.value.trim();
+  const valid = /\S+@\S+\.\S+/.test(customerEmail);
+  setEmailValidityUI(valid);
   enforcePayButtonState();
 });
 
-// --- Dropzone setup ---
+// --- Dropzone configuration ---
 Dropzone.autoDiscover = false;
 
-const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload",            // overridden with ?orderId=... later
-  method: "post",
+const dropzone = new Dropzone("#photoDropzone", {
+  url: "#", // handled manually
   autoProcessQueue: false,
-  uploadMultiple: false,
-  parallelUploads: 2,
-  maxFilesize: 10,               // MB
-  maxFiles: requiredCount,
+  maxFilesize: 10, // MB
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
-  createImageThumbnails: true,
-  clickable: false, // we'll handle clicking ourselves to be extra-reliable
-  dictDefaultMessage: "Drag & drop photos here, or click to choose",
+  addRemoveLinks: true,
+  init: function () {
+    this.on("addedfile", (file) => {
+      uploadedFiles.push(file);
+      enforcePayButtonState();
+    });
+    this.on("removedfile", (file) => {
+      uploadedFiles = uploadedFiles.filter((f) => f !== file);
+      enforcePayButtonState();
+    });
+  },
 });
 
-// Manual click → open hidden input (works on desktop & mobile)
-dzElement.addEventListener("click", () => fileInput.click());
-// Keyboard accessibility
-dzElement.setAttribute("tabindex", "0");
-dzElement.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") fileInput.click();
-});
+// --- Pay button handler ---
+payButton.addEventListener("click", async () => {
+  if (payButton.disabled) return;
+  statusText.textContent = "Uploading and preparing checkout...";
+  payButton.disabled = true;
 
-// When files selected via hidden input, push them into Dropzone
-fileInput.addEventListener("change", () => {
-  const files = Array.from(fileInput.files || []);
-  for (const f of files) {
-    // Respect maxFiles
-    if (myDropzone.files.length >= requiredCount) break;
-    myDropzone.addFile(f);
-  }
-  // Clear the input so selecting the same file again still triggers change
-  fileInput.value = "";
-  enforcePayButtonState();
-});
-
-myDropzone.on("addedfile", enforcePayButtonState);
-myDropzone.on("removedfile", enforcePayButtonState);
-
-// Enable Pay only when: valid email + exactly required file count
-function enforcePayButtonState() {
-  const fileCount = myDropzone.getAcceptedFiles().length;
-  const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
-  const exactCount = fileCount === requiredCount;
-  payBtn.disabled = !(validEmail && exactCount);
-}
-
-// --- Pay flow ---
-payBtn.addEventListener("click", async () => {
   try {
-    payBtn.disabled = true;
-    statusEl.textContent = "Creating order…";
+    const formData = new FormData();
+    formData.append("email", customerEmail);
+    formData.append("pack", selectedPack);
 
-    // 1) Create draft order
-    const orderRes = await fetch("/api/order", {
+    uploadedFiles.forEach((file) => formData.append("photos", file));
+
+    const res = await fetch("/api/order", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: customerEmail, packSize: selectedPack }),
-    });
-    if (!orderRes.ok) throw new Error("Order creation failed");
-    const { orderId } = await orderRes.json();
-
-    // 2) Upload each file to /api/upload?orderId=...
-    statusEl.textContent = "Uploading photos…";
-    const files = myDropzone.getAcceptedFiles();
-
-    for (const file of files) {
-      const form = new FormData();
-      form.append("file", file, file.name);
-
-      const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-        method: "POST",
-        body: form,
-      });
-
-      if (!upRes.ok) {
-        const txt = await upRes.text().catch(() => "");
-        throw new Error(txt || "Upload failed");
-      }
-    }
-
-    // 3) Create SumUp checkout
-    statusEl.textContent = `Creating checkout (£${prices[selectedPack]})…`;
-    const ckRes = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId }),
+      body: formData,
     });
 
-    if (!ckRes.ok) {
-      const txt = await ckRes.text().catch(() => "");
-      throw new Error(txt || "Checkout creation failed");
-    }
+    const data = await res.json();
 
-    const { checkoutUrl } = await ckRes.json();
+    if (!res.ok) throw new Error(data.error || "Order creation failed.");
 
-    // 4) Redirect to SumUp hosted checkout
-    statusEl.textContent = "Redirecting to secure payment…";
-    window.location.href = checkoutUrl;
+    window.location.href = data.checkout_url;
   } catch (err) {
-    console.error("❌ Error:", err);
-    statusEl.textContent =
-      (err && err.message)
-        ? `Error: ${err.message}`
-        : "Something went wrong. Please try again.";
-    payBtn.disabled = false;
+    statusText.textContent = `Error: ${err.message}`;
+  } finally {
+    enforcePayButtonState();
   }
 });
