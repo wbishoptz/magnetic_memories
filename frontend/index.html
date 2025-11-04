@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Dropzone + Cropper -->
+  <!-- Dropzone + Cropper CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
 </head>
@@ -78,6 +78,18 @@
     </footer>
   </main>
 
+  <!-- Upgrade/Downgrade modal -->
+  <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
+    <div class="modal-card">
+      <h3 id="upgrade-title">Change pack size?</h3>
+      <p id="upgrade-text" class="modal-text"></p>
+      <div class="modal-actions">
+        <button id="upgrade-confirm" class="btn-primary">Confirm</button>
+        <button id="upgrade-keep" class="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Crop modal -->
   <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
     <div class="modal-card cropper-card">
@@ -92,6 +104,7 @@
     </div>
   </div>
 
+  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <!-- Scripts -->
