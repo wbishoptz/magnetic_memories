@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Local Dropzone CSS (self-hosted to avoid CSP/CDN issues) -->
-  <link rel="stylesheet" href="./vendor/dropzone.css" />
+  <!-- Local Dropzone CSS (stable v5.9.3) -->
+  <link rel="stylesheet" href="./vendor/dropzone.min.css" />
 </head>
 <body>
   <main class="container">
@@ -43,7 +43,7 @@
         <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
       </form>
 
-      <!-- Extra hidden input also made clickable (helps some browsers) -->
+      <!-- Hidden input (used for mobile/manual click fallback) -->
       <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
 
       <ul id="upload-rules" class="hint">
@@ -66,9 +66,10 @@
     </footer>
   </main>
 
-  <!-- Local Dropzone JS (self-hosted) -->
-  <script src="./vendor/dropzone.js"></script>
-  <!-- Your app logic -->
+  <!-- Local Dropzone JS (v5.9.3 stable) -->
+  <script src="./vendor/dropzone.min.js"></script>
+
+  <!-- Your main app logic -->
   <script src="./app.js"></script>
 </body>
 </html>
