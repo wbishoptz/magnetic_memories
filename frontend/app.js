@@ -30,10 +30,20 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Update the visible file counter ---
+// --- Update the visible file counter (count immediately using all files) ---
 function updatePhotoCount() {
-  const count = myDropzone.getAcceptedFiles().length;
+  const count = myDropzone.files.length; // instant, no "acceptance" lag
   photoCountEl.textContent = String(count);
+  // If user reduced pack size below current selection, remind them
+  if (count > requiredCount) {
+    statusEl.textContent = `You selected a pack of ${requiredCount}. Please remove ${count - requiredCount} photo(s).`;
+  } else {
+    // Only clear gentle messages; don't overwrite real errors during flow
+    if (statusEl.textContent.startsWith("You selected a pack of")) {
+      statusEl.textContent = "";
+    }
+  }
+  enforcePayButtonState();
 }
 
 // --- Pack selector wiring ---
@@ -44,7 +54,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     if (myDropzone) {
       myDropzone.options.maxFiles = requiredCount;
-      enforcePayButtonState();
       updatePhotoCount();
     }
   });
@@ -58,13 +67,11 @@ emailInput.addEventListener("input", () => {
   setEmailValidityUI(valid);
   enforcePayButtonState();
 });
-
 emailInput.addEventListener("blur", () => {
   emailTouched = true;
   const valid = /\S+@\S+\.\S+/.test(emailInput.value.trim());
   setEmailValidityUI(valid);
 });
-
 setEmailValidityUI(false); // initial state
 
 // --- Dropzone setup ---
@@ -81,12 +88,31 @@ const myDropzone = new Dropzone(dzElement, {
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
+  addRemoveLinks: true,          // <-- show "Remove" link on each thumbnail
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
+  dictRemoveFile: "Remove",
 });
 
-myDropzone.on("addedfile", () => { updatePhotoCount(); enforcePayButtonState(); });
-myDropzone.on("removedfile", () => { updatePhotoCount(); enforcePayButtonState(); });
+// Keep count and button state in sync
+myDropzone.on("addedfile", updatePhotoCount);
+myDropzone.on("removedfile", updatePhotoCount);
+
+// Hard limit: do not allow more than requiredCount
+myDropzone.on("maxfilesexceeded", (file) => {
+  // Reject the extra file and explain why
+  myDropzone.removeFile(file);
+  statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
+});
+
+// If a batch add would exceed, trim extra automatically
+myDropzone.on("addedfiles", (files) => {
+  // If after adding, we exceed, remove from the end
+  while (myDropzone.files.length > requiredCount) {
+    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+  }
+  updatePhotoCount();
+});
 
 // Overall upload progress (0–100)
 myDropzone.on("totaluploadprogress", (progress) => {
@@ -95,7 +121,7 @@ myDropzone.on("totaluploadprogress", (progress) => {
 
 // Enable Pay only when: valid email + exactly required file count
 function enforcePayButtonState() {
-  const fileCount = myDropzone.getAcceptedFiles().length;
+  const fileCount = myDropzone.files.length;
   const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
   const exactCount = fileCount === requiredCount;
   payBtn.disabled = !(validEmail && exactCount);
@@ -125,7 +151,7 @@ payBtn.addEventListener("click", async () => {
     progressWrap.setAttribute("aria-hidden", "false");
     progressBar.style.width = "0%";
 
-    const files = myDropzone.getAcceptedFiles();
+    const files = myDropzone.files.slice(); // copy in case array mutates
 
     for (const file of files) {
       const form = new FormData();

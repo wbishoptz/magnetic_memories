@@ -88,6 +88,17 @@ button#payBtn[disabled] { opacity: 0.5; cursor: not-allowed; }
 #mm-dropzone .dz-message { color: var(--muted); font-size: 1rem; text-align: center; }
 #mm-dropzone.dz-started .dz-message { display: none; }
 
+/* Thumbnails remove link */
+.dz-preview .dz-remove {
+  display: inline-block;
+  margin-top: 6px;
+  color: #ff8a8a;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Meta row below dropzone */
 .upload-meta {
   display: flex;
   align-items: center;
