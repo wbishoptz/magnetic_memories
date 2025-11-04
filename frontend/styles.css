@@ -7,7 +7,9 @@
   --danger: #ff6666;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -34,11 +36,11 @@ h1 {
 
 .card {
   background: var(--card);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .packs {
@@ -47,13 +49,14 @@ h1 {
   gap: 8px 16px;
   margin-top: 8px;
 }
+
 .packs label {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
 }
 
@@ -61,8 +64,8 @@ input[type="email"] {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   outline: none;
 }
@@ -70,14 +73,6 @@ input[type="email"] {
 .hint {
   color: var(--muted);
   font-size: 0.9rem;
-}
-
-.dropzone {
-  border: 2px dashed rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.03);
-  border-radius: 12px;
-  padding: 18px;
-  min-height: 150px;
 }
 
 .actions {
@@ -95,6 +90,7 @@ button#payBtn {
   font-weight: 700;
   cursor: pointer;
 }
+
 button#payBtn[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
@@ -109,4 +105,27 @@ button#payBtn[disabled] {
   color: var(--muted);
   font-size: 0.8rem;
   text-align: center;
+}
+
+/* --- Dropzone visibility fix --- */
+#mm-dropzone {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 25px;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#mm-dropzone .dz-message {
+  color: var(--muted);
+  font-size: 1rem;
+  text-align: center;
+}
+
+#mm-dropzone.dz-started .dz-message {
+  display: none;
 }

@@ -35,15 +35,16 @@ Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
 const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload",            // we override per-file upload with a query param orderId later
+  url: "/api/upload",            // will be overridden with ?orderId=...
   method: "post",
-  autoProcessQueue: false,       // do not auto-upload
+  autoProcessQueue: false,       // we upload manually
   uploadMultiple: false,
   parallelUploads: 2,
   maxFilesize: 10,               // MB
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
+  clickable: ["#mm-dropzone", "#fileInput"], // allow clicking anywhere
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
 });
 
@@ -68,7 +69,7 @@ payBtn.addEventListener("click", async () => {
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: customerEmail, packSize: selectedPack })
+      body: JSON.stringify({ email: customerEmail, packSize: selectedPack }),
     });
     if (!orderRes.ok) throw new Error("Order creation failed");
     const { orderId } = await orderRes.json();
@@ -83,7 +84,7 @@ payBtn.addEventListener("click", async () => {
 
       const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
         method: "POST",
-        body: form
+        body: form,
       });
       if (!upRes.ok) throw new Error("An upload failed");
     }
@@ -93,7 +94,7 @@ payBtn.addEventListener("click", async () => {
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId })
+      body: JSON.stringify({ orderId }),
     });
     if (!ckRes.ok) throw new Error("Checkout creation failed");
     const { checkoutUrl } = await ckRes.json();
@@ -101,7 +102,6 @@ payBtn.addEventListener("click", async () => {
     // 4) Redirect to SumUp hosted checkout
     statusEl.textContent = "Redirecting to secure payment…";
     window.location.href = checkoutUrl;
-
   } catch (err) {
     console.error(err);
     statusEl.textContent = "Something went wrong. Please try again.";

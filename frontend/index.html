@@ -37,7 +37,15 @@
     <!-- Dropzone uploader -->
     <section class="card">
       <h2>Upload your photos</h2>
-      <form id="mm-dropzone" class="dropzone"></form>
+
+      <!-- The clickable drop area -->
+      <form id="mm-dropzone" class="dropzone">
+        <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
+      </form>
+
+      <!-- Extra hidden input also made clickable (helps some browsers) -->
+      <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
+
       <ul id="upload-rules" class="hint">
         <li>Accepted: JPG, PNG, HEIC</li>
         <li>Max file size: 10 MB each</li>
