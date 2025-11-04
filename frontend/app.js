@@ -90,6 +90,10 @@ function updateCropHelp() {
     cropHelp.classList.remove("ok", "error");
     cropHelp.classList.add("warn");
   } else {
+    if (myDropzone.files.length === 0) {
+      cropHelp.style.display = "none";
+      return;
+    }
     cropHelp.style.display = "block";
     cropHelp.textContent = "All photos cropped — perfect!";
     cropHelp.classList.remove("warn", "error");
@@ -164,8 +168,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     updatePhotoCount();
     showToast(`Pack set to ${newPack} magnets`, "ok");
-
-    // If we now exceed, prompt upgrade flow (handled by further adds), else nothing.
   });
 });
 
@@ -188,6 +190,7 @@ const cropQueue = [];
 let croppingActive = false;
 
 function enqueueForCrop(file) {
+  // Each enqueue ensures this file will be (re)cropped
   cropQueue.push(file);
   if (!croppingActive) processCropQueue();
 }
@@ -212,6 +215,7 @@ myDropzone.on("addedfile", (file) => {
 
   // Any new file requires crop
   file._cropped = false;
+  file._croppedBlob = null;
   enqueueForCrop(file);
 
   const total = myDropzone.files.length;
@@ -251,7 +255,7 @@ modalConfirm.addEventListener("click", () => {
   const radio = document.querySelector(`input[name="pack"][value="${pendingTargetPack}"]`);
   if (radio) radio.checked = true;
 
-  // Trim extras if still over (remove from end; removes from cropQueue implicitly)
+  // Trim extras if still over
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
@@ -302,7 +306,7 @@ payBtn.addEventListener("click", async () => {
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
 
-    // 2) Upload files (cropped only — they all should be)
+    // 2) Upload files (use cropped blob if present)
     statusEl.textContent = "Uploading photos…";
     progressWrap.style.display = "block";
     progressWrap.setAttribute("aria-hidden", "false");
@@ -311,7 +315,10 @@ payBtn.addEventListener("click", async () => {
     const files = myDropzone.files.slice();
     for (const file of files) {
       const form = new FormData();
-      form.append("file", file, file.name);
+      const uploadBlob = file._croppedBlob || file; // always prefer cropped result
+      const uploadName = (file.name || "photo.jpg").replace(/\.(heic|heif)$/i, ".jpg");
+      form.append("file", uploadBlob, uploadName);
+
       const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
         method: "POST",
         body: form,
@@ -354,9 +361,9 @@ payBtn.addEventListener("click", async () => {
 let currentCropFile = null;
 let cropperInstance = null;
 
-// Add “Crop” button to each preview (non-submitting)
-function addCropButton(file) {
-  const preview = file.previewElement;
+// Add “Crop” button to each preview (resolve file at click time)
+function addCropButton(_file) {
+  const preview = _file.previewElement;
   if (!preview || preview.querySelector(".dz-crop-btn")) return;
 
   const cropBtn = document.createElement("button");
@@ -366,9 +373,12 @@ function addCropButton(file) {
   cropBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // re-open for re-cropping
-    enqueueForCrop(file);
-    processCropQueue();
+    const previewEl = e.currentTarget.closest(".dz-preview");
+    const file = myDropzone.files.find((f) => f.previewElement === previewEl);
+    if (file) {
+      enqueueForCrop(file);   // allow re-crop
+      processCropQueue();
+    }
   });
   preview.appendChild(cropBtn);
 }
@@ -404,7 +414,7 @@ function openCropModal(file, done) {
       zoomable: true,
       background: false,
       modal: true,
-      dragMode: 'move',
+      dragMode: "move",
     });
 
     // Save Crop
@@ -421,19 +431,14 @@ function openCropModal(file, done) {
       canvas.toBlob((blob) => {
         if (!blob) return;
 
-        const newName = currentCropFile.name.replace(/\.(heic|heif)$/i, ".jpg");
-        const croppedFile = new File([blob], newName, { type: "image/jpeg" });
-        croppedFile._cropped = true;
+        // Persist cropped result on the SAME file object
+        currentCropFile._cropped = true;
+        currentCropFile._croppedBlob = blob;
 
-        const idx = myDropzone.files.indexOf(currentCropFile);
-        if (idx >= 0) {
-          myDropzone.files[idx] = croppedFile;
-
-          const preview = currentCropFile.previewElement;
-          if (preview) {
-            const imgEl = preview.querySelector("img");
-            if (imgEl) imgEl.src = URL.createObjectURL(blob);
-          }
+        const preview = currentCropFile.previewElement;
+        if (preview) {
+          const imgEl = preview.querySelector("img");
+          if (imgEl) imgEl.src = URL.createObjectURL(blob);
         }
 
         cropperInstance.destroy();
