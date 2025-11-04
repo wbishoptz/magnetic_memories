@@ -42,10 +42,53 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Update the visible file counter (instant accuracy) ---
+// --- Dropzone instance (init below) ---
+Dropzone.autoDiscover = false;
+const dzElement = document.getElementById("mm-dropzone");
+
+const myDropzone = new Dropzone(dzElement, {
+  url: "/api/upload",            // overridden per upload with ?orderId=...
+  method: "post",
+  autoProcessQueue: false,       // we upload manually after creating the order
+  uploadMultiple: false,
+  parallelUploads: 2,
+  maxFilesize: 10,               // MB
+  maxFiles: requiredCount,
+  acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
+  createImageThumbnails: true,
+  addRemoveLinks: true,          // show "Remove" on each thumbnail
+  clickable: ["#mm-dropzone", "#fileInput"],
+  dictDefaultMessage: "Drag & drop photos here, or click to choose",
+  dictRemoveFile: "Remove",
+});
+
+// --- Helpers ---
 function updatePhotoCount() {
   const count = myDropzone.files.length;
   photoCountEl.textContent = String(count);
+  enforcePayButtonState();
+}
+
+// Clear Dropzone's “max files” error state from previews
+function clearMaxFilesErrors() {
+  myDropzone.files.forEach((file) => {
+    const pe = file.previewElement;
+    if (!pe) return;
+    // If preview has error class, clear it and its message
+    if (pe.classList.contains("dz-error")) {
+      pe.classList.remove("dz-error");
+      const msgEl = pe.querySelector("[data-dz-errormessage]");
+      if (msgEl) msgEl.textContent = "";
+    }
+    // Normalize file status back to a safe state
+    if (file.status === Dropzone.ERROR) {
+      // Dropzone 5 status constants
+      file.status = Dropzone.ADDED;   // back to a normal, non-error preview
+      file.accepted = true;
+    }
+  });
+  // Refresh UI states
+  myDropzone.updateTotalUploadProgress();
   enforcePayButtonState();
 }
 
@@ -85,6 +128,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     if (myDropzone) {
       myDropzone.options.maxFiles = requiredCount;
+      clearMaxFilesErrors();   // <-- clear any stale error badges
       updatePhotoCount();
     }
   });
@@ -105,27 +149,7 @@ emailInput.addEventListener("blur", () => {
 });
 setEmailValidityUI(false); // initial state
 
-// --- Dropzone setup ---
-Dropzone.autoDiscover = false;
-const dzElement = document.getElementById("mm-dropzone");
-
-const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload",            // overridden per upload with ?orderId=...
-  method: "post",
-  autoProcessQueue: false,       // we upload manually after creating the order
-  uploadMultiple: false,
-  parallelUploads: 2,
-  maxFilesize: 10,               // MB
-  maxFiles: requiredCount,
-  acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
-  createImageThumbnails: true,
-  addRemoveLinks: true,          // show "Remove" on each thumbnail
-  clickable: ["#mm-dropzone", "#fileInput"],
-  dictDefaultMessage: "Drag & drop photos here, or click to choose",
-  dictRemoveFile: "Remove",
-});
-
-// Keep count and button state in sync
+// --- Dropzone events ---
 myDropzone.on("addedfile", updatePhotoCount);
 myDropzone.on("removedfile", updatePhotoCount);
 
@@ -133,7 +157,6 @@ myDropzone.on("removedfile", updatePhotoCount);
 myDropzone.on("addedfiles", () => {
   const total = myDropzone.files.length;
   if (total > requiredCount) {
-    // Suggest the smallest pack that fits
     const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
     modalMode = "upgrade";
     pendingTargetPack = suggested;
@@ -193,6 +216,10 @@ modalConfirm.addEventListener("click", () => {
   }
 
   myDropzone.options.maxFiles = requiredCount;
+
+  // **Fix:** clear stale "you can not upload any more files" badges
+  clearMaxFilesErrors();
+
   statusEl.textContent = "";
   modal.classList.add("hidden");
   pendingTargetPack = null;
@@ -206,6 +233,8 @@ modalKeep.addEventListener("click", () => {
       myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
     }
     statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
+    // **Fix:** make sure remaining previews don't show the old error badge
+    clearMaxFilesErrors();
   } else if (modalMode === "downgrade") {
     // Cancel downgrade — keep previous selection visually
     const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
