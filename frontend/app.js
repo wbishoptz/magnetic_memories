@@ -5,6 +5,7 @@ let customerEmail = "";
 let emailTouched = false;
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+const PACKS = [3, 6, 9, 12, 15];
 
 // --- Elements ---
 const requiredCountEl = document.getElementById("required-count");
@@ -14,6 +15,15 @@ const statusEl = document.getElementById("status");
 const photoCountEl = document.getElementById("photo-count");
 const progressWrap = document.getElementById("upload-progress");
 const progressBar = document.getElementById("upload-progress-bar");
+
+// Modal elements
+const modal = document.getElementById("upgrade-modal");
+const modalText = document.getElementById("upgrade-text");
+const modalConfirm = document.getElementById("upgrade-confirm");
+const modalKeep = document.getElementById("upgrade-keep");
+
+let pendingOverflowCount = 0;
+let suggestedPack = null;
 
 // --- Email validation UI helper ---
 function setEmailValidityUI(isValid) {
@@ -30,19 +40,10 @@ function setEmailValidityUI(isValid) {
   emailEl.setAttribute("aria-invalid", String(!isValid));
 }
 
-// --- Update the visible file counter (count immediately using all files) ---
+// --- Update the visible file counter (use all files for instant accuracy) ---
 function updatePhotoCount() {
-  const count = myDropzone.files.length; // instant, no "acceptance" lag
+  const count = myDropzone.files.length;
   photoCountEl.textContent = String(count);
-  // If user reduced pack size below current selection, remind them
-  if (count > requiredCount) {
-    statusEl.textContent = `You selected a pack of ${requiredCount}. Please remove ${count - requiredCount} photo(s).`;
-  } else {
-    // Only clear gentle messages; don't overwrite real errors during flow
-    if (statusEl.textContent.startsWith("You selected a pack of")) {
-      statusEl.textContent = "";
-    }
-  }
   enforcePayButtonState();
 }
 
@@ -88,35 +89,78 @@ const myDropzone = new Dropzone(dzElement, {
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  addRemoveLinks: true,          // <-- show "Remove" link on each thumbnail
+  addRemoveLinks: true,          // show "Remove" on each thumbnail
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
   dictRemoveFile: "Remove",
 });
 
-// Keep count and button state in sync
+function showUpgradeModal(total, allowed) {
+  pendingOverflowCount = Math.max(0, total - allowed);
+  // Smallest pack that fits the total count
+  suggestedPack = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
+
+  modalText.textContent =
+    `You selected a pack of ${allowed}, but added ${total} photos. ` +
+    `Would you like to upgrade to ${suggestedPack} magnets for £${prices[suggestedPack]}?`;
+
+  modal.classList.remove("hidden");
+}
+
+function hideUpgradeModal() {
+  modal.classList.add("hidden");
+  pendingOverflowCount = 0;
+  suggestedPack = null;
+}
+
+// on thumbnails changed
 myDropzone.on("addedfile", updatePhotoCount);
 myDropzone.on("removedfile", updatePhotoCount);
 
-// Hard limit: do not allow more than requiredCount
-myDropzone.on("maxfilesexceeded", (file) => {
-  // Reject the extra file and explain why
-  myDropzone.removeFile(file);
-  statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
+// If a batch pushes over the limit, offer upgrade
+myDropzone.on("addedfiles", () => {
+  const total = myDropzone.files.length;
+  if (total > requiredCount) {
+    showUpgradeModal(total, requiredCount);
+  }
 });
 
-// If a batch add would exceed, trim extra automatically
-myDropzone.on("addedfiles", (files) => {
-  // If after adding, we exceed, remove from the end
-  while (myDropzone.files.length > requiredCount) {
-    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+// Also react if Dropzone fires the maxfilesexceeded event (single add over)
+myDropzone.on("maxfilesexceeded", () => {
+  const total = myDropzone.files.length;
+  if (total > requiredCount) {
+    showUpgradeModal(total, requiredCount);
   }
-  updatePhotoCount();
 });
 
 // Overall upload progress (0–100)
 myDropzone.on("totaluploadprogress", (progress) => {
   progressBar.style.width = `${progress}%`;
+});
+
+// Modal actions
+modalConfirm.addEventListener("click", () => {
+  if (!suggestedPack) return;
+  // Update pack to suggested, sync radio UI
+  selectedPack = suggestedPack;
+  requiredCount = suggestedPack;
+  requiredCountEl.textContent = String(requiredCount);
+  const radio = document.querySelector(`input[name="pack"][value="${suggestedPack}"]`);
+  if (radio) radio.checked = true;
+  myDropzone.options.maxFiles = requiredCount;
+  statusEl.textContent = "";
+  hideUpgradeModal();
+  updatePhotoCount();
+});
+
+modalKeep.addEventListener("click", () => {
+  // Remove extras from the end
+  while (myDropzone.files.length > requiredCount) {
+    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+  }
+  statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
+  hideUpgradeModal();
+  updatePhotoCount();
 });
 
 // Enable Pay only when: valid email + exactly required file count
@@ -152,16 +196,13 @@ payBtn.addEventListener("click", async () => {
     progressBar.style.width = "0%";
 
     const files = myDropzone.files.slice(); // copy in case array mutates
-
     for (const file of files) {
       const form = new FormData();
       form.append("file", file, file.name);
-
       const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
         method: "POST",
         body: form,
       });
-
       if (!upRes.ok) {
         const txt = await upRes.text().catch(() => "");
         throw new Error(txt || "Upload failed");
@@ -194,7 +235,6 @@ payBtn.addEventListener("click", async () => {
       err && err.message ? `Error: ${err.message}` : "Something went wrong. Please try again.";
     payBtn.disabled = false;
   } finally {
-    // Hide bar next time the user tries again
     setTimeout(() => {
       progressWrap.style.display = "none";
       progressWrap.setAttribute("aria-hidden", "true");
