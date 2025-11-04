@@ -346,3 +346,99 @@ payBtn.addEventListener("click", async () => {
     }, 500);
   }
 });
+
+// --- Cropper Integration ---
+let currentCropFile = null;
+let cropperInstance = null;
+
+// Add “Crop” button to each preview
+myDropzone.on("addedfile", (file) => {
+  const preview = file.previewElement;
+  if (!preview.querySelector(".crop-btn")) {
+    const cropBtn = document.createElement("button");
+    cropBtn.textContent = "Crop";
+    cropBtn.className = "dz-crop-btn";
+    cropBtn.style.cssText = `
+      display:block;
+      margin-top:4px;
+      color:#66d19e;
+      font-size:0.85rem;
+      text-decoration:underline;
+      cursor:pointer;
+      background:none;
+      border:none;
+    `;
+    cropBtn.addEventListener("click", () => openCropModal(file));
+    preview.appendChild(cropBtn);
+  }
+});
+
+// Open modal
+const cropModal = document.getElementById("crop-modal");
+const cropImg = document.getElementById("crop-image");
+const cropSave = document.getElementById("crop-save");
+const cropCancel = document.getElementById("crop-cancel");
+
+function openCropModal(file) {
+  currentCropFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    cropImg.src = e.target.result;
+    cropModal.classList.remove("hidden");
+    cropperInstance = new Cropper(cropImg, {
+      aspectRatio: 1, // 50x50mm = 1:1
+      viewMode: 1,
+      guides: true,
+      autoCropArea: 1,
+      movable: true,
+      zoomable: true,
+      background: false,
+      modal: true,
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+// Save cropped image
+cropSave.addEventListener("click", async () => {
+  if (!cropperInstance || !currentCropFile) return;
+
+  const canvas = cropperInstance.getCroppedCanvas({
+    width: 1000, // arbitrary high-res square for printing
+    height: 1000,
+    imageSmoothingQuality: "high",
+  });
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+
+    // Create new File to replace
+    const croppedFile = new File([blob], currentCropFile.name, { type: "image/jpeg" });
+    croppedFile.cropped = true;
+
+    // Replace in Dropzone
+    const idx = myDropzone.files.indexOf(currentCropFile);
+    if (idx >= 0) {
+      myDropzone.files[idx] = croppedFile;
+      const preview = currentCropFile.previewElement;
+      if (preview) {
+        const imgEl = preview.querySelector("img");
+        imgEl.src = URL.createObjectURL(blob);
+      }
+    }
+
+    cropperInstance.destroy();
+    cropperInstance = null;
+    cropModal.classList.add("hidden");
+    currentCropFile = null;
+    showToast("Crop saved", "ok");
+  }, "image/jpeg", 0.95);
+});
+
+// Cancel crop
+cropCancel.addEventListener("click", () => {
+  if (cropperInstance) cropperInstance.destroy();
+  cropperInstance = null;
+  cropModal.classList.add("hidden");
+  currentCropFile = null;
+});

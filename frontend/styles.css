@@ -132,3 +132,8 @@ input[type="email"] {
 .toast.ok { border-color: rgba(102,209,158,0.6); }
 .toast.warn { border-color: rgba(240,195,106,0.7); }
 .toast.error { border-color: rgba(255,102,102,0.7); }
+
+/* --- Cropper modal --- */
+.cropper-card { width: min(650px, 95vw); }
+.cropper-container { width: 100%; max-height: 500px; overflow: hidden; border-radius: 10px; background: #000; }
+.cropper-container img { max-width: 100%; display: block; margin: 0 auto; }

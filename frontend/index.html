@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Dropzone stable CDN (v5.9.3) -->
+  <!-- Dropzone + Cropper -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
 </head>
 <body>
   <main class="container">
     <h1>Magnetic Memories</h1>
-    <p class="subtitle">Pick a pack, upload your photos, and pay securely.</p>
+    <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
     <!-- Product selector -->
     <section class="card">
@@ -24,7 +25,7 @@
         <label><input type="radio" name="pack" value="12"> 12 magnets — £25</label>
         <label><input type="radio" name="pack" value="15"> 15 magnets — £30</label>
       </div>
-      <p class="hint">You must upload exactly the same number of photos as your pack size.</p>
+      <p class="hint">Each magnet is 50×50 mm. Your photo will be cropped to a perfect square.</p>
     </section>
 
     <!-- Email -->
@@ -43,10 +44,8 @@
         <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
       </form>
 
-      <!-- Hidden input (fallback if needed) -->
       <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
 
-      <!-- Counter + rules -->
       <div class="upload-meta">
         <div>
           <div class="counter">
@@ -54,20 +53,19 @@
           </div>
           <div id="count-help" class="count-help" aria-live="polite">You need exactly 3 photos.</div>
         </div>
-        <ul id="upload-rules" class="hint">
+        <ul class="hint">
           <li>Accepted: JPG, PNG, HEIC</li>
           <li>Max file size: 10 MB each</li>
-          <li>Click the “Remove” link on a thumbnail to delete it</li>
+          <li>Click “Crop” or “Remove” on a thumbnail to adjust</li>
         </ul>
       </div>
 
-      <!-- Overall progress bar (appears during uploads) -->
       <div class="progress" id="upload-progress" aria-hidden="true">
         <div class="progress-bar" id="upload-progress-bar" style="width:0%"></div>
       </div>
     </section>
 
-    <!-- Pay (centered, prominent) -->
+    <!-- Pay -->
     <section class="card actions actions-centered">
       <button id="payBtn" class="cta" disabled>Pay securely</button>
       <div id="status" class="status"></div>
@@ -80,23 +78,25 @@
     </footer>
   </main>
 
-  <!-- Upgrade/Downgrade modal -->
-  <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
-    <div class="modal-card">
-      <h3 id="upgrade-title">Change pack size?</h3>
-      <p id="upgrade-text" class="modal-text"></p>
+  <!-- Crop modal -->
+  <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="modal-card cropper-card">
+      <h3 id="crop-title">Crop your photo</h3>
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
       <div class="modal-actions">
-        <button id="upgrade-confirm" class="btn-primary">Confirm</button>
-        <button id="upgrade-keep" class="btn-ghost">Cancel</button>
+        <button id="crop-save" class="btn-primary">Save Crop</button>
+        <button id="crop-cancel" class="btn-ghost">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- Dropzone JS -->
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
