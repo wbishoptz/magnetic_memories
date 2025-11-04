@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Magnetic Memories</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Dropzone CSS (CDN) -->
+  <link rel="stylesheet" href="https://unpkg.com/dropzone@6/dist/dropzone.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Magnetic Memories</h1>
+    <p class="subtitle">Pick a pack, upload your photos, and pay securely.</p>
+
+    <!-- Product selector -->
+    <section class="card">
+      <h2>Choose your magnet pack</h2>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="3" checked> 3 magnets — £7</label>
+        <label><input type="radio" name="pack" value="6"> 6 magnets — £14</label>
+        <label><input type="radio" name="pack" value="9"> 9 magnets — £20</label>
+        <label><input type="radio" name="pack" value="12"> 12 magnets — £25</label>
+        <label><input type="radio" name="pack" value="15"> 15 magnets — £30</label>
+      </div>
+      <p class="hint">You must upload exactly the same number of photos as your pack size.</p>
+    </section>
+
+    <!-- Email -->
+    <section class="card">
+      <h2>Your email</h2>
+      <input id="email" type="email" placeholder="you@example.com" required />
+      <p class="hint">We’ll send your order confirmation here.</p>
+    </section>
+
+    <!-- Dropzone uploader -->
+    <section class="card">
+      <h2>Upload your photos</h2>
+      <form id="mm-dropzone" class="dropzone"></form>
+      <ul id="upload-rules" class="hint">
+        <li>Accepted: JPG, PNG, HEIC</li>
+        <li>Max file size: 10 MB each</li>
+        <li>Exactly <span id="required-count">3</span> images required for your selected pack</li>
+      </ul>
+    </section>
+
+    <!-- Pay -->
+    <section class="card actions">
+      <button id="payBtn" disabled>Pay securely</button>
+      <div id="status" class="status"></div>
+    </section>
+
+    <footer>
+      <p class="tiny">
+        By uploading you confirm you have the rights to print these images. We store photos only to fulfill your order.
+      </p>
+    </footer>
+  </main>
+
+  <!-- Dropzone JS (CDN) -->
+  <script src="https://unpkg.com/dropzone@6/dist/dropzone-min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

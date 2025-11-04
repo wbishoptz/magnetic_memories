@@ -1,0 +1,112 @@
+:root {
+  --bg: #0b0c10;
+  --card: #121318;
+  --text: #e8e8e8;
+  --muted: #a7a7a7;
+  --accent: #59c9a5;
+  --danger: #ff6666;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1000px 600px at 50% -200px, #1a1c24, var(--bg));
+  color: var(--text);
+}
+
+.container {
+  max-width: 780px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  margin: 0 0 24px;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.packs label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+}
+
+input[type="email"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  outline: none;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.dropzone {
+  border: 2px dashed rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 150px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+button#payBtn {
+  background: var(--accent);
+  color: #081a12;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+button#payBtn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.tiny {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
