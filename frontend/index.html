@@ -53,6 +53,7 @@
             <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
           </div>
           <div id="count-help" class="count-help" aria-live="polite">You need exactly 3 photos.</div>
+          <div id="crop-help" class="count-help warn" aria-live="polite" style="display:none;">Cropping required for 0 photo(s).</div>
         </div>
         <ul class="hint">
           <li>Accepted: JPG, PNG, HEIC</li>
@@ -91,16 +92,17 @@
     </div>
   </div>
 
-  <!-- Crop modal -->
+  <!-- Crop modal (forced) -->
   <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
     <div class="modal-card cropper-card">
       <h3 id="crop-title">Crop your photo</h3>
       <div class="cropper-container">
         <img id="crop-image" src="" alt="Crop preview" />
       </div>
+      <p class="hint" style="margin-top:8px;">Adjust to fit the square. This is exactly how it will print.</p>
       <div class="modal-actions">
         <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
-        <button id="crop-cancel" class="btn-ghost" type="button">Cancel</button>
+        <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
       </div>
     </div>
   </div>

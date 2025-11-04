@@ -21,6 +21,7 @@ const photoCountEl     = document.getElementById("photo-count");
 const progressWrap     = document.getElementById("upload-progress");
 const progressBar      = document.getElementById("upload-progress-bar");
 const countHelp        = document.getElementById("count-help");
+const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 
 // Upgrade/Downgrade modal
@@ -39,7 +40,6 @@ function showToast(message, type = "ok") {
   toastEl.textContent = message;
   toastEl.classList.remove("ok", "warn", "error", "show");
   toastEl.classList.add(type);
-  // trigger transition
   requestAnimationFrame(() => toastEl.classList.add("show"));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
@@ -59,7 +59,6 @@ function setEmailValidityUI(isValid) {
 }
 
 // ---- Dropzone ----
-// We don't set maxFiles here; we enforce limits ourselves to avoid DZ's error UI.
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
@@ -78,7 +77,26 @@ const myDropzone = new Dropzone(dzElement, {
   dictRemoveFile: "Remove",
 });
 
-// ---- Helpers ----
+// ---- Helper: cropping status & UI ----
+function getUncroppedFiles() {
+  return myDropzone.files.filter((f) => !f._cropped);
+}
+
+function updateCropHelp() {
+  const remaining = getUncroppedFiles().length;
+  if (remaining > 0) {
+    cropHelp.style.display = "block";
+    cropHelp.textContent = `Cropping required for ${remaining} photo${remaining > 1 ? "s" : ""}.`;
+    cropHelp.classList.remove("ok", "error");
+    cropHelp.classList.add("warn");
+  } else {
+    cropHelp.style.display = "block";
+    cropHelp.textContent = "All photos cropped — perfect!";
+    cropHelp.classList.remove("warn", "error");
+    cropHelp.classList.add("ok");
+  }
+}
+
 function updateCountHelp() {
   const count = myDropzone.files.length;
   const need  = requiredCount;
@@ -101,12 +119,14 @@ function updateCountHelp() {
 function enforcePayButtonState() {
   const count = myDropzone.files.length;
   const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
-  payBtn.disabled = !(validEmail && count === requiredCount);
+  const allCropped = getUncroppedFiles().length === 0 && count > 0;
+  payBtn.disabled = !(validEmail && count === requiredCount && allCropped);
 }
 
 function updatePhotoCount() {
   photoCountEl.textContent = String(myDropzone.files.length);
   updateCountHelp();
+  updateCropHelp();
   enforcePayButtonState();
 }
 
@@ -144,6 +164,8 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     updatePhotoCount();
     showToast(`Pack set to ${newPack} magnets`, "ok");
+
+    // If we now exceed, prompt upgrade flow (handled by further adds), else nothing.
   });
 });
 
@@ -161,9 +183,36 @@ emailInput.addEventListener("blur", () => {
 setEmailValidityUI(false);
 
 // ---- Add/Remove files ----
+// Crop queue so multiple uploads open the cropper sequentially
+const cropQueue = [];
+let croppingActive = false;
+
+function enqueueForCrop(file) {
+  cropQueue.push(file);
+  if (!croppingActive) processCropQueue();
+}
+
+async function processCropQueue() {
+  if (croppingActive) return;
+  croppingActive = true;
+
+  while (cropQueue.length > 0) {
+    const next = cropQueue.shift();
+    if (!next || myDropzone.files.indexOf(next) === -1) continue; // already removed
+    await openCropModalAndAwait(next); // force-crop or remove
+  }
+
+  croppingActive = false;
+  updatePhotoCount();
+}
+
 myDropzone.on("addedfile", (file) => {
   addCropButton(file);
   showToast("Photo added", "ok");
+
+  // Any new file requires crop
+  file._cropped = false;
+  enqueueForCrop(file);
 
   const total = myDropzone.files.length;
   if (total > requiredCount) {
@@ -202,7 +251,7 @@ modalConfirm.addEventListener("click", () => {
   const radio = document.querySelector(`input[name="pack"][value="${pendingTargetPack}"]`);
   if (radio) radio.checked = true;
 
-  // Trim extras if still over
+  // Trim extras if still over (remove from end; removes from cropQueue implicitly)
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
@@ -253,7 +302,7 @@ payBtn.addEventListener("click", async () => {
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
 
-    // 2) Upload files
+    // 2) Upload files (cropped only — they all should be)
     statusEl.textContent = "Uploading photos…";
     progressWrap.style.display = "block";
     progressWrap.setAttribute("aria-hidden", "false");
@@ -305,38 +354,49 @@ payBtn.addEventListener("click", async () => {
 let currentCropFile = null;
 let cropperInstance = null;
 
-// Add “Crop” button to each preview (ensure it's not a submit)
+// Add “Crop” button to each preview (non-submitting)
 function addCropButton(file) {
   const preview = file.previewElement;
   if (!preview || preview.querySelector(".dz-crop-btn")) return;
 
   const cropBtn = document.createElement("button");
-  cropBtn.type = "button";            // <-- important: prevent form submit
+  cropBtn.type = "button";
   cropBtn.textContent = "Crop";
   cropBtn.className = "dz-crop-btn";
   cropBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    openCropModal(file);
+    // re-open for re-cropping
+    enqueueForCrop(file);
+    processCropQueue();
   });
   preview.appendChild(cropBtn);
 }
 
 // Crop modal elements
-const cropModal  = document.getElementById("crop-modal");
-const cropImg    = document.getElementById("crop-image");
-const cropSave   = document.getElementById("crop-save");
-const cropCancel = document.getElementById("crop-cancel");
+const cropModal   = document.getElementById("crop-modal");
+const cropImg     = document.getElementById("crop-image");
+const cropSave    = document.getElementById("crop-save");
+const cropRemove  = document.getElementById("crop-remove");
 
-function openCropModal(file) {
+// Promise wrapper so we can await each crop
+function openCropModalAndAwait(file) {
+  return new Promise((resolve) => {
+    openCropModal(file, resolve);
+  });
+}
+
+function openCropModal(file, done) {
   currentCropFile = file;
 
   const reader = new FileReader();
   reader.onload = (e) => {
     cropImg.src = e.target.result;
     cropModal.classList.remove("hidden");
+
+    // Square crop, full image shown; user adjusts position/zoom
     cropperInstance = new Cropper(cropImg, {
-      aspectRatio: 1,         // 50x50mm = 1:1
+      aspectRatio: 1,
       viewMode: 1,
       guides: true,
       autoCropArea: 1,
@@ -344,52 +404,63 @@ function openCropModal(file) {
       zoomable: true,
       background: false,
       modal: true,
+      dragMode: 'move',
     });
+
+    // Save Crop
+    cropSave.onclick = (ev) => {
+      ev.preventDefault();
+      if (!cropperInstance || !currentCropFile) return;
+
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 1000,
+        height: 1000,
+        imageSmoothingQuality: "high",
+      });
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+
+        const newName = currentCropFile.name.replace(/\.(heic|heif)$/i, ".jpg");
+        const croppedFile = new File([blob], newName, { type: "image/jpeg" });
+        croppedFile._cropped = true;
+
+        const idx = myDropzone.files.indexOf(currentCropFile);
+        if (idx >= 0) {
+          myDropzone.files[idx] = croppedFile;
+
+          const preview = currentCropFile.previewElement;
+          if (preview) {
+            const imgEl = preview.querySelector("img");
+            if (imgEl) imgEl.src = URL.createObjectURL(blob);
+          }
+        }
+
+        cropperInstance.destroy();
+        cropperInstance = null;
+        cropModal.classList.add("hidden");
+        currentCropFile = null;
+
+        updatePhotoCount();
+        showToast("Crop saved", "ok");
+        if (done) done(); // continue queue
+      }, "image/jpeg", 0.95);
+    };
+
+    // Remove photo (user declines to crop)
+    cropRemove.onclick = (ev) => {
+      ev.preventDefault();
+      if (currentCropFile) {
+        myDropzone.removeFile(currentCropFile);
+      }
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = null;
+      cropModal.classList.add("hidden");
+      currentCropFile = null;
+      updatePhotoCount();
+      showToast("Photo removed", "warn");
+      if (done) done(); // continue queue
+    };
   };
   reader.readAsDataURL(file);
 }
-
-cropSave.addEventListener("click", (e) => {
-  e.preventDefault();
-  if (!cropperInstance || !currentCropFile) return;
-
-  const canvas = cropperInstance.getCroppedCanvas({
-    width: 1000,
-    height: 1000,
-    imageSmoothingQuality: "high",
-  });
-
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-
-    // Replace original with cropped JPEG (ensures consistent format for print)
-    const newName = currentCropFile.name.replace(/\.(heic|heif)$/i, ".jpg");
-    const croppedFile = new File([blob], newName, { type: "image/jpeg" });
-    croppedFile.cropped = true;
-
-    const idx = myDropzone.files.indexOf(currentCropFile);
-    if (idx >= 0) {
-      myDropzone.files[idx] = croppedFile;
-      const preview = currentCropFile.previewElement;
-      if (preview) {
-        const imgEl = preview.querySelector("img");
-        if (imgEl) imgEl.src = URL.createObjectURL(blob);
-      }
-    }
-
-    cropperInstance.destroy();
-    cropperInstance = null;
-    cropModal.classList.add("hidden");
-    currentCropFile = null;
-    updatePhotoCount();
-    showToast("Crop saved", "ok");
-  }, "image/jpeg", 0.95);
-});
-
-cropCancel.addEventListener("click", (e) => {
-  e.preventDefault();
-  if (cropperInstance) cropperInstance.destroy();
-  cropperInstance = null;
-  cropModal.classList.add("hidden");
-  currentCropFile = null;
-});
