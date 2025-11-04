@@ -2,6 +2,7 @@
 let selectedPack = 3;
 let requiredCount = 3;
 let customerEmail = "";
+let emailTouched = false;
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
@@ -15,6 +16,14 @@ const statusEl = document.getElementById("status");
 function setEmailValidityUI(isValid) {
   const emailEl = document.getElementById("email");
   const errEl = document.getElementById("emailError");
+
+  if (!emailTouched) {
+    // Hide everything before the user interacts
+    emailEl.classList.remove("input-error");
+    errEl.style.display = "none";
+    return;
+  }
+
   emailEl.classList.toggle("input-error", !isValid);
   errEl.style.display = isValid ? "none" : "block";
   emailEl.setAttribute("aria-invalid", String(!isValid));
@@ -35,11 +44,19 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
 
 // --- Email input wiring ---
 emailInput.addEventListener("input", () => {
+  emailTouched = true;
   customerEmail = emailInput.value.trim();
   const valid = /\S+@\S+\.\S+/.test(customerEmail);
   setEmailValidityUI(valid);
   enforcePayButtonState();
 });
+
+emailInput.addEventListener("blur", () => {
+  emailTouched = true;
+  const valid = /\S+@\S+\.\S+/.test(customerEmail);
+  setEmailValidityUI(valid);
+});
+
 setEmailValidityUI(false); // initial state
 
 // --- Dropzone setup ---
@@ -47,12 +64,12 @@ Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
 const myDropzone = new Dropzone(dzElement, {
-  url: "/api/upload",            // overridden per upload with ?orderId=...
+  url: "/api/upload", // overridden per upload with ?orderId=...
   method: "post",
-  autoProcessQueue: false,       // we upload manually after creating the order
+  autoProcessQueue: false, // we upload manually after creating the order
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 10,               // MB
+  maxFilesize: 10, // MB
   maxFiles: requiredCount,
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
@@ -97,10 +114,13 @@ payBtn.addEventListener("click", async () => {
       const form = new FormData();
       form.append("file", file, file.name);
 
-      const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-        method: "POST",
-        body: form,
-      });
+      const upRes = await fetch(
+        `/api/upload?orderId=${encodeURIComponent(orderId)}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
 
       if (!upRes.ok) {
         const txt = await upRes.text().catch(() => "");
@@ -126,10 +146,12 @@ payBtn.addEventListener("click", async () => {
     // 4) Redirect to SumUp hosted checkout
     statusEl.textContent = "Redirecting to secure payment…";
     window.location.href = checkoutUrl;
-
   } catch (err) {
     console.error(err);
-    statusEl.textContent = (err && err.message) ? `Error: ${err.message}` : "Something went wrong. Please try again.";
+    statusEl.textContent =
+      err && err.message
+        ? `Error: ${err.message}`
+        : "Something went wrong. Please try again.";
     payBtn.disabled = false;
   }
 });
