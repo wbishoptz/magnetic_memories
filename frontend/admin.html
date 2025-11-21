@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin – Magnetic Memories</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body {
+        background: #050608;
+        color: #f9fafb;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Helvetica Neue", Arial, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .admin-shell {
+        width: 100%;
+        max-width: 1200px;
+        background: #050608;
+        border-radius: 18px;
+        border: 1px solid #1f2933;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      header {
+        padding: 18px 22px;
+        border-bottom: 1px solid #1f2933;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: radial-gradient(circle at top left, #111827, #050608);
+      }
+
+      header h1 {
+        font-size: 20px;
+        margin: 0 0 2px;
+      }
+
+      header p {
+        margin: 0;
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .key-badge {
+        font-size: 11px;
+        background: #111827;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid #374151;
+        color: #d1d5db;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        gap: 0;
+        height: 100%;
+        min-height: 420px;
+      }
+
+      .panel {
+        padding: 18px 18px 20px;
+        overflow: auto;
+      }
+
+      .panel + .panel {
+        border-left: 1px solid #1f2933;
+      }
+
+      .panel h2 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+
+      .panel small {
+        color: #9ca3af;
+        font-size: 12px;
+      }
+
+      .table-wrapper {
+        margin-top: 10px;
+        border-radius: 10px;
+        border: 1px solid #1f2933;
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      thead {
+        background: #111827;
+      }
+
+      th,
+      td {
+        padding: 8px 10px;
+        white-space: nowrap;
+        text-align: left;
+      }
+
+      th {
+        font-weight: 500;
+        color: #9ca3af;
+        border-bottom: 1px solid #1f2933;
+        position: sticky;
+        top: 0;
+        background: #111827;
+        z-index: 1;
+      }
+
+      tbody tr {
+        cursor: pointer;
+        border-bottom: 1px solid #111827;
+      }
+
+      tbody tr:hover {
+        background: rgba(55, 65, 81, 0.35);
+      }
+
+      tbody tr.selected {
+        background: rgba(59, 130, 246, 0.25);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .status-pill.paid {
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+      }
+
+      .status-pill.checkout_created,
+      .status-pill.pending {
+        background: rgba(245, 158, 11, 0.18);
+        color: #fbbf24;
+      }
+
+      .status-pill.error {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+
+      .status-pill.unknown {
+        background: rgba(148, 163, 184, 0.2);
+        color: #e5e7eb;
+      }
+
+      .empty-state {
+        padding: 40px 16px;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 13px;
+      }
+
+      .field-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9ca3af;
+        margin-bottom: 3px;
+      }
+
+      .field-value {
+        font-size: 13px;
+        margin-bottom: 12px;
+        word-break: break-all;
+      }
+
+      pre.json {
+        background: #020617;
+        border-radius: 10px;
+        padding: 10px 12px;
+        border: 1px solid #1f2937;
+        font-size: 12px;
+        overflow: auto;
+        max-height: 260px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid #374151;
+        font-size: 11px;
+        color: #e5e7eb;
+        background: #111827;
+      }
+
+      .input-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .input-inline input {
+        background: #020617;
+        border-radius: 999px;
+        border: 1px solid #374151;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #e5e7eb;
+        min-width: 160px;
+      }
+
+      .input-inline button {
+        border-radius: 999px;
+        border: none;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        background: #16a34a;
+        color: #f9fafb;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        background: #111827;
+        border: 1px solid #1f2933;
+        color: #9ca3af;
+      }
+
+      .small-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 12px;
+        }
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .panel + .panel {
+          border-left: none;
+          border-top: 1px solid #1f2933;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="admin-shell">
+      <header>
+        <div>
+          <h1>Magnetic Memories – Admin</h1>
+          <p id="header-subtitle">Enter your admin key to load orders.</p>
+        </div>
+        <div class="input-inline" id="key-form">
+          <input
+            id="admin-key-input"
+            type="password"
+            placeholder="Admin key"
+            autocomplete="off"
+          />
+          <button id="save-key-btn">Unlock</button>
+        </div>
+        <div class="key-badge" id="key-badge" style="display: none">
+          Admin mode
+        </div>
+      </header>
+
+      <div class="layout">
+        <!-- Orders list -->
+        <section class="panel">
+          <div class="small-flex">
+            <div>
+              <h2>Orders</h2>
+              <small id="orders-subtitle">Locked</small>
+            </div>
+            <span class="tag" id="orders-count">0 orders</span>
+          </div>
+
+          <div id="orders-container" class="table-wrapper">
+            <div class="empty-state">
+              Enter the admin key above to load orders.
+            </div>
+          </div>
+        </section>
+
+        <!-- Order details -->
+        <section class="panel">
+          <h2>Order details</h2>
+          <small id="details-subtitle">Select an order from the left.</small>
+
+          <div id="details-container" class="empty-state">
+            No order selected.
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const keyInput = document.getElementById("admin-key-input");
+      const saveKeyBtn = document.getElementById("save-key-btn");
+      const keyForm = document.getElementById("key-form");
+      const keyBadge = document.getElementById("key-badge");
+      const headerSubtitle = document.getElementById("header-subtitle");
+      const ordersSubtitle = document.getElementById("orders-subtitle");
+      const ordersContainer = document.getElementById("orders-container");
+      const ordersCountEl = document.getElementById("orders-count");
+      const detailsContainer = document.getElementById("details-container");
+      const detailsSubtitle = document.getElementById("details-subtitle");
+
+      let adminKey = null;
+      let orders = [];
+      let selectedOrderId = null;
+
+      // Try to get key from URL or localStorage
+      (function initKey() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromUrl = urlParams.get("key");
+        const fromStorage = localStorage.getItem("mm_admin_key");
+
+        if (fromUrl) {
+          adminKey = fromUrl;
+          localStorage.setItem("mm_admin_key", adminKey);
+        } else if (fromStorage) {
+          adminKey = fromStorage;
+        }
+
+        if (adminKey) {
+          keyInput.value = "••••••••";
+          keyInput.type = "password";
+          keyBadge.style.display = "inline-flex";
+          keyForm.style.opacity = "0.3";
+          keyForm.style.pointerEvents = "none";
+          headerSubtitle.textContent = "Loading latest orders…";
+          loadOrders();
+        }
+      })();
+
+      saveKeyBtn.addEventListener("click", () => {
+        const value = keyInput.value.trim();
+        if (!value) return;
+
+        adminKey = value;
+        localStorage.setItem("mm_admin_key", adminKey);
+        headerSubtitle.textContent = "Loading latest orders…";
+        keyBadge.style.display = "inline-flex";
+        loadOrders();
+      });
+
+      async function loadOrders() {
+        if (!adminKey) return;
+
+        ordersContainer.innerHTML =
+          '<div class="empty-state">Loading orders…</div>';
+        ordersSubtitle.textContent = "Loading orders…";
+
+        try {
+          const res = await fetch(
+            `/api/admin-orders?key=${encodeURIComponent(adminKey)}`,
+            { cache: "no-store" }
+          );
+
+          if (res.status === 401) {
+            headerSubtitle.textContent = "Invalid admin key.";
+            ordersSubtitle.textContent = "Unauthorized";
+            ordersContainer.innerHTML =
+              '<div class="empty-state">Invalid key. Try again.</div>';
+            keyForm.style.opacity = "1";
+            keyForm.style.pointerEvents = "auto";
+            keyBadge.style.display = "none";
+            localStorage.removeItem("mm_admin_key");
+            return;
+          }
+
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+
+          const data = await res.json();
+          orders = data.orders || [];
+          renderOrders();
+        } catch (err) {
+          console.error("Failed to load orders", err);
+          ordersContainer.innerHTML =
+            '<div class="empty-state">Error loading orders.</div>';
+          ordersSubtitle.textContent = "Error loading orders";
+        }
+      }
+
+      function renderOrders() {
+        if (!orders.length) {
+          ordersContainer.innerHTML =
+            '<div class="empty-state">No orders found yet.</div>';
+          ordersSubtitle.textContent = "No orders";
+          ordersCountEl.textContent = "0 orders";
+          return;
+        }
+
+        ordersSubtitle.textContent = "Newest first";
+        ordersCountEl.textContent =
+          orders.length === 1 ? "1 order" : `${orders.length} orders`;
+
+        let html = '<div class="table-wrapper"><table><thead><tr>';
+        html += "<th>Created</th><th>Status</th><th>Email</th><th>Pack</th><th>£</th>";
+        html += "</tr></thead><tbody>";
+
+        for (const o of orders) {
+          const created = o.createdAt
+            ? new Date(o.createdAt).toLocaleString()
+            : "–";
+          const statusClass =
+            "status-pill " + (o.status ? o.status.replace(/\s+/g, "_") : "unknown");
+          const isSelected = o.orderId === selectedOrderId ? " selected" : "";
+
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}">`;
+          html += `<td>${created}</td>`;
+          html += `<td><span class="${statusClass}">${o.status}</span></td>`;
+          html += `<td>${o.email || "–"}</td>`;
+          html += `<td>${o.packSize || "?"}</td>`;
+          html += `<td>${typeof o.price === "number" ? o.price.toFixed(2) : "–"}</td>`;
+          html += "</tr>";
+        }
+
+        html += "</tbody></table></div>";
+        ordersContainer.innerHTML = html;
+
+        const rows = ordersContainer.querySelectorAll("tbody tr");
+        rows.forEach((row) => {
+          row.addEventListener("click", () => {
+            const id = row.getAttribute("data-order-id");
+            selectedOrderId = id;
+            rows.forEach((r) => r.classList.remove("selected"));
+            row.classList.add("selected");
+            loadOrderDetails(id);
+          });
+        });
+      }
+
+      async function loadOrderDetails(orderId) {
+        detailsContainer.innerHTML =
+          '<div class="empty-state">Loading order details…</div>';
+        detailsSubtitle.textContent = "Loading…";
+
+        try {
+          const res = await fetch(
+            `/api/admin-orders?orderId=${encodeURIComponent(
+              orderId
+            )}&key=${encodeURIComponent(adminKey)}`,
+            { cache: "no-store" }
+          );
+
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+
+          const data = await res.json();
+          const order = data.order;
+
+          if (!order) {
+            detailsContainer.innerHTML =
+              '<div class="empty-state">Order not found.</div>';
+            detailsSubtitle.textContent = "Order not found";
+            return;
+          }
+
+          const created = order.createdAt
+            ? new Date(order.createdAt).toLocaleString()
+            : "–";
+
+          const statusClass =
+            "status-pill " +
+            (order.status ? order.status.replace(/\s+/g, "_") : "unknown");
+
+          let html = "";
+
+          html += `<div class="field-label">Order ID</div>`;
+          html += `<div class="field-value">${order.orderId || orderId}</div>`;
+
+          html += `<div class="field-label">Status</div>`;
+          html += `<div class="field-value"><span class="${statusClass}">${
+            order.status
+          }</span></div>`;
+
+          html += `<div class="field-label">Customer</div>`;
+          html += `<div class="field-value">${
+            order.email || "Unknown email"
+          }</div>`;
+
+          html += `<div class="field-label">Pack</div>`;
+          html += `<div class="field-value">${
+            order.packSize || "?"
+          } magnets – £${order.price?.toFixed?.(2) ?? order.price ?? "?"}</div>`;
+
+          html += `<div class="field-label">Created</div>`;
+          html += `<div class="field-value">${created}</div>`;
+
+          if (order.stripeSessionId) {
+            html += `<div class="field-label">Stripe session</div>`;
+            html += `<div class="field-value">${order.stripeSessionId}</div>`;
+          }
+
+          if (order.stripePaymentIntentId) {
+            html += `<div class="field-label">Payment intent</div>`;
+            html += `<div class="field-value">${order.stripePaymentIntentId}</div>`;
+          }
+
+          html += `<div class="field-label">Raw JSON</div>`;
+          html += `<pre class="json">${escapeHtml(
+            JSON.stringify(order, null, 2)
+          )}</pre>`;
+
+          detailsContainer.innerHTML = html;
+          detailsSubtitle.textContent = "Full order payload";
+        } catch (err) {
+          console.error("Failed to load order details", err);
+          detailsContainer.innerHTML =
+            '<div class="empty-state">Error loading order details.</div>';
+          detailsSubtitle.textContent = "Error";
+        }
+      }
+
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+    </script>
+  </body>
+</html>
