@@ -1,78 +1,92 @@
 // functions/api/checkout.js
-export async function onRequestPost(context) {
-  const { request, env } = context;
+// POST /api/checkout  ->  creates a Stripe Checkout Session and returns { checkoutUrl }
 
+export const onRequestPost = async ({ request, env }) => {
   try {
-    const { orderId } = await request.json();
+    const body = await request.json();
+    const { orderId } = body || {};
+
     if (!orderId) {
-      return new Response(JSON.stringify({ error: "Missing orderId" }), { status: 400 });
+      return json({ error: "orderId is required" }, 400);
     }
 
-    // 1) Fetch the order
-    const orderKey = `order:${orderId}`;
-    const orderJson = await env.ORDERS_KV.get(orderKey);
-    if (!orderJson) {
-      return new Response(JSON.stringify({ error: "Order not found" }), { status: 404 });
-    }
+    // Load order from KV (adjust ORDERS binding name if needed)
+    const raw = await env.ORDERS.get(orderId);
+    if (!raw) return json({ error: "Order not found" }, 404);
 
-    const order = JSON.parse(orderJson);
-    const amount = order.price;
-    const currency = env.CURRENCY || "GBP";
+    const order = JSON.parse(raw);
+    const packSize = Number(order.packSize);
+    const email = order.email;
 
-    // 2) Get a SumUp access token
-    const tokenRes = await fetch("https://api.sumup.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: env.SUMUP_CLIENT_ID,
-        client_secret: env.SUMUP_CLIENT_SECRET,
-      }),
+    // Amounts in pence (GBP)
+    const priceMap = { 3: 700, 6: 1400, 9: 2000, 12: 2500, 15: 3000 };
+    const amount = priceMap[packSize];
+    if (!amount) return json({ error: "Unsupported pack size" }, 400);
+
+    // Update order status (optional)
+    order.status = "checkout_created";
+    await env.ORDERS.put(orderId, JSON.stringify(order), {
+      expirationTtl: 60 * 60 * 24 * 7,
     });
 
-    if (!tokenRes.ok) {
-      const txt = await tokenRes.text();
-      throw new Error("Failed to get SumUp token: " + txt);
-    }
+    const origin = new URL(request.url).origin;
+    const successUrl = `${origin}/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
+    const cancelUrl  = `${origin}/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
-    const { access_token } = await tokenRes.json();
+    // Build Stripe Checkout Session request
+    const params = new URLSearchParams();
 
-    // 3) Create the checkout session
-    const checkoutRes = await fetch("https://api.sumup.com/v0.1/checkouts", {
+    params.set("mode", "payment");
+    params.set("success_url", successUrl);
+    params.set("cancel_url", cancelUrl);
+    if (email) params.set("customer_email", email);
+
+    params.set("billing_address_collection", "auto");
+    params.set("allow_promotion_codes", "true");
+
+    // Single line item, inline price
+    params.set("line_items[0][price_data][currency]", "gbp");
+    params.set("line_items[0][price_data][unit_amount]", String(amount));
+    params.set("line_items[0][price_data][product_data][name]", `${packSize} Photo Magnets`);
+    params.set(
+      "line_items[0][price_data][product_data][description]",
+      "50×50mm magnets, cropped by customer"
+    );
+    params.set("line_items[0][quantity]", "1");
+
+    const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${access_token}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        amount,
-        currency,
-        checkout_reference: orderId,
-        description: `Magnetic Memories (${order.packSize} magnets)`,
-        pay_to_email: "", // optional; can stay empty for your own account
-        return_url: `${env.APP_BASE_URL}/return?orderId=${orderId}`,
-      }),
+      body: params.toString(),
     });
 
-    if (!checkoutRes.ok) {
-      const txt = await checkoutRes.text();
-      throw new Error("Failed to create checkout: " + txt);
+    if (!stripeRes.ok) {
+      const txt = await stripeRes.text();
+      console.error("Stripe error:", txt);
+      return json({ error: `Stripe error: ${txt}` }, 502);
     }
 
-    const checkoutData = await checkoutRes.json();
-    const checkoutUrl = checkoutData.checkout_url;
+    const session = await stripeRes.json();
 
-    // 4) Update order status in KV
-    order.status = "awaiting_payment";
-    order.checkoutId = checkoutData.id || null;
-    order.updatedAt = new Date().toISOString();
-    await env.ORDERS_KV.put(orderKey, JSON.stringify(order));
-
-    return new Response(JSON.stringify({ checkoutUrl }), {
-      headers: { "Content-Type": "application/json" },
+    // Store session id (optional but useful)
+    order.stripeSessionId = session.id;
+    await env.ORDERS.put(orderId, JSON.stringify(order), {
+      expirationTtl: 60 * 60 * 24 * 7,
     });
 
+    return json({ checkoutUrl: session.url });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error(err);
+    return json({ error: err.message || "Failed to create Stripe checkout" }, 500);
   }
+};
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
