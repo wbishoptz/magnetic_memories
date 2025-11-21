@@ -5,7 +5,7 @@
 //  - ORDERS_KV
 //  - RESEND_API_KEY
 //  - RESEND_FROM_EMAIL
-//  - NOTIFY_EMAIL      (comma-separated list for internal notifications)
+//  - NOTIFY_EMAIL      (comma/newline-separated list for internal notifications)
 //  - TELEGRAM_BOT_TOKEN
 //  - TELEGRAM_CHAT_ID  (comma-separated list)
 
@@ -25,7 +25,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // --- Extract orderId ---
 
-    // 1) Ideal: from metadata
+    // 1) Preferred: from metadata
     let orderId = session.metadata?.orderId;
 
     // 2) Fallback: parse from success_url / cancel_url query
@@ -108,7 +108,7 @@ function json(body, status = 200) {
   });
 }
 
-// ---------- Helpers ----------
+// ---------- Shared helper ----------
 
 function buildTotalText(order) {
   if (typeof order.price === "number") {
@@ -156,7 +156,7 @@ async function sendPaidEmail(order, env) {
     </div>
   `;
 
-  await fetch("https://api.resend.com/emails", {
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -169,6 +169,11 @@ async function sendPaidEmail(order, env) {
       html,
     }),
   });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("Resend CUSTOMER email failed", res.status, text);
+  }
 }
 
 // ------------- ADMIN / INTERNAL EMAIL (Resend) -------------
@@ -178,8 +183,9 @@ async function sendAdminEmail(order, env) {
   const from = env.RESEND_FROM_EMAIL;
   const notifyRaw = env.NOTIFY_EMAIL || "";
 
+  // Support commas, semicolons, or newlines as separators
   const recipients = notifyRaw
-    .split(",")
+    .split(/[,;\n]+/)
     .map((x) => x.trim())
     .filter(Boolean);
 
@@ -194,7 +200,6 @@ async function sendAdminEmail(order, env) {
 
   const subject = `New paid order – ${order.orderId}`;
   const totalText = buildTotalText(order);
-
   const customerEmail = order.email || order.customer?.email || "Unknown";
 
   const html = `
@@ -235,19 +240,35 @@ async function sendAdminEmail(order, env) {
     </div>
   `;
 
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: recipients,
-      subject,
-      html,
-    }),
-  });
+  // Send one email per recipient – more robust than a single multi-to call
+  await Promise.all(
+    recipients.map(async (to) => {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: [to],
+          subject,
+          html,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(
+          "Resend ADMIN email failed for",
+          to,
+          "status",
+          res.status,
+          text
+        );
+      }
+    })
+  );
 }
 
 // ------------- TELEGRAM (admin group) -------------
