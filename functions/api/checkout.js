@@ -65,19 +65,22 @@ export const onRequestPost = async ({ request, env }) => {
       `${packSize} Photo Magnets`
     );
     params.set(
-      "line_items[0][price_data][product_data][description]`,
+      "line_items[0][price_data][product_data][description]",
       "50×50mm magnets, cropped by customer"
     );
     params.set("line_items[0][quantity]", "1");
 
-    const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
+    const stripeRes = await fetch(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      }
+    );
 
     if (!stripeRes.ok) {
       const txt = await stripeRes.text();
