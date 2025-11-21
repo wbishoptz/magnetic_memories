@@ -1,52 +1,211 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Thanks — Magnetic Memories</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <main class="container">
-    <h1>Thanks!</h1>
-    <p class="subtitle">We’ve received your order. If you just paid, this page will confirm status shortly.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Thank you – Magnetic Memories</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body {
+        background: #050608;
+        color: #f7f7f7;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Helvetica Neue", Arial, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
 
-    <section class="card">
-      <p id="orderIdRow" class="hint">Order: <code id="orderId">…</code></p>
-      <p id="statusRow">Status: <strong id="statusText">checking…</strong></p>
-      <p class="hint">You’ll also get an email from us once we start printing (optional feature).</p>
-    </section>
-  </main>
+      .container {
+        max-width: 640px;
+        width: 100%;
+        background: #111214;
+        border-radius: 16px;
+        padding: 32px 28px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+        border: 1px solid #23242a;
+      }
 
-  <script>
-    // Read orderId from URL: /return?orderId=...
-    const params = new URLSearchParams(location.search);
-    const orderId = params.get("orderId");
-    document.getElementById("orderId").textContent = orderId || "unknown";
+      h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
 
-    async function fetchStatus() {
+      p.lead {
+        margin: 0 0 24px;
+        color: #a6abb6;
+      }
+
+      .card {
+        background: #08090b;
+        border-radius: 12px;
+        padding: 20px 18px;
+        border: 1px solid #272933;
+      }
+
+      .label {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #a6abb6;
+        margin-bottom: 4px;
+      }
+
+      .value {
+        font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 13px;
+        word-break: break-all;
+      }
+
+      .status-row {
+        margin-top: 12px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .status-pill.pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: #fbbf24;
+      }
+
+      .status-pill.paid {
+        background: rgba(16, 185, 129, 0.15);
+        color: #6ee7b7;
+      }
+
+      .status-pill.error {
+        background: rgba(248, 113, 113, 0.15);
+        color: #fecaca;
+      }
+
+      .helper {
+        margin-top: 16px;
+        font-size: 13px;
+        color: #9ca3af;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid rgba(148, 163, 184, 0.3);
+        border-top-color: #e5e7eb;
+        animation: spin 0.75s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Thanks!</h1>
+      <p class="lead">
+        We've received your order. If you just paid, this page will update once
+        the payment is confirmed.
+      </p>
+
+      <section class="card">
+        <div class="label">Order</div>
+        <div id="order-id" class="value">–</div>
+
+        <div class="status-row">
+          <div class="label">Status</div>
+          <div id="status-pill" class="status-pill pending">
+            <span class="spinner"></span>
+            <span id="status-text">Checking payment status…</span>
+          </div>
+        </div>
+
+        <p class="helper" id="helper-text">
+          You can safely close this page – we'll still finish your magnets even
+          if you leave. This page just shows the latest status from our system.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get("orderId");
+
+      const orderIdEl = document.getElementById("order-id");
+      const statusPillEl = document.getElementById("status-pill");
+      const statusTextEl = document.getElementById("status-text");
+      const helperTextEl = document.getElementById("helper-text");
+
       if (!orderId) {
-        document.getElementById("statusText").textContent = "unknown";
-        return;
+        orderIdEl.textContent = "Missing orderId in URL.";
+        statusPillEl.className = "status-pill error";
+        statusTextEl.textContent = "Unable to find this order.";
+      } else {
+        orderIdEl.textContent = orderId;
+        pollStatus(orderId);
       }
-      try {
-        const res = await fetch(`/api/order?id=${encodeURIComponent(orderId)}`);
-        if (!res.ok) throw new Error("status not found");
-        const data = await res.json();
-        document.getElementById("statusText").textContent = data.status || "unknown";
-      } catch {
-        document.getElementById("statusText").textContent = "unknown";
-      }
-    }
 
-    fetchStatus();
-    // Poll a few times in case webhook lands a bit later
-    let tries = 0;
-    const iv = setInterval(async () => {
-      tries++;
-      await fetchStatus();
-      if (tries >= 12) clearInterval(iv); // ~1 minute at 5s interval
-    }, 5000);
-  </script>
-</body>
+      async function pollStatus(orderId) {
+        let attempts = 0;
+        const maxAttempts = 10;
+        const delayMs = 3000;
+
+        async function check() {
+          attempts++;
+          try {
+            const res = await fetch(
+              `/api/debug-order?orderId=${encodeURIComponent(orderId)}`,
+              { cache: "no-store" }
+            );
+
+            if (!res.ok) {
+              throw new Error("HTTP " + res.status);
+            }
+
+            const data = await res.json();
+            const status = data.status || "unknown";
+
+            if (status === "paid") {
+              statusPillEl.className = "status-pill paid";
+              statusTextEl.textContent = "Paid – your magnets are in the queue.";
+              helperTextEl.textContent =
+                "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly and will email you once they’re ready to ship.";
+              return;
+            }
+
+            // Not yet paid (e.g. checkout_created, pending, etc.)
+            statusPillEl.className = "status-pill pending";
+            statusTextEl.textContent = status;
+
+            if (attempts < maxAttempts) {
+              setTimeout(check, delayMs);
+            } else {
+              helperTextEl.textContent =
+                "We couldn't confirm payment automatically. If you see this message but Stripe shows the payment as completed, please contact us with your order ID.";
+            }
+          } catch (err) {
+            console.error("Status poll error", err);
+            statusPillEl.className = "status-pill error";
+            statusTextEl.textContent = "Error fetching status";
+            helperTextEl.textContent =
+              "We hit a problem checking your order. Please refresh the page in a few minutes, or contact us with your order ID if you're worried.";
+          }
+        }
+
+        check();
+      }
+    </script>
+  </body>
 </html>
