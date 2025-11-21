@@ -25,10 +25,10 @@ export const onRequestPost = async ({ request, env }) => {
 
     // --- Extract orderId ---
 
-    // Best: metadata.orderId (future-proof if we start sending it)
+    // 1) Ideal: from metadata (future-proof if we add it)
     let orderId = session.metadata?.orderId;
 
-    // Fallback: parse from success_url / cancel_url (current setup)
+    // 2) Fallback: parse from success_url / cancel_url query (current setup)
     if (!orderId && session.success_url) {
       try {
         const u = new URL(session.success_url);
@@ -85,7 +85,7 @@ export const onRequestPost = async ({ request, env }) => {
       expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });
 
-    // --- IMPORTANT: await notifications before returning ---
+    // --- IMPORTANT: actually wait for notifications to finish ---
 
     await Promise.allSettled([
       sendPaidEmail(order, env),
@@ -95,7 +95,7 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ received: true, updated: true });
   } catch (err) {
     console.error("webhook error:", err, "rawBody:", rawBody);
-    // Still return 200 so Stripe doesn't spam retries, but include info
+    // Still return 200 so Stripe doesn’t spam retries
     return json({ error: err.message || "Webhook error", received: true });
   }
 };
@@ -123,6 +123,11 @@ async function sendPaidEmail(order, env) {
 
   const subject = "We’ve received your Magnetic Memories order";
 
+  const totalText =
+    typeof order.price === "number"
+      ? "£" + order.price.toFixed(2)
+      : "£" + (order.price ?? "");
+
   const html = `
     <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <h2>Thanks for your order!</h2>
@@ -131,11 +136,7 @@ async function sendPaidEmail(order, env) {
         <strong>Order ID:</strong> ${order.orderId}<br/>
         <strong>Status:</strong> paid<br/>
         <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
-        <strong>Total:</strong> ${
-          typeof order.price === "number"
-            ? "£" + order.price.toFixed(2)
-            : "£" + (order.price ?? "")
-        }
+        <strong>Total:</strong> ${totalText}
       </p>
       <p>
         You can track your order status here:<br/>
@@ -147,7 +148,7 @@ async function sendPaidEmail(order, env) {
       </p>
       <p>— Magnetic Memories</p>
     </div>
-  ";
+  `;
 
   await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -183,9 +184,8 @@ async function sendPaidTelegram(order, env) {
 
   if (!chatIds.length) return;
 
-  const emoji = "💳";
   const lines = [
-    `${emoji} New paid order`,
+    "💳 New paid order",
     `Order ID: ${order.orderId}`,
     `Email: ${order.email || "Unknown"}`,
     `Pack: ${order.packSize || "?"} magnets`,
