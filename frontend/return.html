@@ -2,15 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Thank you – Magnetic Memories</title>
+    <title>Magnetic Memories – Order status</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Your main styles (dark theme, fonts, etc.) -->
     <link rel="stylesheet" href="/styles.css" />
+
     <style>
+      /* --- Local styles just for this page (progress bar + layout tweaks) --- */
+
       body {
-        background: #050608;
-        color: #f7f7f7;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-          "Helvetica Neue", Arial, sans-serif;
+        background: #030712;
+        color: #e5e7eb;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+
+      .page {
         min-height: 100vh;
         display: flex;
         align-items: center;
@@ -18,91 +28,199 @@
         padding: 24px;
       }
 
-      .container {
-        max-width: 640px;
-        width: 100%;
-        background: #111214;
+      .card {
+        background: radial-gradient(circle at top, #111827, #020617);
         border-radius: 16px;
-        padding: 32px 28px;
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
-        border: 1px solid #23242a;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+        padding: 32px;
+        max-width: 720px;
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.2);
       }
 
       h1 {
+        margin: 0 0 8px;
         font-size: 28px;
-        margin-bottom: 8px;
       }
 
-      p.lead {
+      .subtitle {
         margin: 0 0 24px;
-        color: #a6abb6;
+        color: #9ca3af;
+        font-size: 14px;
       }
 
-      .card {
-        background: #08090b;
+      .panel {
         border-radius: 12px;
-        padding: 20px 18px;
-        border: 1px solid #272933;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.7);
+        padding: 20px 20px 18px;
       }
 
-      .label {
-        font-size: 13px;
-        text-transform: uppercase;
+      .panel-header {
+        font-size: 12px;
         letter-spacing: 0.08em;
-        color: #a6abb6;
-        margin-bottom: 4px;
+        text-transform: uppercase;
+        color: #9ca3af;
+        margin-bottom: 6px;
       }
 
-      .value {
-        font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+      .order-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
           "Liberation Mono", "Courier New", monospace;
         font-size: 13px;
+        color: #e5e7eb;
+        user-select: all;
         word-break: break-all;
       }
 
       .status-row {
-        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .status-label {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
       }
 
       .status-pill {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        padding: 3px 10px;
         border-radius: 999px;
-        padding: 4px 10px;
         font-size: 12px;
-        font-weight: 500;
+        background: #111827;
+        border: 1px solid #4b5563;
+        color: #e5e7eb;
       }
 
-      .status-pill.pending {
-        background: rgba(245, 158, 11, 0.12);
-        color: #fbbf24;
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #6b7280;
       }
 
-      .status-pill.ok {
-        background: rgba(16, 185, 129, 0.15);
-        color: #6ee7b7;
+      .status-pill.paid .status-dot {
+        background: #4ade80;
       }
 
-      .status-pill.error {
-        background: rgba(248, 113, 113, 0.15);
-        color: #fecaca;
+      .status-pill.printing .status-dot {
+        background: #22d3ee;
       }
 
-      .helper {
-        margin-top: 16px;
+      .status-pill.shipped .status-dot {
+        background: #f97316;
+      }
+
+      .status-pill.complete .status-dot {
+        background: #a855f7;
+      }
+
+      .status-pill.checkout_created .status-dot {
+        background: #eab308;
+      }
+
+      .status-text {
+        margin-top: 14px;
+        font-size: 14px;
+        color: #d1d5db;
+      }
+
+      .meta-row {
+        margin-top: 14px;
         font-size: 13px;
         color: #9ca3af;
       }
 
+      .meta-row span {
+        color: #e5e7eb;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* --- Progress steps --- */
+
+      .progress-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 20px auto 18px;
+        gap: 10px;
+        max-width: 640px;
+      }
+
+      .step {
+        text-align: center;
+        color: #6b7280;
+        font-size: 11px;
+      }
+
+      .circle {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: 2px solid #374151;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 4px;
+        background: #020617;
+        font-size: 13px;
+      }
+
+      .line {
+        flex: 1;
+        height: 2px;
+        background: #374151;
+        border-radius: 999px;
+      }
+
+      .step.active .circle {
+        background: #4ade80;
+        color: #020617;
+        border-color: #4ade80;
+        box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4),
+          0 0 20px rgba(34, 197, 94, 0.4);
+      }
+
+      .step.active span {
+        color: #e5e7eb;
+        font-weight: 600;
+      }
+
+      .line.active {
+        background: linear-gradient(to right, #4ade80, #22c55e);
+        box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+      }
+
+      /* --- Loading / error states --- */
+
+      .loading-text {
+        font-size: 14px;
+        color: #9ca3af;
+      }
+
+      .error-text {
+        font-size: 14px;
+        color: #fecaca;
+      }
+
       .spinner {
-        display: inline-block;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        border: 2px solid rgba(148, 163, 184, 0.3);
-        border-top-color: #e5e7eb;
-        animation: spin 0.75s linear infinite;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid #4b5563;
+        border-top-color: #38bdf8;
+        animation: spin 0.7s linear infinite;
+        margin-right: 8px;
       }
 
       @keyframes spin {
@@ -110,233 +228,243 @@
           transform: rotate(360deg);
         }
       }
-
-      .progress {
-        margin-top: 18px;
-      }
-
-      .progress-track {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 8px;
-      }
-
-      .progress-step {
-        flex: 1;
-        text-align: center;
-        position: relative;
-      }
-
-      .progress-dot {
-        width: 18px;
-        height: 18px;
-        border-radius: 999px;
-        border: 2px solid #374151;
-        background: #020617;
-        margin: 0 auto;
-      }
-
-      .progress-step.done .progress-dot {
-        background: #16a34a;
-        border-color: #16a34a;
-      }
-
-      .progress-step.current .progress-dot {
-        background: #22c55e;
-        border-color: #22c55e;
-        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
-      }
-
-      .progress-label {
-        margin-top: 6px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #9ca3af;
-      }
-
-      .progress-step.done .progress-label,
-      .progress-step.current .progress-label {
-        color: #d1fae5;
-      }
-
-      .progress-line {
-        position: absolute;
-        top: 8px;
-        left: 50%;
-        right: -50%;
-        height: 2px;
-        background: #1f2937;
-        z-index: -1;
-      }
-
-      .progress-step:last-child .progress-line {
-        display: none;
-      }
-
-      .progress-step.done .progress-line {
-        background: #16a34a;
-      }
     </style>
   </head>
+
   <body>
-    <main class="container">
-      <h1>Thanks!</h1>
-      <p class="lead">
-        We've received your order. If you just paid, this page will update once
-        the payment is confirmed.
-      </p>
-
-      <section class="card">
-        <div class="label">Order</div>
-        <div id="order-id" class="value">–</div>
-
-        <div class="status-row">
-          <div class="label">Status</div>
-          <div id="status-pill" class="status-pill pending">
-            <span class="spinner"></span>
-            <span id="status-text">Checking payment status…</span>
-          </div>
-        </div>
-
-        <div class="progress">
-          <div class="progress-track">
-            <div class="progress-step" data-step="paid">
-              <div class="progress-dot"></div>
-              <div class="progress-line"></div>
-              <div class="progress-label">Paid</div>
-            </div>
-            <div class="progress-step" data-step="printing">
-              <div class="progress-dot"></div>
-              <div class="progress-line"></div>
-              <div class="progress-label">Printing</div>
-            </div>
-            <div class="progress-step" data-step="shipped">
-              <div class="progress-dot"></div>
-              <div class="progress-line"></div>
-              <div class="progress-label">Shipped</div>
-            </div>
-            <div class="progress-step" data-step="completed">
-              <div class="progress-dot"></div>
-              <div class="progress-label">Complete</div>
-            </div>
-          </div>
-        </div>
-
-        <p class="helper" id="helper-text">
-          You can safely close this page – we'll still finish your magnets even
-          if you leave. This page just shows the latest status from our system.
+    <div class="page">
+      <main class="card">
+        <h1>Thanks!</h1>
+        <p class="subtitle">
+          We've received your order. If you just paid, this page will update
+          once the payment is confirmed.
         </p>
-      </section>
-    </main>
+
+        <!-- Loading / error block -->
+        <div id="loadingBlock" class="panel">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div class="spinner"></div>
+            <span class="loading-text">Loading your order…</span>
+          </div>
+        </div>
+
+        <!-- Main order panel (hidden until we have data) -->
+        <section id="orderBlock" class="panel hidden">
+          <div class="panel-header">Order</div>
+          <div id="orderId" class="order-id">—</div>
+
+          <!-- Progress steps -->
+          <div id="progress-steps" class="progress-container">
+            <div class="step" id="step-paid">
+              <div class="circle">1</div>
+              <span>Paid</span>
+            </div>
+
+            <div class="line"></div>
+
+            <div class="step" id="step-printing">
+              <div class="circle">2</div>
+              <span>Printing</span>
+            </div>
+
+            <div class="line"></div>
+
+            <div class="step" id="step-shipped">
+              <div class="circle">3</div>
+              <span>Shipped</span>
+            </div>
+
+            <div class="line"></div>
+
+            <div class="step" id="step-complete">
+              <div class="circle">4</div>
+              <span>Complete</span>
+            </div>
+          </div>
+
+          <!-- Status row -->
+          <div class="status-row">
+            <div class="status-label">Status</div>
+            <div id="statusPill" class="status-pill">
+              <span class="status-dot"></span>
+              <span id="statusText">—</span>
+            </div>
+          </div>
+
+          <!-- Human-friendly description -->
+          <div id="statusDescription" class="status-text">
+            We’re processing your order.
+          </div>
+
+          <!-- Meta info -->
+          <div class="meta-row">
+            Pack: <span id="packMeta">—</span> &nbsp;·&nbsp; Total:
+            <span id="priceMeta">—</span>
+          </div>
+          <div class="meta-row">
+            Created: <span id="createdMeta">—</span>
+          </div>
+        </section>
+
+        <!-- Error block -->
+        <section id="errorBlock" class="panel hidden">
+          <div class="error-text" id="errorMessage"></div>
+        </section>
+      </main>
+    </div>
 
     <script>
-      const params = new URLSearchParams(window.location.search);
-      const orderId = params.get("orderId");
+      // ------- Helper: read query params -------
+      const url = new URL(window.location.href);
+      const orderId = url.searchParams.get("orderId");
+      const loadingBlock = document.getElementById("loadingBlock");
+      const orderBlock = document.getElementById("orderBlock");
+      const errorBlock = document.getElementById("errorBlock");
+      const errorMessage = document.getElementById("errorMessage");
 
-      const orderIdEl = document.getElementById("order-id");
-      const statusPillEl = document.getElementById("status-pill");
-      const statusTextEl = document.getElementById("status-text");
-      const helperTextEl = document.getElementById("helper-text");
-      const progressSteps = Array.from(
-        document.querySelectorAll(".progress-step")
-      );
+      const orderIdEl = document.getElementById("orderId");
+      const statusPill = document.getElementById("statusPill");
+      const statusTextEl = document.getElementById("statusText");
+      const statusDescription = document.getElementById("statusDescription");
+      const packMeta = document.getElementById("packMeta");
+      const priceMeta = document.getElementById("priceMeta");
+      const createdMeta = document.getElementById("createdMeta");
 
       if (!orderId) {
-        orderIdEl.textContent = "Missing orderId in URL.";
-        statusPillEl.className = "status-pill error";
-        statusTextEl.textContent = "Unable to find this order.";
+        loadingBlock.classList.add("hidden");
+        errorBlock.classList.remove("hidden");
+        errorMessage.textContent =
+          "We couldn't find an order ID in the link. Please open the link from your confirmation email again.";
       } else {
         orderIdEl.textContent = orderId;
-        pollStatus(orderId);
+        startPolling(orderId);
       }
 
+      // ------- Map internal statuses to user-friendly text -------
+
+      function formatStatus(status) {
+        switch (status) {
+          case "checkout_created":
+            return "Awaiting payment confirmation";
+          case "paid":
+            return "Paid";
+          case "printing":
+            return "Printing";
+          case "shipped":
+            return "Shipped";
+          case "complete":
+            return "Complete";
+          default:
+            return status || "Unknown";
+        }
+      }
+
+      function statusMessage(status) {
+        switch (status) {
+          case "checkout_created":
+            return "We've created your checkout session and are waiting for Stripe to confirm your payment.";
+          case "paid":
+            return "We've confirmed your payment with Stripe. We'll start preparing your magnets shortly.";
+          case "printing":
+            return "We're currently printing your magnets and getting them ready for shipment.";
+          case "shipped":
+            return "Your magnets have been shipped. They'll be with you very soon!";
+          case "complete":
+            return "Your order is complete. Thanks again for choosing Magnetic Memories!";
+          default:
+            return "We're processing your order.";
+        }
+      }
+
+      // ------- Progress bar logic -------
+
       function updateProgress(status) {
-        const order = ["paid", "printing", "shipped", "completed"];
-        const idx = order.indexOf(status);
+        const steps = ["paid", "printing", "shipped", "complete"];
+        const lines = document.querySelectorAll(".line");
 
-        progressSteps.forEach((stepEl) => {
-          const step = stepEl.dataset.step;
-          const stepIdx = order.indexOf(step);
-          stepEl.classList.remove("done", "current");
+        steps.forEach((s, index) => {
+          const stepEl = document.getElementById(`step-${s}`);
+          if (!stepEl) return;
 
-          if (idx === -1) return;
-
-          if (stepIdx < idx) {
-            stepEl.classList.add("done");
-          } else if (stepIdx === idx) {
-            stepEl.classList.add("current");
+          if (steps.indexOf(status) >= index) {
+            stepEl.classList.add("active");
+            if (index > 0 && lines[index - 1]) {
+              lines[index - 1].classList.add("active");
+            }
+          } else {
+            stepEl.classList.remove("active");
+            if (index > 0 && lines[index - 1]) {
+              lines[index - 1].classList.remove("active");
+            }
           }
         });
       }
 
-      async function pollStatus(orderId) {
-        let attempts = 0;
-        const maxAttempts = 10;
-        const delayMs = 3000;
+      // ------- Poll API for order status -------
 
-        async function check() {
+      function startPolling(orderId) {
+        let attempts = 0;
+        const maxAttempts = 60; // ~4 minutes at 4s interval
+
+        const poll = async () => {
           attempts++;
+
           try {
             const res = await fetch(
-              `/api/debug-order?orderId=${encodeURIComponent(orderId)}`,
-              { cache: "no-store" }
+              `/api/order?orderId=${encodeURIComponent(orderId)}`
             );
 
             if (!res.ok) {
-              throw new Error("HTTP " + res.status);
+              throw new Error("Order lookup failed: " + res.status);
             }
 
-            const data = await res.json();
-            const status = (data.status || "unknown").toLowerCase();
+            const order = await res.json();
 
-            const okStatuses = ["paid", "printing", "shipped", "completed"];
+            loadingBlock.classList.add("hidden");
+            errorBlock.classList.add("hidden");
+            orderBlock.classList.remove("hidden");
 
-            if (okStatuses.includes(status)) {
-              statusPillEl.className = "status-pill ok";
-              statusTextEl.textContent = status;
-              updateProgress(status);
-              helperTextEl.textContent = getHelperText(status);
-              return;
-            }
+            const status = order.status || "checkout_created";
 
-            // still pending (e.g. checkout_created)
-            statusPillEl.className = "status-pill pending";
-            statusTextEl.textContent = status;
-            updateProgress("paid"); // show at least "paid" once we know about the order
+            // Update pill
+            statusPill.className = "status-pill " + status;
+            statusTextEl.textContent = formatStatus(status);
+            statusDescription.textContent = statusMessage(status);
 
-            if (attempts < maxAttempts) {
-              setTimeout(check, delayMs);
+            // Meta info
+            packMeta.textContent = order.packSize
+              ? `${order.packSize} magnets`
+              : "—";
+            if (typeof order.price === "number") {
+              priceMeta.textContent = "£" + order.price.toFixed(2);
+            } else if (order.price) {
+              priceMeta.textContent = "£" + order.price;
             } else {
-              helperTextEl.textContent =
-                "We couldn't confirm payment automatically. If Stripe shows the payment as completed, please contact us with your order ID.";
+              priceMeta.textContent = "—";
+            }
+            createdMeta.textContent = order.createdAt || "—";
+
+            // Progress bar
+            updateProgress(status);
+
+            // Stop polling if in final state
+            if (status === "complete" || attempts >= maxAttempts) {
+              clearInterval(intervalId);
             }
           } catch (err) {
-            console.error("Status poll error", err);
-            statusPillEl.className = "status-pill error";
-            statusTextEl.textContent = "Error fetching status";
-            helperTextEl.textContent =
-              "We hit a problem checking your order. Please refresh the page in a few minutes, or contact us with your order ID if you're worried.";
+            console.error("Error fetching order:", err);
+            if (attempts === 1) {
+              loadingBlock.classList.add("hidden");
+              errorBlock.classList.remove("hidden");
+              errorMessage.textContent =
+                "We couldn't load your order right now. Please refresh the page in a moment.";
+            }
           }
-        }
+        };
 
-        check();
-      }
-
-      function getHelperText(status) {
-        switch (status) {
-          case "paid":
-            return "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly.";
-          case "printing":
-            return "Your photos are on the print queue. Once they’re ready, we’ll ship them or arrange pickup.";
-          case "shipped":
-            return "Your magnets have left us and are on the way to you.";
-          case "completed":
-            return "This order has been fully completed. Hope you love your magnets!";
-          default:
-            return "We’ll keep this page up to date with the latest status of your order.";
-        }
+        // first immediate call + interval
+        poll();
+        var intervalId = setInterval(poll, 4000);
       }
     </script>
   </body>
