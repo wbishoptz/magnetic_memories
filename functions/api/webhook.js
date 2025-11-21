@@ -1,4 +1,3 @@
-
 // functions/api/webhook.js
 // Stripe webhook handler for checkout.session.completed
 //
@@ -26,16 +25,16 @@ export const onRequestPost = async ({ request, env }) => {
 
     // --- Extract orderId ---
 
-    // 1) Try metadata (best practice if we later add it in checkout.js)
+    // Best: metadata.orderId (future-proof if we start sending it)
     let orderId = session.metadata?.orderId;
 
-    // 2) Fallback: parse from success_url / cancel_url query (current setup)
+    // Fallback: parse from success_url / cancel_url (current setup)
     if (!orderId && session.success_url) {
       try {
         const u = new URL(session.success_url);
         orderId = u.searchParams.get("orderId") || orderId;
       } catch {
-        // ignore URL parse errors
+        // ignore parse error
       }
     }
     if (!orderId && session.cancel_url) {
@@ -68,12 +67,14 @@ export const onRequestPost = async ({ request, env }) => {
 
     const order = JSON.parse(rawOrder);
 
-    // --- Update order ---
+    // --- Update order fields ---
 
     order.status = "paid";
     order.paidAt = new Date().toISOString();
     order.stripeSessionId = session.id;
-    order.stripePaymentIntentId = session.payment_intent || order.stripePaymentIntentId;
+    order.stripePaymentIntentId =
+      session.payment_intent || order.stripePaymentIntentId;
+
     order.customer = {
       email: session.customer_details?.email || order.email,
       name: session.customer_details?.name || null,
@@ -84,18 +85,17 @@ export const onRequestPost = async ({ request, env }) => {
       expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });
 
-    // Fire-and-forget notifications
-    sendPaidEmail(order, env).catch((err) =>
-      console.error("Resend paid email error:", err)
-    );
-    sendPaidTelegram(order, env).catch((err) =>
-      console.error("Telegram paid notification error:", err)
-    );
+    // --- IMPORTANT: await notifications before returning ---
+
+    await Promise.allSettled([
+      sendPaidEmail(order, env),
+      sendPaidTelegram(order, env),
+    ]);
 
     return json({ received: true, updated: true });
   } catch (err) {
     console.error("webhook error:", err, "rawBody:", rawBody);
-    // Always 200 for Stripe (so it doesn't retry forever), but include info in body
+    // Still return 200 so Stripe doesn't spam retries, but include info
     return json({ error: err.message || "Webhook error", received: true });
   }
 };
@@ -147,7 +147,7 @@ async function sendPaidEmail(order, env) {
       </p>
       <p>— Magnetic Memories</p>
     </div>
-  `;
+  ";
 
   await fetch("https://api.resend.com/emails", {
     method: "POST",
