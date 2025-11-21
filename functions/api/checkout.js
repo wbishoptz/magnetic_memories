@@ -22,8 +22,10 @@ export const onRequestPost = async ({ request, env }) => {
       );
     }
 
-    // Load order from KV
-    const raw = await ordersKV.get(orderId);
+    const key = `order:${orderId}`;
+
+    // Load order from KV (uses same key prefix as /api/order)
+    const raw = await ordersKV.get(key);
     if (!raw) return json({ error: "Order not found" }, 404);
 
     const order = JSON.parse(raw);
@@ -37,7 +39,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Optional: update status
     order.status = "checkout_created";
-    await ordersKV.put(orderId, JSON.stringify(order), {
+    await ordersKV.put(key, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 7,
     });
 
@@ -92,7 +94,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Store session id back on order (optional)
     order.stripeSessionId = session.id;
-    await ordersKV.put(orderId, JSON.stringify(order), {
+    await ordersKV.put(key, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 7,
     });
 

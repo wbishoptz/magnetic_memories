@@ -34,16 +34,17 @@ export const onRequestPost = async ({ request, env }) => {
       }
 
       if (orderId) {
-        const ordersKV = env.ORDERS_KV; // use your binding name
+        const ordersKV = env.ORDERS_KV;
         if (ordersKV) {
-          const raw = await ordersKV.get(orderId);
+          const key = `order:${orderId}`;
+          const raw = await ordersKV.get(key);
           if (raw) {
             const order = JSON.parse(raw);
             order.status = "paid";
             order.stripeSessionId = session.id;
             order.stripePaymentIntentId = session.payment_intent || null;
 
-            await ordersKV.put(orderId, JSON.stringify(order), {
+            await ordersKV.put(key, JSON.stringify(order), {
               expirationTtl: 60 * 60 * 24 * 30,
             });
 
