@@ -79,7 +79,7 @@
         color: #fbbf24;
       }
 
-      .status-pill.paid {
+      .status-pill.ok {
         background: rgba(16, 185, 129, 0.15);
         color: #6ee7b7;
       }
@@ -175,17 +175,21 @@
             }
 
             const data = await res.json();
-            const status = data.status || "unknown";
+            const status = (data.status || "unknown").toLowerCase();
 
-            if (status === "paid") {
-              statusPillEl.className = "status-pill paid";
-              statusTextEl.textContent = "Paid – your magnets are in the queue.";
+            const okStatuses = ["paid", "printing", "shipped", "completed"];
+
+            if (okStatuses.includes(status)) {
+              statusPillEl.className = "status-pill ok";
+              statusTextEl.textContent = status;
               helperTextEl.textContent =
-                "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly and will email you once they’re ready to ship.";
+                status === "paid"
+                  ? "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly."
+                  : "Your order is in progress. Check back here any time to see the latest status.";
               return;
             }
 
-            // Not yet paid (e.g. checkout_created, pending, etc.)
+            // Still pending (e.g. checkout_created)
             statusPillEl.className = "status-pill pending";
             statusTextEl.textContent = status;
 

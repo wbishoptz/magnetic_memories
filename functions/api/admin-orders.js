@@ -2,9 +2,6 @@
 // GET /api/admin-orders
 //    -> ?key=ADMIN_DASH_KEY          (required)
 //    -> optional ?orderId=<uuid>     (for full details of a single order)
-//
-// If orderId is not provided, returns a list of orders with summary fields.
-// If orderId is provided, returns full order JSON.
 
 export const onRequestGet = async ({ request, env }) => {
   try {
@@ -12,7 +9,6 @@ export const onRequestGet = async ({ request, env }) => {
     const key = url.searchParams.get("key");
     const orderId = url.searchParams.get("orderId");
 
-    // --- Simple admin authentication ---
     if (!key || key !== env.ADMIN_DASH_KEY) {
       return json({ error: "Unauthorized" }, 401);
     }
@@ -28,7 +24,7 @@ export const onRequestGet = async ({ request, env }) => {
       );
     }
 
-    // --- Single order details ---
+    // Single order
     if (orderId) {
       const kvKey = `order:${orderId}`;
       const raw = await ordersKV.get(kvKey);
@@ -40,9 +36,8 @@ export const onRequestGet = async ({ request, env }) => {
       return json({ order });
     }
 
-    // --- List all orders (summary) ---
-    // We assume volume is small; if it grows we can paginate.
-    let cursor = undefined;
+    // List all orders (summary)
+    let cursor;
     const allKeys = [];
     const prefix = "order:";
 
@@ -56,7 +51,6 @@ export const onRequestGet = async ({ request, env }) => {
       cursor = res.list_complete ? undefined : res.cursor;
     } while (cursor && allKeys.length < 1000);
 
-    // Fetch and summarise each order
     const summaries = [];
 
     for (const keyInfo of allKeys) {
@@ -74,12 +68,10 @@ export const onRequestGet = async ({ request, env }) => {
           createdAt: order.createdAt || null,
         });
       } catch (e) {
-        // Don't crash the whole list for one bad record
         console.warn("Failed to parse order key:", keyInfo.name, e);
       }
     }
 
-    // Sort newest first by createdAt (if available)
     summaries.sort((a, b) => {
       if (!a.createdAt && !b.createdAt) return 0;
       if (!a.createdAt) return 1;

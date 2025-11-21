@@ -143,13 +143,17 @@
         font-weight: 500;
       }
 
-      .status-pill.paid {
+      .status-pill.paid,
+      .status-pill.printing,
+      .status-pill.shipped,
+      .status-pill.completed {
         background: rgba(16, 185, 129, 0.2);
         color: #6ee7b7;
       }
 
       .status-pill.checkout_created,
-      .status-pill.pending {
+      .status-pill.pending,
+      .status-pill.draft {
         background: rgba(245, 158, 11, 0.18);
         color: #fbbf24;
       }
@@ -195,25 +199,14 @@
         max-height: 260px;
       }
 
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid #374151;
-        font-size: 11px;
-        color: #e5e7eb;
-        background: #111827;
-      }
-
       .input-inline {
         display: inline-flex;
         align-items: center;
         gap: 6px;
       }
 
-      .input-inline input {
+      .input-inline input,
+      .input-inline select {
         background: #020617;
         border-radius: 999px;
         border: 1px solid #374151;
@@ -233,6 +226,11 @@
         color: #f9fafb;
       }
 
+      .input-inline button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
       .tag {
         display: inline-flex;
         align-items: center;
@@ -249,6 +247,39 @@
         justify-content: space-between;
         align-items: center;
         gap: 8px;
+      }
+
+      .images-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .image-thumb {
+        width: 90px;
+      }
+
+      .image-thumb img {
+        width: 100%;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #1f2933;
+        background: #020617;
+        display: block;
+      }
+
+      .image-thumb a {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        color: #93c5fd;
+        text-decoration: none;
+      }
+
+      .image-thumb a:hover {
+        text-decoration: underline;
       }
 
       @media (max-width: 900px) {
@@ -332,7 +363,6 @@
       let orders = [];
       let selectedOrderId = null;
 
-      // Try to get key from URL or localStorage
       (function initKey() {
         const urlParams = new URLSearchParams(window.location.search);
         const fromUrl = urlParams.get("key");
@@ -497,9 +527,23 @@
           html += `<div class="field-value">${order.orderId || orderId}</div>`;
 
           html += `<div class="field-label">Status</div>`;
-          html += `<div class="field-value"><span class="${statusClass}">${
-            order.status
-          }</span></div>`;
+          html += `<div class="field-value">
+              <span class="${statusClass}" id="status-pill-detail">${order.status}</span>
+            </div>`;
+
+          html += `<div class="field-value">
+              <div class="input-inline">
+                <select id="status-select">
+                  <option value="paid">paid</option>
+                  <option value="printing">printing</option>
+                  <option value="shipped">shipped</option>
+                  <option value="completed">completed</option>
+                  <option value="checkout_created">checkout_created</option>
+                  <option value="draft">draft</option>
+                </select>
+                <button id="status-update-btn">Update status</button>
+              </div>
+            </div>`;
 
           html += `<div class="field-label">Customer</div>`;
           html += `<div class="field-value">${
@@ -524,6 +568,9 @@
             html += `<div class="field-value">${order.stripePaymentIntentId}</div>`;
           }
 
+          html += `<div class="field-label">Images</div>`;
+          html += `<div class="field-value" id="images-container">Loading images…</div>`;
+
           html += `<div class="field-label">Raw JSON</div>`;
           html += `<pre class="json">${escapeHtml(
             JSON.stringify(order, null, 2)
@@ -531,11 +578,118 @@
 
           detailsContainer.innerHTML = html;
           detailsSubtitle.textContent = "Full order payload";
+
+          // Status select setup
+          const statusSelect = document.getElementById("status-select");
+          const statusUpdateBtn = document.getElementById("status-update-btn");
+          const statusPillDetail =
+            document.getElementById("status-pill-detail");
+
+          if (statusSelect) {
+            if (
+              Array.from(statusSelect.options).some(
+                (o) => o.value === order.status
+              )
+            ) {
+              statusSelect.value = order.status;
+            } else {
+              statusSelect.value = "paid";
+            }
+
+            statusUpdateBtn.addEventListener("click", async () => {
+              const newStatus = statusSelect.value;
+              statusUpdateBtn.disabled = true;
+              statusUpdateBtn.textContent = "Updating…";
+              try {
+                const res = await fetch(
+                  `/api/admin-order-update?key=${encodeURIComponent(
+                    adminKey
+                  )}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ orderId, status: newStatus }),
+                  }
+                );
+
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+                const updated = data.order;
+
+                statusPillDetail.textContent = updated.status;
+                statusPillDetail.className =
+                  "status-pill " +
+                  (updated.status
+                    ? updated.status.replace(/\s+/g, "_")
+                    : "unknown");
+
+                // Update in orders list and re-render
+                const idx = orders.findIndex((o) => o.orderId === orderId);
+                if (idx !== -1) {
+                  orders[idx].status = updated.status;
+                  renderOrders();
+                }
+              } catch (err) {
+                console.error("Failed to update status", err);
+                alert("Failed to update status – see console.");
+              } finally {
+                statusUpdateBtn.disabled = false;
+                statusUpdateBtn.textContent = "Update status";
+              }
+            });
+          }
+
+          // Load images
+          loadOrderImages(orderId);
         } catch (err) {
           console.error("Failed to load order details", err);
           detailsContainer.innerHTML =
             '<div class="empty-state">Error loading order details.</div>';
           detailsSubtitle.textContent = "Error";
+        }
+      }
+
+      async function loadOrderImages(orderId) {
+        const container = document.getElementById("images-container");
+        if (!container) return;
+
+        container.textContent = "Loading images…";
+
+        try {
+          const res = await fetch(
+            `/api/admin-order-images?orderId=${encodeURIComponent(
+              orderId
+            )}&key=${encodeURIComponent(adminKey)}`,
+            { cache: "no-store" }
+          );
+
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const images = data.images || [];
+
+          if (!images.length) {
+            container.textContent = "No images found for this order.";
+            return;
+          }
+
+          let html = '<div class="images-grid">';
+          for (const img of images) {
+            const key = encodeURIComponent(img.key);
+            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(
+              orderId
+            )}&objectKey=${key}&key=${encodeURIComponent(adminKey)}`;
+            const dlUrl = `${imgUrl}&download=1`;
+
+            html += `<div class="image-thumb">
+              <img src="${imgUrl}" alt="${img.filename}" />
+              <a href="${dlUrl}">Download</a>
+            </div>`;
+          }
+          html += "</div>";
+          container.innerHTML = html;
+        } catch (err) {
+          console.error("Failed to load images", err);
+          container.textContent = "Error loading images.";
         }
       }
 
