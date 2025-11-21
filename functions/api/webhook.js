@@ -5,9 +5,9 @@
 //  - ORDERS_KV
 //  - RESEND_API_KEY
 //  - RESEND_FROM_EMAIL
-//  - NOTIFY_EMAIL
+//  - NOTIFY_EMAIL      (comma-separated list for internal notifications)
 //  - TELEGRAM_BOT_TOKEN
-//  - TELEGRAM_CHAT_ID
+//  - TELEGRAM_CHAT_ID  (comma-separated list)
 
 export const onRequestPost = async ({ request, env }) => {
   let rawBody = "";
@@ -25,16 +25,16 @@ export const onRequestPost = async ({ request, env }) => {
 
     // --- Extract orderId ---
 
-    // 1) Ideal: from metadata (future-proof if we add it)
+    // 1) Ideal: from metadata
     let orderId = session.metadata?.orderId;
 
-    // 2) Fallback: parse from success_url / cancel_url query (current setup)
+    // 2) Fallback: parse from success_url / cancel_url query
     if (!orderId && session.success_url) {
       try {
         const u = new URL(session.success_url);
         orderId = u.searchParams.get("orderId") || orderId;
       } catch {
-        // ignore parse error
+        // ignore
       }
     }
     if (!orderId && session.cancel_url) {
@@ -85,10 +85,11 @@ export const onRequestPost = async ({ request, env }) => {
       expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });
 
-    // --- IMPORTANT: actually wait for notifications to finish ---
+    // --- Wait for all notifications (customer + internal + telegram) ---
 
     await Promise.allSettled([
       sendPaidEmail(order, env),
+      sendAdminEmail(order, env),
       sendPaidTelegram(order, env),
     ]);
 
@@ -107,7 +108,16 @@ function json(body, status = 200) {
   });
 }
 
-// ------------- EMAIL (Resend) -------------
+// ---------- Helpers ----------
+
+function buildTotalText(order) {
+  if (typeof order.price === "number") {
+    return "£" + order.price.toFixed(2);
+  }
+  return "£" + (order.price ?? "");
+}
+
+// ------------- CUSTOMER EMAIL (Resend) -------------
 
 async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
@@ -115,18 +125,14 @@ async function sendPaidEmail(order, env) {
 
   if (!apiKey || !from || !order.email) {
     console.log(
-      "Skipping paid email – missing RESEND config or order email",
+      "Skipping paid CUSTOMER email – missing RESEND config or order email",
       { hasApiKey: !!apiKey, hasFrom: !!from, email: order.email }
     );
     return;
   }
 
   const subject = "We’ve received your Magnetic Memories order";
-
-  const totalText =
-    typeof order.price === "number"
-      ? "£" + order.price.toFixed(2)
-      : "£" + (order.price ?? "");
+  const totalText = buildTotalText(order);
 
   const html = `
     <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
@@ -159,6 +165,85 @@ async function sendPaidEmail(order, env) {
     body: JSON.stringify({
       from,
       to: [order.email],
+      subject,
+      html,
+    }),
+  });
+}
+
+// ------------- ADMIN / INTERNAL EMAIL (Resend) -------------
+
+async function sendAdminEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  const notifyRaw = env.NOTIFY_EMAIL || "";
+
+  const recipients = notifyRaw
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (!apiKey || !from || recipients.length === 0) {
+    console.log("Skipping ADMIN email – missing RESEND/NOTIFY_EMAIL config", {
+      hasApiKey: !!apiKey,
+      hasFrom: !!from,
+      recipients,
+    });
+    return;
+  }
+
+  const subject = `New paid order – ${order.orderId}`;
+  const totalText = buildTotalText(order);
+
+  const customerEmail = order.email || order.customer?.email || "Unknown";
+
+  const html = `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <h2>New paid order</h2>
+      <p>A customer has just completed a Stripe checkout.</p>
+      <p>
+        <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Status:</strong> ${order.status}<br/>
+        <strong>Customer email:</strong> ${customerEmail}<br/>
+        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
+        <strong>Total:</strong> ${totalText}<br/>
+        <strong>Created:</strong> ${order.createdAt || ""}<br/>
+        <strong>Paid at:</strong> ${order.paidAt || ""}<br/>
+      </p>
+      <p>
+        <strong>Stripe session:</strong> ${order.stripeSessionId || ""}<br/>
+        <strong>Payment intent:</strong> ${order.stripePaymentIntentId || ""}<br/>
+      </p>
+      <p>
+        Admin dashboard:<br/>
+        <a href="https://magnetic-memories.pages.dev/admin.html">
+          Open admin dashboard
+        </a>
+      </p>
+      <p>
+        Customer tracking page:<br/>
+        <a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(
+          order.orderId
+        )}">
+          View customer order page
+        </a>
+      </p>
+      <hr/>
+      <p style="font-size: 12px; color: #888;">
+        This email was sent to: ${recipients.join(", ")}
+      </p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: recipients,
       subject,
       html,
     }),
