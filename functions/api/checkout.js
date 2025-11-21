@@ -10,8 +10,20 @@ export const onRequestPost = async ({ request, env }) => {
       return json({ error: "orderId is required" }, 400);
     }
 
-    // Load order from KV (adjust ORDERS binding name if needed)
-    const raw = await env.ORDERS.get(orderId);
+    // Use your KV binding name from Cloudflare: ORDERS_KV
+    const ordersKV = env.ORDERS_KV;
+    if (!ordersKV) {
+      return json(
+        {
+          error:
+            "ORDERS_KV binding missing. Check Pages → Settings → Functions → KV namespaces.",
+        },
+        500
+      );
+    }
+
+    // Load order from KV
+    const raw = await ordersKV.get(orderId);
     if (!raw) return json({ error: "Order not found" }, 404);
 
     const order = JSON.parse(raw);
@@ -23,33 +35,37 @@ export const onRequestPost = async ({ request, env }) => {
     const amount = priceMap[packSize];
     if (!amount) return json({ error: "Unsupported pack size" }, 400);
 
-    // Update order status (optional)
+    // Optional: update status
     order.status = "checkout_created";
-    await env.ORDERS.put(orderId, JSON.stringify(order), {
+    await ordersKV.put(orderId, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 7,
     });
 
     const origin = new URL(request.url).origin;
-    const successUrl = `${origin}/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
-    const cancelUrl  = `${origin}/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
+    const successUrl = `${origin}/return.html?status=success&orderId=${encodeURIComponent(
+      orderId
+    )}`;
+    const cancelUrl = `${origin}/return.html?status=cancel&orderId=${encodeURIComponent(
+      orderId
+    )}`;
 
-    // Build Stripe Checkout Session request
     const params = new URLSearchParams();
-
     params.set("mode", "payment");
     params.set("success_url", successUrl);
     params.set("cancel_url", cancelUrl);
     if (email) params.set("customer_email", email);
-
     params.set("billing_address_collection", "auto");
     params.set("allow_promotion_codes", "true");
 
-    // Single line item, inline price
+    // One line item with inline price data
     params.set("line_items[0][price_data][currency]", "gbp");
     params.set("line_items[0][price_data][unit_amount]", String(amount));
-    params.set("line_items[0][price_data][product_data][name]", `${packSize} Photo Magnets`);
     params.set(
-      "line_items[0][price_data][product_data][description]",
+      "line_items[0][price_data][product_data][name]",
+      `${packSize} Photo Magnets`
+    );
+    params.set(
+      "line_items[0][price_data][product_data][description]`,
       "50×50mm magnets, cropped by customer"
     );
     params.set("line_items[0][quantity]", "1");
@@ -71,16 +87,19 @@ export const onRequestPost = async ({ request, env }) => {
 
     const session = await stripeRes.json();
 
-    // Store session id (optional but useful)
+    // Store session id back on order (optional)
     order.stripeSessionId = session.id;
-    await env.ORDERS.put(orderId, JSON.stringify(order), {
+    await ordersKV.put(orderId, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 7,
     });
 
     return json({ checkoutUrl: session.url });
   } catch (err) {
     console.error(err);
-    return json({ error: err.message || "Failed to create Stripe checkout" }, 500);
+    return json(
+      { error: err.message || "Failed to create Stripe checkout" },
+      500
+    );
   }
 };
 

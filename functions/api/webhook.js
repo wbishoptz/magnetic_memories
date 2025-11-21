@@ -24,7 +24,6 @@ export const onRequestPost = async ({ request, env }) => {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
 
-      // We encoded orderId in the success_url query string
       let orderId = null;
       try {
         const successUrl = session.success_url || "";
@@ -35,27 +34,31 @@ export const onRequestPost = async ({ request, env }) => {
       }
 
       if (orderId) {
-        const raw = await env.ORDERS.get(orderId);
-        if (raw) {
-          const order = JSON.parse(raw);
-          order.status = "paid";
-          order.stripeSessionId = session.id;
-          order.stripePaymentIntentId = session.payment_intent || null;
+        const ordersKV = env.ORDERS_KV; // use your binding name
+        if (ordersKV) {
+          const raw = await ordersKV.get(orderId);
+          if (raw) {
+            const order = JSON.parse(raw);
+            order.status = "paid";
+            order.stripeSessionId = session.id;
+            order.stripePaymentIntentId = session.payment_intent || null;
 
-          await env.ORDERS.put(orderId, JSON.stringify(order), {
-            expirationTtl: 60 * 60 * 24 * 30,
-          });
+            await ordersKV.put(orderId, JSON.stringify(order), {
+              expirationTtl: 60 * 60 * 24 * 30,
+            });
 
-          console.log("Order marked paid:", orderId);
+            console.log("Order marked paid:", orderId);
+          } else {
+            console.warn("Order not found for webhook:", orderId);
+          }
         } else {
-          console.warn("Order not found for webhook:", orderId);
+          console.error("ORDERS_KV binding missing in webhook");
         }
       } else {
         console.warn("No orderId found in success_url");
       }
     }
 
-    // You can add more handlers here for other event types if needed
     return new Response("ok", { status: 200 });
   } catch (err) {
     console.error("Webhook error:", err);
@@ -63,7 +66,7 @@ export const onRequestPost = async ({ request, env }) => {
   }
 };
 
-// -------- Stripe signature verification (async, Workers-safe) --------
+// ---------- Stripe signature verification (async, Workers-safe) ----------
 
 async function verifyStripeSignatureAsync(payload, header, secret) {
   // header example: "t=1698770206,v1=abcdef...,v1=..."
