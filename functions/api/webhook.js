@@ -9,7 +9,7 @@
 //  - stores Stripe session/payment IDs
 //  - sends:
 //      * email to customer (if RESEND_API_KEY etc. configured)
-//      * email to you (NOTIFY_EMAIL)
+//      * email(s) to you (NOTIFY_EMAIL can be a comma-separated list)
 //      * Telegram message (if TELEGRAM_* configured)
 
 export const onRequestPost = async ({ request, env }) => {
@@ -98,6 +98,8 @@ async function notifyAll(order, env) {
   ]);
 }
 
+// -------- Customer email --------
+
 async function sendCustomerEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -136,12 +138,26 @@ async function sendCustomerEmail(order, env) {
   });
 }
 
+// -------- Owner / admin email(s) --------
+
 async function sendOwnerEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
-  const to = env.NOTIFY_EMAIL;
-  if (!apiKey || !from || !to) {
+  const notify = env.NOTIFY_EMAIL;
+
+  if (!apiKey || !from || !notify) {
     console.log("Skipping owner email – missing config");
+    return;
+  }
+
+  // Support multiple addresses in NOTIFY_EMAIL separated by commas
+  const recipients = notify
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    console.log("Skipping owner email – NOTIFY_EMAIL is empty after parsing");
     return;
   }
 
@@ -168,12 +184,14 @@ async function sendOwnerEmail(order, env) {
     },
     body: JSON.stringify({
       from,
-      to: [to],
+      to: recipients,
       subject,
       html,
     }),
   });
 }
+
+// -------- Telegram notification --------
 
 async function sendTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
