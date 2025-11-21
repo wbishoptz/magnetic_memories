@@ -110,6 +110,74 @@
           transform: rotate(360deg);
         }
       }
+
+      .progress {
+        margin-top: 18px;
+      }
+
+      .progress-track {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .progress-step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+      }
+
+      .progress-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        border: 2px solid #374151;
+        background: #020617;
+        margin: 0 auto;
+      }
+
+      .progress-step.done .progress-dot {
+        background: #16a34a;
+        border-color: #16a34a;
+      }
+
+      .progress-step.current .progress-dot {
+        background: #22c55e;
+        border-color: #22c55e;
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+      }
+
+      .progress-label {
+        margin-top: 6px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9ca3af;
+      }
+
+      .progress-step.done .progress-label,
+      .progress-step.current .progress-label {
+        color: #d1fae5;
+      }
+
+      .progress-line {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        right: -50%;
+        height: 2px;
+        background: #1f2937;
+        z-index: -1;
+      }
+
+      .progress-step:last-child .progress-line {
+        display: none;
+      }
+
+      .progress-step.done .progress-line {
+        background: #16a34a;
+      }
     </style>
   </head>
   <body>
@@ -132,6 +200,30 @@
           </div>
         </div>
 
+        <div class="progress">
+          <div class="progress-track">
+            <div class="progress-step" data-step="paid">
+              <div class="progress-dot"></div>
+              <div class="progress-line"></div>
+              <div class="progress-label">Paid</div>
+            </div>
+            <div class="progress-step" data-step="printing">
+              <div class="progress-dot"></div>
+              <div class="progress-line"></div>
+              <div class="progress-label">Printing</div>
+            </div>
+            <div class="progress-step" data-step="shipped">
+              <div class="progress-dot"></div>
+              <div class="progress-line"></div>
+              <div class="progress-label">Shipped</div>
+            </div>
+            <div class="progress-step" data-step="completed">
+              <div class="progress-dot"></div>
+              <div class="progress-label">Complete</div>
+            </div>
+          </div>
+        </div>
+
         <p class="helper" id="helper-text">
           You can safely close this page – we'll still finish your magnets even
           if you leave. This page just shows the latest status from our system.
@@ -147,6 +239,9 @@
       const statusPillEl = document.getElementById("status-pill");
       const statusTextEl = document.getElementById("status-text");
       const helperTextEl = document.getElementById("helper-text");
+      const progressSteps = Array.from(
+        document.querySelectorAll(".progress-step")
+      );
 
       if (!orderId) {
         orderIdEl.textContent = "Missing orderId in URL.";
@@ -155,6 +250,25 @@
       } else {
         orderIdEl.textContent = orderId;
         pollStatus(orderId);
+      }
+
+      function updateProgress(status) {
+        const order = ["paid", "printing", "shipped", "completed"];
+        const idx = order.indexOf(status);
+
+        progressSteps.forEach((stepEl) => {
+          const step = stepEl.dataset.step;
+          const stepIdx = order.indexOf(step);
+          stepEl.classList.remove("done", "current");
+
+          if (idx === -1) return;
+
+          if (stepIdx < idx) {
+            stepEl.classList.add("done");
+          } else if (stepIdx === idx) {
+            stepEl.classList.add("current");
+          }
+        });
       }
 
       async function pollStatus(orderId) {
@@ -182,22 +296,21 @@
             if (okStatuses.includes(status)) {
               statusPillEl.className = "status-pill ok";
               statusTextEl.textContent = status;
-              helperTextEl.textContent =
-                status === "paid"
-                  ? "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly."
-                  : "Your order is in progress. Check back here any time to see the latest status.";
+              updateProgress(status);
+              helperTextEl.textContent = getHelperText(status);
               return;
             }
 
-            // Still pending (e.g. checkout_created)
+            // still pending (e.g. checkout_created)
             statusPillEl.className = "status-pill pending";
             statusTextEl.textContent = status;
+            updateProgress("paid"); // show at least "paid" once we know about the order
 
             if (attempts < maxAttempts) {
               setTimeout(check, delayMs);
             } else {
               helperTextEl.textContent =
-                "We couldn't confirm payment automatically. If you see this message but Stripe shows the payment as completed, please contact us with your order ID.";
+                "We couldn't confirm payment automatically. If Stripe shows the payment as completed, please contact us with your order ID.";
             }
           } catch (err) {
             console.error("Status poll error", err);
@@ -209,6 +322,21 @@
         }
 
         check();
+      }
+
+      function getHelperText(status) {
+        switch (status) {
+          case "paid":
+            return "We’ve confirmed your payment with Stripe. We’ll start preparing your magnets shortly.";
+          case "printing":
+            return "Your photos are on the print queue. Once they’re ready, we’ll ship them or arrange pickup.";
+          case "shipped":
+            return "Your magnets have left us and are on the way to you.";
+          case "completed":
+            return "This order has been fully completed. Hope you love your magnets!";
+          default:
+            return "We’ll keep this page up to date with the latest status of your order.";
+        }
       }
     </script>
   </body>

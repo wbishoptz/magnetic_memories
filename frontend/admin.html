@@ -5,6 +5,8 @@
     <title>Admin – Magnetic Memories</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/styles.css" />
+    <!-- JSZip for "Download all images" -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
       body {
         background: #050608;
@@ -87,8 +89,50 @@
         font-size: 12px;
       }
 
-      .table-wrapper {
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
         margin-top: 10px;
+        margin-bottom: 6px;
+      }
+
+      .toolbar input,
+      .toolbar select {
+        background: #020617;
+        border-radius: 999px;
+        border: 1px solid #374151;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #e5e7eb;
+      }
+
+      .toolbar input {
+        min-width: 180px;
+      }
+
+      .toolbar select {
+        min-width: 140px;
+      }
+
+      .toolbar button {
+        border-radius: 999px;
+        border: none;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        background: #111827;
+        border: 1px solid #374151;
+        color: #e5e7eb;
+      }
+
+      .toolbar button:hover {
+        background: #1f2937;
+      }
+
+      .table-wrapper {
+        margin-top: 6px;
         border-radius: 10px;
         border: 1px solid #1f2933;
         overflow: hidden;
@@ -181,6 +225,10 @@
         letter-spacing: 0.08em;
         color: #9ca3af;
         margin-bottom: 3px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
       }
 
       .field-value {
@@ -328,6 +376,28 @@
             <span class="tag" id="orders-count">0 orders</span>
           </div>
 
+          <div class="toolbar">
+            <input
+              id="search-input"
+              type="text"
+              placeholder="Search email or order ID"
+            />
+            <select id="status-filter">
+              <option value="">All statuses</option>
+              <option value="paid">paid</option>
+              <option value="printing">printing</option>
+              <option value="shipped">shipped</option>
+              <option value="completed">completed</option>
+              <option value="checkout_created">checkout_created</option>
+              <option value="draft">draft</option>
+            </select>
+            <button id="download-csv-btn">Download CSV</button>
+          </div>
+
+          <div class="toolbar" style="margin-top: 0">
+            <span class="tag" id="pack-summary">Pack summary: –</span>
+          </div>
+
           <div id="orders-container" class="table-wrapper">
             <div class="empty-state">
               Enter the admin key above to load orders.
@@ -358,11 +428,18 @@
       const ordersCountEl = document.getElementById("orders-count");
       const detailsContainer = document.getElementById("details-container");
       const detailsSubtitle = document.getElementById("details-subtitle");
+      const searchInput = document.getElementById("search-input");
+      const statusFilter = document.getElementById("status-filter");
+      const downloadCsvBtn = document.getElementById("download-csv-btn");
+      const packSummaryEl = document.getElementById("pack-summary");
 
       let adminKey = null;
       let orders = [];
+      let filteredOrders = [];
       let selectedOrderId = null;
+      let lastImagesForOrder = {}; // orderId -> images[]
 
+      // ----- init key from URL or local storage -----
       (function initKey() {
         const urlParams = new URLSearchParams(window.location.search);
         const fromUrl = urlParams.get("key");
@@ -397,6 +474,59 @@
         loadOrders();
       });
 
+      searchInput.addEventListener("input", applyFilters);
+      statusFilter.addEventListener("change", applyFilters);
+
+      downloadCsvBtn.addEventListener("click", () => {
+        if (!filteredOrders.length) {
+          alert("No orders to export.");
+          return;
+        }
+        const rows = [
+          [
+            "orderId",
+            "email",
+            "packSize",
+            "price",
+            "status",
+            "createdAt",
+          ],
+        ];
+        for (const o of filteredOrders) {
+          rows.push([
+            o.orderId,
+            o.email || "",
+            o.packSize ?? "",
+            o.price ?? "",
+            o.status || "",
+            o.createdAt || "",
+          ]);
+        }
+        const csv = rows
+          .map((r) =>
+            r
+              .map((v) =>
+                String(v)
+                  .replace(/"/g, '""')
+                  .includes(",")
+                  ? `"${String(v).replace(/"/g, '""')}"`
+                  : String(v)
+              )
+              .join(",")
+          )
+          .join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "magnetic-memories-orders.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
       async function loadOrders() {
         if (!adminKey) return;
 
@@ -428,7 +558,7 @@
 
           const data = await res.json();
           orders = data.orders || [];
-          renderOrders();
+          applyFilters(); // sets filteredOrders + renders + pack summary
         } catch (err) {
           console.error("Failed to load orders", err);
           ordersContainer.innerHTML =
@@ -437,10 +567,56 @@
         }
       }
 
-      function renderOrders() {
+      function applyFilters() {
+        const q = searchInput.value.trim().toLowerCase();
+        const statusVal = statusFilter.value;
+
+        filteredOrders = orders.filter((o) => {
+          if (statusVal && o.status !== statusVal) return false;
+
+          if (!q) return true;
+
+          const haystack = `${o.orderId || ""} ${o.email || ""}`.toLowerCase();
+          return haystack.includes(q);
+        });
+
+        renderOrders();
+        updatePackSummary();
+      }
+
+      function updatePackSummary() {
         if (!orders.length) {
+          packSummaryEl.textContent = "Pack summary: –";
+          return;
+        }
+
+        const counts = new Map();
+        for (const o of orders) {
+          if (!o.packSize) continue;
+          const k = String(o.packSize);
+          counts.set(k, (counts.get(k) || 0) + 1);
+        }
+
+        if (!counts.size) {
+          packSummaryEl.textContent = "Pack summary: –";
+          return;
+        }
+
+        const parts = [];
+        const sorted = Array.from(counts.entries()).sort(
+          (a, b) => Number(a[0]) - Number(b[0])
+        );
+        for (const [size, count] of sorted) {
+          parts.push(`${count}× ${size}-pack`);
+        }
+
+        packSummaryEl.textContent = "Pack summary: " + parts.join(" · ");
+      }
+
+      function renderOrders() {
+        if (!filteredOrders.length) {
           ordersContainer.innerHTML =
-            '<div class="empty-state">No orders found yet.</div>';
+            '<div class="empty-state">No orders match your filters.</div>';
           ordersSubtitle.textContent = "No orders";
           ordersCountEl.textContent = "0 orders";
           return;
@@ -448,13 +624,15 @@
 
         ordersSubtitle.textContent = "Newest first";
         ordersCountEl.textContent =
-          orders.length === 1 ? "1 order" : `${orders.length} orders`;
+          filteredOrders.length === 1
+            ? "1 order"
+            : `${filteredOrders.length} orders`;
 
         let html = '<div class="table-wrapper"><table><thead><tr>';
         html += "<th>Created</th><th>Status</th><th>Email</th><th>Pack</th><th>£</th>";
         html += "</tr></thead><tbody>";
 
-        for (const o of orders) {
+        for (const o of filteredOrders) {
           const created = o.createdAt
             ? new Date(o.createdAt).toLocaleString()
             : "–";
@@ -568,7 +746,10 @@
             html += `<div class="field-value">${order.stripePaymentIntentId}</div>`;
           }
 
-          html += `<div class="field-label">Images</div>`;
+          html += `<div class="field-label">
+              <span>Images</span>
+              <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download all</button>
+            </div>`;
           html += `<div class="field-value" id="images-container">Loading images…</div>`;
 
           html += `<div class="field-label">Raw JSON</div>`;
@@ -623,11 +804,10 @@
                     ? updated.status.replace(/\s+/g, "_")
                     : "unknown");
 
-                // Update in orders list and re-render
                 const idx = orders.findIndex((o) => o.orderId === orderId);
                 if (idx !== -1) {
                   orders[idx].status = updated.status;
-                  renderOrders();
+                  applyFilters();
                 }
               } catch (err) {
                 console.error("Failed to update status", err);
@@ -639,8 +819,14 @@
             });
           }
 
-          // Load images
-          loadOrderImages(orderId);
+          // Load images + hook up "Download all"
+          await loadOrderImages(orderId);
+          const downloadAllBtn = document.getElementById("download-all-btn");
+          if (downloadAllBtn) {
+            downloadAllBtn.addEventListener("click", () =>
+              downloadAllImages(orderId)
+            );
+          }
         } catch (err) {
           console.error("Failed to load order details", err);
           detailsContainer.innerHTML =
@@ -666,6 +852,7 @@
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const images = data.images || [];
+          lastImagesForOrder[orderId] = images;
 
           if (!images.length) {
             container.textContent = "No images found for this order.";
@@ -690,6 +877,52 @@
         } catch (err) {
           console.error("Failed to load images", err);
           container.textContent = "Error loading images.";
+        }
+      }
+
+      async function downloadAllImages(orderId) {
+        const images = lastImagesForOrder[orderId] || [];
+        if (!images.length) {
+          alert("No images found for this order.");
+          return;
+        }
+
+        if (!window.JSZip) {
+          alert("JSZip not loaded, cannot create zip.");
+          return;
+        }
+
+        const zip = new JSZip();
+        const folder = zip.folder(orderId) || zip;
+
+        try {
+          for (const img of images) {
+            const keyEnc = encodeURIComponent(img.key);
+            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(
+              orderId
+            )}&objectKey=${keyEnc}&key=${encodeURIComponent(adminKey)}`;
+            const res = await fetch(imgUrl);
+            if (!res.ok) {
+              console.warn("Failed to fetch image", img.key);
+              continue;
+            }
+            const blob = await res.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            folder.file(img.filename || "image.jpg", arrayBuffer);
+          }
+
+          const content = await zip.generateAsync({ type: "blob" });
+          const url = URL.createObjectURL(content);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${orderId}-images.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error("Download all failed", err);
+          alert("Failed to build zip – see console.");
         }
       }
 

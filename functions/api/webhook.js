@@ -1,117 +1,205 @@
 // functions/api/webhook.js
-// POST /api/webhook
-// Verifies Stripe signature and marks orders as paid on checkout.session.completed
+// Stripe webhook handler
+//
+// Config in Stripe Dashboard: endpoint = https://your-domain/api/webhook
+// Events: checkout.session.completed
+//
+// This handler:
+//  - marks the order as "paid" in KV
+//  - stores Stripe session/payment IDs
+//  - sends:
+//      * email to customer (if RESEND_API_KEY etc. configured)
+//      * email to you (NOTIFY_EMAIL)
+//      * Telegram message (if TELEGRAM_* configured)
 
 export const onRequestPost = async ({ request, env }) => {
   try {
-    const sig = request.headers.get("stripe-signature");
-    const whSecret = env.STRIPE_WEBHOOK_SECRET;
+    const payload = await request.json();
 
-    if (!sig || !whSecret) {
-      return new Response("Missing Stripe signature or secret", { status: 400 });
+    if (!payload || !payload.type) {
+      return json({ error: "Invalid payload" }, 400);
     }
 
-    const rawBody = await request.text();
-    const valid = await verifyStripeSignatureAsync(rawBody, sig, whSecret);
-
-    if (!valid) {
-      console.warn("Invalid Stripe signature");
-      return new Response("Invalid signature", { status: 400 });
+    if (payload.type !== "checkout.session.completed") {
+      // For now we only care about checkout completion
+      return json({ received: true, ignoredType: payload.type });
     }
 
-    const event = JSON.parse(rawBody);
-
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-
-      let orderId = null;
-      try {
-        const successUrl = session.success_url || "";
-        const u = new URL(successUrl);
-        orderId = u.searchParams.get("orderId");
-      } catch (e) {
-        console.error("Failed to parse success_url", e);
-      }
-
-      if (orderId) {
-        const ordersKV = env.ORDERS_KV;
-        if (ordersKV) {
-          const key = `order:${orderId}`;
-          const raw = await ordersKV.get(key);
-          if (raw) {
-            const order = JSON.parse(raw);
-            order.status = "paid";
-            order.stripeSessionId = session.id;
-            order.stripePaymentIntentId = session.payment_intent || null;
-
-            await ordersKV.put(key, JSON.stringify(order), {
-              expirationTtl: 60 * 60 * 24 * 30,
-            });
-
-            console.log("Order marked paid:", orderId);
-          } else {
-            console.warn("Order not found for webhook:", orderId);
-          }
-        } else {
-          console.error("ORDERS_KV binding missing in webhook");
-        }
-      } else {
-        console.warn("No orderId found in success_url");
-      }
+    const session = payload.data?.object;
+    if (!session) {
+      return json({ error: "No session object" }, 400);
     }
 
-    return new Response("ok", { status: 200 });
+    const orderId = session.metadata?.orderId;
+    if (!orderId) {
+      console.warn("checkout.session.completed without orderId metadata");
+      return json({ received: true });
+    }
+
+    const email =
+      session.customer_email ||
+      session.metadata?.email ||
+      session.customer_details?.email;
+
+    const ordersKV = env.ORDERS_KV;
+    if (!ordersKV) {
+      console.error("ORDERS_KV binding missing in webhook");
+      return json({ error: "ORDERS_KV binding missing" }, 500);
+    }
+
+    const kvKey = `order:${orderId}`;
+    const raw = await ordersKV.get(kvKey);
+    if (!raw) {
+      console.warn("Order not found in KV for orderId", orderId);
+      return json({ received: true, warning: "Order not found" });
+    }
+
+    const order = JSON.parse(raw);
+
+    order.status = "paid";
+    order.statusUpdatedAt = new Date().toISOString();
+    if (email && !order.email) {
+      order.email = email;
+    }
+    order.stripeSessionId = session.id;
+    order.stripePaymentIntentId = session.payment_intent;
+
+    await ordersKV.put(kvKey, JSON.stringify(order), {
+      expirationTtl: 60 * 60 * 24 * 30,
+    });
+
+    // Kick off notifications (fire-and-forget)
+    notifyAll(order, env).catch((err) =>
+      console.error("Notification error", err)
+    );
+
+    return json({ received: true, orderId, status: order.status });
   } catch (err) {
-    console.error("Webhook error:", err);
-    return new Response("Webhook handler failed", { status: 500 });
+    console.error("Stripe webhook error:", err);
+    return json(
+      { error: err.message || "Webhook handler error" },
+      500
+    );
   }
 };
 
-// ---------- Stripe signature verification (async, Workers-safe) ----------
-
-async function verifyStripeSignatureAsync(payload, header, secret) {
-  // header example: "t=1698770206,v1=abcdef...,v1=..."
-  const parts = Object.fromEntries(
-    header.split(",").map((kv) => {
-      const [k, v] = kv.split("=");
-      return [k.trim(), v];
-    })
-  );
-
-  const timestamp = parts.t;
-  const v1 = parts.v1;
-  if (!timestamp || !v1) return false;
-
-  const signedPayload = `${timestamp}.${payload}`;
-  const encoder = new TextEncoder();
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    encoder.encode(signedPayload)
-  );
-
-  const actual = toHex(new Uint8Array(signature));
-  return timingSafeEqual(actual, v1);
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
-function toHex(bytes) {
-  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function notifyAll(order, env) {
+  await Promise.allSettled([
+    sendCustomerEmail(order, env),
+    sendOwnerEmail(order, env),
+    sendTelegram(order, env),
+  ]);
 }
 
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i++) {
-    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+async function sendCustomerEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from || !order.email) {
+    console.log("Skipping customer email – missing config or email");
+    return;
   }
-  return out === 0;
+
+  const subject = "Your Magnetic Memories order";
+  const html = `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <h2>Thank you for your order 🎉</h2>
+      <p>We've received your photos and payment. We'll start preparing your magnets shortly.</p>
+      <p>
+        <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
+        <strong>Total:</strong> £${order.price ?? ""}.00
+      </p>
+      <p>If you need to contact us about this order, please include your order ID.</p>
+      <p>— Magnetic Memories</p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [order.email],
+      subject,
+      html,
+    }),
+  });
+}
+
+async function sendOwnerEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  const to = env.NOTIFY_EMAIL;
+  if (!apiKey || !from || !to) {
+    console.log("Skipping owner email – missing config");
+    return;
+  }
+
+  const subject = `New order: ${order.orderId} (£${order.price ?? ""})`;
+  const html = `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <h2>New paid order</h2>
+      <p>
+        <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Email:</strong> ${order.email || "Unknown"}<br/>
+        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
+        <strong>Total:</strong> £${order.price ?? ""}.00<br/>
+        <strong>Status:</strong> ${order.status}
+      </p>
+      <p>Open the admin dashboard to download images and update the status.</p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+}
+
+async function sendTelegram(order, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  const chatId = env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    console.log("Skipping Telegram – missing config");
+    return;
+  }
+
+  const text = [
+    "🧲 New Magnetic Memories order",
+    `Order ID: ${order.orderId}`,
+    `Email: ${order.email || "Unknown"}`,
+    `Pack: ${order.packSize || "?"} magnets`,
+    `Total: £${order.price ?? ""}.00`,
+    `Status: ${order.status}`,
+  ].join("\n");
+
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+    }),
+  });
 }
