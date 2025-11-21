@@ -1,14 +1,15 @@
 // functions/api/test-telegram.js
-// GET /api/test-telegram?key=ADMIN_DASH_KEY[&message=Hello]
-//
+// GET /api/test-telegram?key=ADMIN_DASH_KEY[&message=Hello][&chatId=123]
+// 
 // Sends a simple test message to your Telegram chat using the bot.
-// Uses TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from env.
+// Uses TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from env, unless chatId= is passed.
 
 export const onRequestGet = async ({ request, env }) => {
   try {
     const url = new URL(request.url);
     const key = url.searchParams.get("key");
     const customMessage = url.searchParams.get("message");
+    const overrideChatId = url.searchParams.get("chatId"); // NEW
 
     // Protect with same admin key you use for the admin dashboard
     if (!key || key !== env.ADMIN_DASH_KEY) {
@@ -16,13 +17,13 @@ export const onRequestGet = async ({ request, env }) => {
     }
 
     const token = env.TELEGRAM_BOT_TOKEN;
-    const chatId = env.TELEGRAM_CHAT_ID;
+    const chatId = overrideChatId || env.TELEGRAM_CHAT_ID; // NEW
 
     if (!token || !chatId) {
       return json(
         {
           error:
-            "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in environment",
+            "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID/chatId in request/env",
         },
         500
       );
@@ -51,6 +52,7 @@ export const onRequestGet = async ({ request, env }) => {
           error: "Telegram API call failed",
           status: res.status,
           response: body,
+          usedChatId: chatId,
         },
         500
       );
