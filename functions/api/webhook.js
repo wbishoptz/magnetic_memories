@@ -1,85 +1,102 @@
+
 // functions/api/webhook.js
-// Stripe webhook handler
+// Stripe webhook handler for checkout.session.completed
 //
-// Config in Stripe Dashboard: endpoint = https://your-domain/api/webhook
-// Events: checkout.session.completed
-//
-// This handler:
-//  - marks the order as "paid" in KV
-//  - stores Stripe session/payment IDs
-//  - sends:
-//      * email to customer (if RESEND_API_KEY etc. configured)
-//      * email(s) to you (NOTIFY_EMAIL can be a comma-separated list)
-//      * Telegram message (if TELEGRAM_* configured)
+// Env used:
+//  - ORDERS_KV
+//  - RESEND_API_KEY
+//  - RESEND_FROM_EMAIL
+//  - NOTIFY_EMAIL
+//  - TELEGRAM_BOT_TOKEN
+//  - TELEGRAM_CHAT_ID
 
 export const onRequestPost = async ({ request, env }) => {
+  let rawBody = "";
   try {
-    const payload = await request.json();
+    rawBody = await request.text();
+    const event = JSON.parse(rawBody);
 
-    if (!payload || !payload.type) {
-      return json({ error: "Invalid payload" }, 400);
+    const type = event?.type;
+    const session = event?.data?.object;
+
+    if (type !== "checkout.session.completed" || !session) {
+      // Not an event we care about – just acknowledge
+      return json({ received: true, ignored: true });
     }
 
-    if (payload.type !== "checkout.session.completed") {
-      // For now we only care about checkout completion
-      return json({ received: true, ignoredType: payload.type });
+    // --- Extract orderId ---
+
+    // 1) Try metadata (best practice if we later add it in checkout.js)
+    let orderId = session.metadata?.orderId;
+
+    // 2) Fallback: parse from success_url / cancel_url query (current setup)
+    if (!orderId && session.success_url) {
+      try {
+        const u = new URL(session.success_url);
+        orderId = u.searchParams.get("orderId") || orderId;
+      } catch {
+        // ignore URL parse errors
+      }
+    }
+    if (!orderId && session.cancel_url) {
+      try {
+        const u = new URL(session.cancel_url);
+        orderId = u.searchParams.get("orderId") || orderId;
+      } catch {
+        // ignore
+      }
     }
 
-    const session = payload.data?.object;
-    if (!session) {
-      return json({ error: "No session object" }, 400);
-    }
-
-    const orderId = session.metadata?.orderId;
     if (!orderId) {
-      console.warn("checkout.session.completed without orderId metadata");
-      return json({ received: true });
+      console.error("Stripe webhook: no orderId found in session", session.id);
+      return json({ received: true, noOrderId: true });
     }
-
-    const email =
-      session.customer_email ||
-      session.metadata?.email ||
-      session.customer_details?.email;
 
     const ordersKV = env.ORDERS_KV;
     if (!ordersKV) {
-      console.error("ORDERS_KV binding missing in webhook");
-      return json({ error: "ORDERS_KV binding missing" }, 500);
+      console.error("Stripe webhook: ORDERS_KV binding missing");
+      return json({ error: "ORDERS_KV missing" }, 200);
     }
 
     const kvKey = `order:${orderId}`;
-    const raw = await ordersKV.get(kvKey);
-    if (!raw) {
-      console.warn("Order not found in KV for orderId", orderId);
-      return json({ received: true, warning: "Order not found" });
+    const rawOrder = await ordersKV.get(kvKey);
+
+    if (!rawOrder) {
+      console.error("Stripe webhook: order not found for orderId", orderId);
+      return json({ received: true, orderNotFound: true });
     }
 
-    const order = JSON.parse(raw);
+    const order = JSON.parse(rawOrder);
+
+    // --- Update order ---
 
     order.status = "paid";
-    order.statusUpdatedAt = new Date().toISOString();
-    if (email && !order.email) {
-      order.email = email;
-    }
+    order.paidAt = new Date().toISOString();
     order.stripeSessionId = session.id;
-    order.stripePaymentIntentId = session.payment_intent;
+    order.stripePaymentIntentId = session.payment_intent || order.stripePaymentIntentId;
+    order.customer = {
+      email: session.customer_details?.email || order.email,
+      name: session.customer_details?.name || null,
+      address: session.customer_details?.address || null,
+    };
 
     await ordersKV.put(kvKey, JSON.stringify(order), {
-      expirationTtl: 60 * 60 * 24 * 30,
+      expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });
 
-    // Kick off notifications (fire-and-forget)
-    notifyAll(order, env).catch((err) =>
-      console.error("Notification error", err)
+    // Fire-and-forget notifications
+    sendPaidEmail(order, env).catch((err) =>
+      console.error("Resend paid email error:", err)
+    );
+    sendPaidTelegram(order, env).catch((err) =>
+      console.error("Telegram paid notification error:", err)
     );
 
-    return json({ received: true, orderId, status: order.status });
+    return json({ received: true, updated: true });
   } catch (err) {
-    console.error("Stripe webhook error:", err);
-    return json(
-      { error: err.message || "Webhook handler error" },
-      500
-    );
+    console.error("webhook error:", err, "rawBody:", rawBody);
+    // Always 200 for Stripe (so it doesn't retry forever), but include info in body
+    return json({ error: err.message || "Webhook error", received: true });
   }
 };
 
@@ -90,35 +107,44 @@ function json(body, status = 200) {
   });
 }
 
-async function notifyAll(order, env) {
-  await Promise.allSettled([
-    sendCustomerEmail(order, env),
-    sendOwnerEmail(order, env),
-    sendTelegram(order, env),
-  ]);
-}
+// ------------- EMAIL (Resend) -------------
 
-// -------- Customer email --------
-
-async function sendCustomerEmail(order, env) {
+async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
+
   if (!apiKey || !from || !order.email) {
-    console.log("Skipping customer email – missing config or email");
+    console.log(
+      "Skipping paid email – missing RESEND config or order email",
+      { hasApiKey: !!apiKey, hasFrom: !!from, email: order.email }
+    );
     return;
   }
 
-  const subject = "Your Magnetic Memories order";
+  const subject = "We’ve received your Magnetic Memories order";
+
   const html = `
     <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-      <h2>Thank you for your order 🎉</h2>
-      <p>We've received your photos and payment. We'll start preparing your magnets shortly.</p>
+      <h2>Thanks for your order!</h2>
+      <p>We’ve received your payment and will start preparing your magnets shortly.</p>
       <p>
         <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Status:</strong> paid<br/>
         <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
-        <strong>Total:</strong> £${order.price ?? ""}.00
+        <strong>Total:</strong> ${
+          typeof order.price === "number"
+            ? "£" + order.price.toFixed(2)
+            : "£" + (order.price ?? "")
+        }
       </p>
-      <p>If you need to contact us about this order, please include your order ID.</p>
+      <p>
+        You can track your order status here:<br/>
+        <a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(
+          order.orderId
+        )}">
+          Track your order
+        </a>
+      </p>
       <p>— Magnetic Memories</p>
     </div>
   `;
@@ -138,86 +164,52 @@ async function sendCustomerEmail(order, env) {
   });
 }
 
-// -------- Owner / admin email(s) --------
+// ------------- TELEGRAM (admin group) -------------
 
-async function sendOwnerEmail(order, env) {
-  const apiKey = env.RESEND_API_KEY;
-  const from = env.RESEND_FROM_EMAIL;
-  const notify = env.NOTIFY_EMAIL;
+async function sendPaidTelegram(order, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  const chatIdsRaw = env.TELEGRAM_CHAT_ID;
+  const notifyEmail = env.NOTIFY_EMAIL || "";
 
-  if (!apiKey || !from || !notify) {
-    console.log("Skipping owner email – missing config");
+  if (!token || !chatIdsRaw) {
+    console.log("Skipping paid Telegram – missing bot config");
     return;
   }
 
-  // Support multiple addresses in NOTIFY_EMAIL separated by commas
-  const recipients = notify
+  const chatIds = chatIdsRaw
     .split(",")
-    .map((e) => e.trim())
+    .map((id) => id.trim())
     .filter(Boolean);
 
-  if (!recipients.length) {
-    console.log("Skipping owner email – NOTIFY_EMAIL is empty after parsing");
-    return;
-  }
+  if (!chatIds.length) return;
 
-  const subject = `New order: ${order.orderId} (£${order.price ?? ""})`;
-  const html = `
-    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-      <h2>New paid order</h2>
-      <p>
-        <strong>Order ID:</strong> ${order.orderId}<br/>
-        <strong>Email:</strong> ${order.email || "Unknown"}<br/>
-        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
-        <strong>Total:</strong> £${order.price ?? ""}.00<br/>
-        <strong>Status:</strong> ${order.status}
-      </p>
-      <p>Open the admin dashboard to download images and update the status.</p>
-    </div>
-  `;
-
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: recipients,
-      subject,
-      html,
-    }),
-  });
-}
-
-// -------- Telegram notification --------
-
-async function sendTelegram(order, env) {
-  const token = env.TELEGRAM_BOT_TOKEN;
-  const chatId = env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) {
-    console.log("Skipping Telegram – missing config");
-    return;
-  }
-
-  const text = [
-    "🧲 New Magnetic Memories order",
+  const emoji = "💳";
+  const lines = [
+    `${emoji} New paid order`,
     `Order ID: ${order.orderId}`,
     `Email: ${order.email || "Unknown"}`,
     `Pack: ${order.packSize || "?"} magnets`,
-    `Total: £${order.price ?? ""}.00`,
-    `Status: ${order.status}`,
-  ].join("\n");
+    typeof order.price === "number"
+      ? `Total: £${order.price.toFixed(2)}`
+      : null,
+    notifyEmail ? `Internal notify: ${notifyEmail}` : null,
+  ].filter(Boolean);
 
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: "HTML",
-    }),
-  });
+  const text = lines.join("\n");
+  const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+
+  await Promise.all(
+    chatIds.map((chatId) =>
+      fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+        }),
+      }).catch((err) =>
+        console.error("Telegram send error for chat", chatId, err)
+      )
+    )
+  );
 }
