@@ -22,17 +22,15 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Try to load the order from KV (normal path)
-    let kvRaw = null;
     let kvOrder = null;
-
     try {
-      kvRaw = await env.ORDERS_KV.get(orderId);
+      const kvRaw = await env.ORDERS_KV.get(orderId);
       if (kvRaw) kvOrder = JSON.parse(kvRaw);
     } catch (e) {
       console.error("KV get error in /api/checkout:", e);
     }
 
-    // Fallback data from body (so we still know what to charge)
+    // Fallback data coming from the request body
     const emailFromBody = String(body?.email || "").trim();
     const packSizeFromBody = Number(body?.packSize || 0) || 3;
 
@@ -72,7 +70,7 @@ export async function onRequestPost({ request, env }) {
       `${packSize} custom photo magnets`
     );
     params.append(
-      "line_items[0][price_data][product_data][description]`,
+      "line_items[0][price_data][product_data][description]",
       "50×50mm fridge magnets – printed using your uploaded photos."
     );
     params.append(
@@ -84,23 +82,29 @@ export async function onRequestPost({ request, env }) {
       params.append("customer_email", email);
     }
 
-    const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
+    const stripeRes = await fetch(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      }
+    );
 
     const session = await stripeRes.json();
 
     if (!stripeRes.ok) {
       console.error("Stripe error:", session);
-      return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
+      return jsonResponse(
+        { error: "Failed to create Stripe checkout." },
+        500
+      );
     }
 
-    // Build an updated order (works whether or not KV had one already)
+    // Build / update the order in KV (even if it didn't exist before)
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
@@ -115,7 +119,12 @@ export async function onRequestPost({ request, env }) {
       stripePaymentIntentId: session.payment_intent ?? null,
     };
 
-    await env.ORDERS_KV.put(orderId, JSON.stringify(updatedOrder));
+    try {
+      await env.ORDERS_KV.put(orderId, JSON.stringify(updatedOrder));
+    } catch (e) {
+      console.error("KV put error in /api/checkout:", e);
+      // still continue – payment session exists
+    }
 
     return jsonResponse({ checkoutUrl: session.url });
   } catch (err) {
