@@ -74,44 +74,89 @@ input[type="email"] {
 .status { color: var(--muted); font-size: 0.95rem; text-align: center; }
 .tiny { color: var(--muted); font-size: 0.8rem; text-align: center; }
 
-/* Dropzone grid */
+/* --- DROPZONE STYLING (New & Improved) --- */
 #mm-dropzone {
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   padding: 16px;
   min-height: 180px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Slightly wider */
+  gap: 16px;
   align-items: start;
 }
-#mm-dropzone .dz-message { color: var(--muted); font-size: 1rem; text-align: center; grid-column: 1 / -1; }
+#mm-dropzone .dz-message { color: var(--muted); font-size: 1rem; text-align: center; grid-column: 1 / -1; margin-top: 40px;}
 #mm-dropzone.dz-started .dz-message { display: none; }
-#mm-dropzone .dz-preview { margin: 0; width: 100%; }
-#mm-dropzone .dz-image { border-radius: 10px; overflow: hidden; }
-#mm-dropzone .dz-image img { width: 100%; height: 100%; object-fit: cover; }
 
+/* Hide the annoying white box details */
+#mm-dropzone .dz-details { display: none !important; }
+
+/* Preview Card */
+.dz-preview {
+  display: flex !important;
+  flex-direction: column;
+  background: transparent !important;
+  margin: 0 !important;
+  width: 100%;
+}
+
+/* The Image */
+.dz-image {
+  border-radius: 12px !important;
+  overflow: hidden;
+  width: 100% !important;
+  aspect-ratio: 1 / 1; /* Force square container */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 8px;
+}
+.dz-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensures photo fills square nicely */
+}
+
+/* Action Buttons (Pill Style) */
+.dz-crop-btn, 
 .dz-preview .dz-remove {
-  display: inline-block;
-  margin-top: 6px;
-  color: #ff8a8a;
-  font-size: 0.85rem;
-  text-decoration: underline;
+  display: block !important; /* Block ensures they stack */
+  text-decoration: none !important;
+  font-size: 0.75rem !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 0;
+  border-radius: 8px;
+  width: 100%;
+  text-align: center;
   cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  margin-top: 4px !important;
 }
 
+/* Crop Button: Green Theme */
 .dz-crop-btn {
-  display: inline-block;
-  margin-top: 4px;
-  color: #66d19e;
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
+  background: rgba(89, 201, 165, 0.1);
+  color: #66d19e !important;
 }
+.dz-crop-btn:hover {
+  background: rgba(89, 201, 165, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Remove Button: Red Theme */
+.dz-preview .dz-remove {
+  background: rgba(255, 102, 102, 0.1);
+  color: #ff8a8a !important;
+}
+.dz-preview .dz-remove:hover {
+  background: rgba(255, 102, 102, 0.2);
+  transform: translateY(-1px);
+}
+
+/* --- END DROPZONE --- */
 
 /* Meta row */
 .upload-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
@@ -133,25 +178,26 @@ input[type="email"] {
 
 /* Modal */
 .modal.hidden { display: none; }
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; z-index: 1000; }
-.modal-card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; width: min(520px, 92vw); padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
-.modal-text { color: var(--muted); margin: 8px 0 14px; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.btn-primary { background: var(--accent); color: #081a12; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
-.btn-ghost { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: grid; place-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+.modal-card { background: #181a20; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: min(520px, 92vw); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+.modal-text { color: var(--muted); margin: 8px 0 20px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.btn-primary { background: var(--accent); color: #081a12; border: none; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 10px 18px; cursor: pointer; }
 
 /* Toast */
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
-  background: rgba(18,19,24,0.96); color: var(--text);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
-  padding: 10px 14px; font-weight: 600; opacity: 0; pointer-events: none;
+  background: #181a20; color: var(--text);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 50px;
+  padding: 12px 20px; font-weight: 500; opacity: 0; pointer-events: none;
   transition: opacity 160ms ease, transform 160ms ease; z-index: 1200;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.ok { border-color: rgba(102,209,158,0.6); }
-.toast.warn { border-color: rgba(240,195,106,0.7); }
-.toast.error { border-color: rgba(255,102,102,0.7); }
+.toast.ok { border-color: rgba(102,209,158,0.6); color: var(--ok); }
+.toast.warn { border-color: rgba(240,195,106,0.7); color: var(--warn); }
+.toast.error { border-color: rgba(255,102,102,0.7); color: var(--danger); }
 
 /* Cropper modal */
 .cropper-card { width: min(650px, 95vw); }
@@ -167,6 +213,6 @@ input[type="email"] {
   input[type="password"],
   select,
   textarea {
-    font-size: 16px; /* iOS won't zoom if font-size >= 16px */
+    font-size: 16px;
   }
 }
