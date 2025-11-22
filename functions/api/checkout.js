@@ -64,6 +64,13 @@ export async function onRequestPost({ request, env }) {
     const params = new URLSearchParams();
 
     params.append("mode", "payment");
+    
+    // --- NEW: Ask Stripe to collect the shipping address ---
+    // You can add more country codes (e.g., "US", "FR") or remove the array index logic to allow all supported countries.
+    // Since your currency is GBP, defaulting to GB is safest for now.
+    params.append("shipping_address_collection[allowed_countries][0]", "GB");
+    // -------------------------------------------------------
+
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 

@@ -5,7 +5,6 @@
     <title>Magnetic Memories – Order status</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Your main styles (dark theme, fonts, etc.) -->
     <link rel="stylesheet" href="/styles.css" />
 
     <style>
@@ -240,7 +239,6 @@
           once the payment is confirmed.
         </p>
 
-        <!-- Loading / error block -->
         <div id="loadingBlock" class="panel">
           <div style="display: flex; align-items: center; gap: 10px">
             <div class="spinner"></div>
@@ -248,12 +246,10 @@
           </div>
         </div>
 
-        <!-- Main order panel (hidden until we have data) -->
         <section id="orderBlock" class="panel hidden">
           <div class="panel-header">Order</div>
           <div id="orderId" class="order-id">—</div>
 
-          <!-- Progress steps -->
           <div id="progress-steps" class="progress-container">
             <div class="step" id="step-paid">
               <div class="circle">1</div>
@@ -282,7 +278,9 @@
             </div>
           </div>
 
-          <!-- Status row -->
+          <div id="orderImages" style="display:flex; gap:8px; overflow-x:auto; margin-top:20px; padding-bottom:10px;">
+            </div>
+
           <div class="status-row">
             <div class="status-label">Status</div>
             <div id="statusPill" class="status-pill">
@@ -291,12 +289,10 @@
             </div>
           </div>
 
-          <!-- Human-friendly description -->
           <div id="statusDescription" class="status-text">
             We’re processing your order.
           </div>
 
-          <!-- Meta info -->
           <div class="meta-row">
             Pack: <span id="packMeta">—</span> &nbsp;·&nbsp; Total:
             <span id="priceMeta">—</span>
@@ -306,7 +302,6 @@
           </div>
         </section>
 
-        <!-- Error block -->
         <section id="errorBlock" class="panel hidden">
           <div class="error-text" id="errorMessage"></div>
         </section>
@@ -329,6 +324,7 @@
       const packMeta = document.getElementById("packMeta");
       const priceMeta = document.getElementById("priceMeta");
       const createdMeta = document.getElementById("createdMeta");
+      const imgContainer = document.getElementById("orderImages");
 
       if (!orderId) {
         loadingBlock.classList.add("hidden");
@@ -423,6 +419,22 @@
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
             orderBlock.classList.remove("hidden");
+
+            // RENDER IMAGES (New)
+            if (order.images && order.images.length > 0 && imgContainer.innerHTML === "") {
+              order.images.forEach(img => {
+                const el = document.createElement("img");
+                // Use the new public-image loader
+                el.src = `/api/public-image?orderId=${encodeURIComponent(orderId)}&key=${encodeURIComponent(img.key)}`;
+                el.style.width = "60px";
+                el.style.height = "60px";
+                el.style.borderRadius = "8px";
+                el.style.objectFit = "cover";
+                el.style.border = "1px solid #374151";
+                el.alt = "Your magnet preview";
+                imgContainer.appendChild(el);
+              });
+            }
 
             const status = order.status || "checkout_created";
 
