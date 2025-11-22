@@ -1,7 +1,5 @@
 // functions/api/checkout.js
 
-import Stripe from "stripe";
-
 function jsonResponse(status, data) {
   return new Response(JSON.stringify(data), {
     status,
@@ -11,9 +9,7 @@ function jsonResponse(status, data) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-      apiVersion: "2020-08-27",
-    });
+    const kv = env.ORDERS_KV;
 
     const body = await request.json();
     const { orderId } = body || {};
@@ -22,7 +18,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse(400, { error: "Missing orderId" });
     }
 
-    const kv = env.ORDERS_KV;
     const raw = await kv.get(orderId);
     if (!raw) {
       return jsonResponse(404, { error: "Order not found" });
@@ -30,24 +25,23 @@ export async function onRequestPost({ request, env }) {
 
     const order = JSON.parse(raw);
 
-    // --- Coerce packSize to a number (THIS IS THE IMPORTANT BIT) ---
+    // --- Make sure packSize is a number ---
     const packSize = Number(order.packSize);
 
     if (!order.email || !packSize || Number.isNaN(packSize)) {
-      return jsonResponse(400, { error: "Order is missing email or pack size." });
+      return jsonResponse(400, {
+        error: "Order is missing email or pack size.",
+      });
     }
 
-    // Ensure we have exactly N images in KV
-    if (
-      !Array.isArray(order.images) ||
-      order.images.length !== packSize
-    ) {
+    // Validate image count vs pack size
+    if (!Array.isArray(order.images) || order.images.length !== packSize) {
       return jsonResponse(400, {
         error: `You must upload exactly ${packSize} photos for this pack.`,
       });
     }
 
-    // Optional: ensure all images are cropped if you track that flag
+    // Optional: make sure all images are cropped if you track a `cropped` flag
     const notCropped = order.images.find(
       (img) => img && img.cropped === false
     );
@@ -59,9 +53,9 @@ export async function onRequestPost({ request, env }) {
 
     // Price table in pence
     const amountByPack = {
-      3: 700,   // £7.00
-      6: 1200,  // £12.00
-      9: 1600,  // £16.00
+      3: 700,  // £7.00
+      6: 1200, // £12.00
+      9: 1600, // £16.00
     };
 
     const unitAmount = amountByPack[packSize];
@@ -71,46 +65,58 @@ export async function onRequestPost({ request, env }) {
 
     const origin = new URL(request.url).origin;
 
-    const session = await stripe.checkout.sessions.create({
+    // Build form-encoded payload for Stripe Checkout Session
+    const params = new URLSearchParams({
       mode: "payment",
-      customer_email: order.email,
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            unit_amount: unitAmount,
-            product_data: {
-              name: `${packSize} custom photo magnets`,
-              description: `${packSize} × 50×50mm photo magnets`,
-            },
-          },
-          quantity: 1,
-        },
-      ],
       success_url: `${origin}/return.html?status=success&orderId=${orderId}`,
       cancel_url: `${origin}/return.html?status=cancel&orderId=${orderId}`,
-      metadata: {
-        orderId,
-        email: order.email,
-        packSize: String(packSize),
-      },
+      "customer_email": order.email,
+      "line_items[0][quantity]": "1",
+      "line_items[0][price_data][currency]": "gbp",
+      "line_items[0][price_data][unit_amount]": String(unitAmount),
+      "line_items[0][price_data][product_data][name]": `${packSize} custom photo magnets`,
+      "line_items[0][price_data][product_data][description]": `${packSize} × 50×50mm photo magnets`,
+      "metadata[orderId]": orderId,
+      "metadata[email]": order.email,
+      "metadata[packSize]": String(packSize),
     });
 
-    // Update order in KV
-    const updated = {
+    const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const stripeJson = await stripeRes.json();
+
+    if (!stripeRes.ok) {
+      console.error("Stripe error creating checkout:", stripeJson);
+      return jsonResponse(500, {
+        error: "Failed to create checkout session with Stripe.",
+      });
+    }
+
+    const sessionId = stripeJson.id;
+    const sessionUrl = stripeJson.url;
+
+    // Update order in KV with checkout info
+    const updatedOrder = {
       ...order,
       status: "checkout_created",
-      stripeSessionId: session.id,
-      // store price in pounds for admin view
+      stripeSessionId: sessionId,
+      // store price in pounds so admin table shows £ properly
       price: unitAmount / 100,
       updatedAt: new Date().toISOString(),
     };
 
-    await kv.put(orderId, JSON.stringify(updated));
+    await kv.put(orderId, JSON.stringify(updatedOrder));
 
     return jsonResponse(200, {
-      url: session.url,
-      order: updated,
+      url: sessionUrl,
+      order: updatedOrder,
     });
   } catch (err) {
     console.error("Error in /api/checkout:", err);
