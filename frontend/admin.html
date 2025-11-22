@@ -445,7 +445,7 @@
         if (fromUrl) {
           adminKey = fromUrl;
           localStorage.setItem("mm_admin_key", adminKey);
-          // SECURITY UPDATE: Clean the URL bar so key isn't visible
+          // Security: Clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else if (fromStorage) {
           adminKey = fromStorage;
@@ -726,6 +726,28 @@
           html += `<div class="field-value">${
             order.email || "Unknown email"
           }</div>`;
+
+          // --- NEW: SHIPPING ADDRESS DISPLAY ---
+          // Checks if customer.address exists (from Stripe Webhook)
+          if (order.customer && order.customer.address) {
+             const addr = order.customer.address;
+             // Build an array of lines, filtering out empty ones
+             const lines = [
+               order.customer.name,
+               addr.line1,
+               addr.line2,
+               // Combine city + postcode on one line if both exist
+               (addr.city && addr.postal_code) ? `${addr.city}, ${addr.postal_code}` : (addr.city || addr.postal_code),
+               addr.state,
+               addr.country
+             ].filter(Boolean);
+
+             if (lines.length > 0) {
+               html += `<div class="field-label">Shipping Address</div>`;
+               html += `<div class="field-value" style="background: #111827; padding: 10px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.5;">${lines.join("<br>")}</div>`;
+             }
+          }
+          // -------------------------------------
 
           html += `<div class="field-label">Pack</div>`;
           html += `<div class="field-value">${
