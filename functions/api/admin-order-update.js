@@ -1,231 +1,184 @@
 // functions/api/admin-order-update.js
 //
 // POST /api/admin-order-update?key=ADMIN_KEY
-// Body: { "orderId": "...", "status": "printing" | "shipped" | "complete" | ... }
+// Body: { orderId: string, status: string }
 //
-// - Updates order status in ORDERS_KV
-// - Returns updated order JSON
-// - Sends customer + admin emails when status moves to printing/shipped/complete
+// Used by the admin dashboard to move orders through:
+//   checkout_created → paid → printing → shipped → complete
+//
+// On success we:
+//   1) Update the order in KV
+//   2) Optionally email the customer for printing/shipped/complete
+//   3) Return { success: true, order } as JSON
 
-// -------------------- Email helper using Resend --------------------
-
-async function sendEmail({ env, to, subject, html, text }) {
-  const apiKey = env.RESEND_API_KEY;
-  const from = env.RESEND_FROM_EMAIL;
-
-  if (!apiKey || !from) {
-    console.warn("Resend not configured; skipping email send");
-    return;
-  }
-
-  const body = {
-    from,
-    to,
-    subject,
-    html,
-    text,
-  };
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Resend email failed:", res.status, errorText);
-  }
-}
-
-// -------------------- Email content builders --------------------
-
-function buildCustomerEmail(order, newStatus) {
-  const humanStatus =
-    newStatus === "printing"
-      ? "Printing"
-      : newStatus === "shipped"
-      ? "Shipped"
-      : newStatus === "complete"
-      ? "Completed"
-      : newStatus;
-
-  const subject = `Your Magnetic Memories order is now ${humanStatus}`;
-
-  const textLines = [
-    `Hi ${order.email || "there"},`,
-    "",
-    `Good news – your order ${order.orderId} is now: ${humanStatus}.`,
-    "",
-    newStatus === "printing"
-      ? "We're now printing your magnets and checking everything looks perfect."
-      : newStatus === "shipped"
-      ? "Your magnets have left us and are on their way to you."
-      : newStatus === "complete"
-      ? "Your order is complete. We hope you love your magnets!"
-      : `Status updated to ${humanStatus}.`,
-    "",
-    "Thank you for ordering from Magnetic Memories.",
-  ];
-
-  const text = textLines.join("\n");
-
-  const html = `
-    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6;">
-      <p>Hi ${order.email || "there"},</p>
-      <p>Good news – your order <strong>${order.orderId}</strong> is now:</p>
-      <p style="font-size: 18px; font-weight: 600;">${humanStatus}</p>
-      <p>
-        ${
-          newStatus === "printing"
-            ? "We're now printing your magnets and checking everything looks perfect."
-            : newStatus === "shipped"
-            ? "Your magnets have left us and are on their way to you."
-            : newStatus === "complete"
-            ? "Your order is complete. We hope you love your magnets!"
-            : `Status updated to ${humanStatus}.`
-        }
-      </p>
-      <p>Thank you for ordering from <strong>Magnetic Memories</strong>.</p>
-    </div>
-  `;
-
-  return { subject, text, html };
-}
-
-function buildAdminEmail(order, newStatus) {
-  const subject = `Order ${order.orderId} marked as ${newStatus}`;
-
-  const text = [
-    `Order ${order.orderId} status changed to ${newStatus}.`,
-    "",
-    `Email: ${order.email}`,
-    `Pack size: ${order.packSize}`,
-    `Price: £${order.price}`,
-  ].join("\n");
-
-  const html = `
-    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6;">
-      <p>Order <strong>${order.orderId}</strong> status changed to <strong>${newStatus}</strong>.</p>
-      <ul>
-        <li><strong>Email:</strong> ${order.email}</li>
-        <li><strong>Pack size:</strong> ${order.packSize}</li>
-        <li><strong>Price:</strong> £${order.price}</li>
-      </ul>
-    </div>
-  `;
-
-  return { subject, text, html };
-}
-
-// -------------------- Main handler --------------------
+const CUSTOMER_STATUS_MESSAGES = {
+  printing: {
+    subject: "Your Magnetic Memories order is being printed 🖨️",
+    intro: "Good news — we’ve started printing your magnets!",
+    body: "We’re carefully preparing your order so it looks perfect on your fridge.",
+  },
+  shipped: {
+    subject: "Your Magnetic Memories order is on its way 🚚",
+    intro: "Your magnets have been shipped!",
+    body: "They’ll be with you soon. Thanks for ordering from Magnetic Memories.",
+  },
+  complete: {
+    subject: "Your Magnetic Memories order is complete ✅",
+    intro: "Your order is now complete.",
+    body: "We hope you love your new magnets. Thanks again for your order!",
+  },
+};
 
 export async function onRequestPost(context) {
-  const { request, env } = context;
+  const { env, request } = context;
+
+  // --- 1. Check admin key ---
   const url = new URL(request.url);
+  const key = url.searchParams.get("key");
 
-  // Simple admin auth using ?key=...
-  const adminKey = url.searchParams.get("key");
-  if (!adminKey || adminKey !== env.ADMIN_KEY) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let body;
+  // --- 2. Parse body ---
+  let payload;
   try {
-    body = await request.json();
+    payload = await request.json();
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("admin-order-update: invalid JSON body", err);
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
-  const { orderId, status: newStatus } = body || {};
-  if (!orderId || !newStatus) {
-    return new Response(
-      JSON.stringify({ error: "orderId and status are required" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
+  const { orderId, status } = payload || {};
+
+  if (!orderId || !status) {
+    return jsonResponse(
+      { error: "orderId and status are required" },
+      400
     );
   }
 
   const kvKey = `order:${orderId}`;
 
+  // --- 3. Load existing order ---
+  let raw;
   try {
-    const raw = await env.ORDERS_KV.get(kvKey);
-    if (!raw) {
-      return new Response(JSON.stringify({ error: "Order not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const order = JSON.parse(raw);
-    const previousStatus = order.status;
-
-    order.status = newStatus;
-    order.updatedAt = new Date().toISOString();
-
-    await env.ORDERS_KV.put(kvKey, JSON.stringify(order));
-
-    // Decide whether to send status emails
-    const interestingStatuses = new Set(["printing", "shipped", "complete"]);
-    const statusChanged = previousStatus !== newStatus;
-
-    if (statusChanged && interestingStatuses.has(newStatus)) {
-      try {
-        // 1) Customer email
-        if (order.email) {
-          const msg = buildCustomerEmail(order, newStatus);
-          await sendEmail({
-            env,
-            to: order.email,
-            subject: msg.subject,
-            html: msg.html,
-            text: msg.text,
-          });
-        }
-
-        // 2) Admin notification email (NOTIFY_EMAIL can be comma-separated list)
-        if (env.NOTIFY_EMAIL) {
-          const to = env.NOTIFY_EMAIL.split(",").map((s) => s.trim()).filter(Boolean);
-          if (to.length > 0) {
-            const msg = buildAdminEmail(order, newStatus);
-            await sendEmail({
-              env,
-              to,
-              subject: msg.subject,
-              html: msg.html,
-              text: msg.text,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error sending status emails:", err);
-        // Don't fail the API just because email failed
-      }
-    }
-
-    return new Response(JSON.stringify(order), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    raw = await env.ORDERS_KV.get(kvKey);
   } catch (err) {
-    console.error("Error updating order in KV:", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to update order" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+    console.error("admin-order-update: KV get failed", err);
+    return jsonResponse({ error: "Failed to load order" }, 500);
+  }
+
+  if (!raw) {
+    return jsonResponse({ error: "Order not found" }, 404);
+  }
+
+  let order;
+  try {
+    order = JSON.parse(raw);
+  } catch (err) {
+    console.error("admin-order-update: invalid JSON in KV", err);
+    return jsonResponse({ error: "Stored order is invalid JSON" }, 500);
+  }
+
+  const previousStatus = order.status;
+
+  // --- 4. Update order ---
+  const now = new Date().toISOString();
+  order.status = status;
+  order.updatedAt = now;
+
+  try {
+    await env.ORDERS_KV.put(kvKey, JSON.stringify(order));
+  } catch (err) {
+    console.error("admin-order-update: KV put failed", err);
+    return jsonResponse({ error: "Failed to update order" }, 500);
+  }
+
+  // --- 5. Optionally email customer on certain statuses ---
+  try {
+    await maybeSendCustomerStatusEmail(env, order, previousStatus, status);
+  } catch (err) {
+    // Do NOT fail the update if email sending fails
+    console.error("admin-order-update: failed to send status email", err);
+  }
+
+  // --- 6. Return clean JSON so admin.js is happy ---
+  return jsonResponse({ success: true, order }, 200);
+}
+
+// Helper to send JSON responses
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Send customer email when we move into printing / shipped / complete
+async function maybeSendCustomerStatusEmail(env, order, prevStatus, newStatus) {
+  const messageDef = CUSTOMER_STATUS_MESSAGES[newStatus];
+  if (!messageDef) return; // nothing to do for other statuses
+
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  const to = order.email;
+
+  if (!apiKey || !from || !to) {
+    console.warn(
+      "admin-order-update: missing email config; skipping customer status email"
+    );
+    return;
+  }
+
+  const subject = messageDef.subject;
+  const html = buildCustomerEmailHtml(order, newStatus, messageDef);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(
+      "admin-order-update: Resend email failed",
+      res.status,
+      text
     );
   }
+}
+
+// Very simple HTML email body
+function buildCustomerEmailHtml(order, status, messageDef) {
+  const prettyStatus =
+    status.charAt(0).toUpperCase() + status.slice(1);
+
+  return `
+  <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #111;">
+    <h2>Magnetic Memories – Order update</h2>
+    <p>${messageDef.intro}</p>
+    <p>${messageDef.body}</p>
+    <hr />
+    <p><strong>Order ID:</strong> ${order.orderId}</p>
+    <p><strong>Current status:</strong> ${prettyStatus}</p>
+    ${
+      order.packSize
+        ? `<p><strong>Pack:</strong> ${order.packSize} magnets</p>`
+        : ""
+    }
+    <p style="margin-top: 24px; font-size: 13px; color: #555;">
+      If you have any questions, just reply to this email.
+    </p>
+  </div>
+  `;
 }
