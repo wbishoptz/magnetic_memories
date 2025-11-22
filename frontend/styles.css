@@ -216,3 +216,8 @@ input[type="email"] {
     font-size: 16px;
   }
 }
+
+/* Hide the progress bar container so it doesn't block the image */
+#mm-dropzone .dz-progress {
+  display: none !important;
+}
