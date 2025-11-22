@@ -1,124 +1,105 @@
 // functions/api/checkout.js
+//
+// POST /api/checkout  -> create Stripe Checkout session for an order
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
-  const { ORDERS_KV, STRIPE_SECRET_KEY } = env;
+const PACKS = [3, 6, 9, 12, 15];
+const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function onRequestPost({ request, env }) {
   try {
-    const body = await request.json();
-    let { orderId, email, packSize, price } = body || {};
+    const body = await request.json().catch(() => null);
+    const orderId = body?.orderId;
 
-    if (!orderId || !email || !packSize || !price) {
-      return jsonError("Missing required fields.", 400);
+    if (!orderId) {
+      return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    // Normalise types
-    packSize = Number(packSize);
-    price = Number(price);
-
-    if (!Number.isFinite(packSize) || !Number.isFinite(price)) {
-      return jsonError("Invalid packSize or price.", 400);
+    const raw = await env.ORDERS_KV.get(orderId);
+    if (!raw) {
+      return jsonResponse({ error: "Order not found." }, 404);
     }
 
-    // Load any existing order (created during uploads)
-    const existingJson = await ORDERS_KV.get(orderId);
-    const existing = existingJson ? JSON.parse(existingJson) : null;
+    const order = JSON.parse(raw);
 
-    const now = new Date().toISOString();
+    const email = String(order.email || "").trim();
+    const packSize = Number(order.packSize || order.pack || 3);
+    const validPack = PACKS.includes(packSize) ? packSize : 3;
+    const price = order.price ?? PRICES[validPack] ?? PRICES[3];
 
-    // Merge + ensure we keep images and any other fields from upload.js
-    const order = {
-      ...(existing || {}),
-      orderId,
-      email,
-      packSize,
-      price,
-      status: "checkout_created",
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
-    };
+    const amount = price * 100;
 
-    // Persist draft / checkout_created order
-    await ORDERS_KV.put(orderId, JSON.stringify(order));
-
-    // Create Stripe Checkout Session
-    const origin = new URL(request.url).origin;
-    const successUrl = `${origin}/return.html?status=success&orderId=${orderId}`;
-    const cancelUrl = `${origin}/return.html?status=cancel&orderId=${orderId}`;
+    const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(
+      orderId
+    )}`;
+    const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(
+      orderId
+    )}`;
 
     const params = new URLSearchParams();
+
     params.append("mode", "payment");
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
-    params.append("customer_email", email);
 
-    // Single line item, amount in pence
+    // One line item with dynamic price
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append(
-      "line_items[0][price_data][unit_amount]",
-      String(Math.round(price * 100))
-    );
-    params.append(
       "line_items[0][price_data][product_data][name]",
-      `${packSize} magnets`
+      `${validPack} custom photo magnets`
     );
     params.append(
       "line_items[0][price_data][product_data][description]",
-      `Custom photo magnets (${packSize}-pack)`
+      "50×50mm fridge magnets – printed using your uploaded photos."
     );
+    params.append(
+      "line_items[0][price_data][unit_amount]",
+      String(amount)
+    );
+
+    if (email) {
+      params.append("customer_email", email);
+    }
 
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: params.toString(),
     });
 
-    if (!stripeRes.ok) {
-      const text = await stripeRes.text();
-      console.error("Stripe checkout error:", text);
-      return jsonError("Failed to create checkout.", 500, text);
-    }
-
     const session = await stripeRes.json();
 
-    // Store Stripe IDs back on the order
-    order.stripeSessionId = session.id;
-    // PaymentIntent will be attached later, but store if already present
-    if (session.payment_intent) {
-      order.stripePaymentIntentId =
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : session.payment_intent.id;
+    if (!stripeRes.ok) {
+      console.error("Stripe error:", session);
+      return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    await ORDERS_KV.put(orderId, JSON.stringify(order));
+    // Update order in KV
+    const updated = {
+      ...order,
+      packSize: validPack,
+      pack: validPack,
+      price,
+      status: "checkout_created",
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent ?? null,
+    };
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        url: session.url,
-        orderId,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    await env.ORDERS_KV.put(orderId, JSON.stringify(updated));
+
+    return jsonResponse({ checkoutUrl: session.url });
   } catch (err) {
-    console.error("Checkout handler error:", err);
-    return jsonError("Unexpected error during checkout.", 500, String(err));
+    console.error("ERROR in /api/checkout:", err);
+    return jsonResponse({ error: "Failed to create checkout." }, 500);
   }
-}
-
-function jsonError(message, status = 400, details) {
-  const body = { error: message };
-  if (details) body.details = details;
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }
