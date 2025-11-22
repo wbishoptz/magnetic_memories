@@ -157,3 +157,16 @@ input[type="email"] {
 .cropper-card { width: min(650px, 95vw); }
 .cropper-container { width: 100%; max-height: 500px; overflow: hidden; border-radius: 10px; background: #000; }
 .cropper-container img { max-width: 100%; display: block; margin: 0 auto; }
+
+/* Prevent iOS Safari from auto-zooming form fields on focus */
+@media (max-width: 768px) {
+  input[type="email"],
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px; /* iOS won't zoom if font-size >= 16px */
+  }
+}
