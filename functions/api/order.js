@@ -53,7 +53,8 @@ export async function onRequestPost({ request, env }) {
       stripePaymentIntentId: null,
     };
 
-    await env.ORDERS_KV.put(orderId, JSON.stringify(order));
+    // FIX: Added "order:" prefix to match how upload.js reads it
+    await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
 
     return jsonResponse({ orderId });
   } catch (err) {
@@ -72,7 +73,9 @@ export async function onRequestGet({ request, env }) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    const raw = await env.ORDERS_KV.get(orderId);
+    // FIX: Added "order:" prefix here too so we can find it
+    const raw = await env.ORDERS_KV.get(`order:${orderId}`);
+    
     if (!raw) {
       return jsonResponse({ error: "Order not found." }, 404);
     }
