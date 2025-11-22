@@ -4,8 +4,7 @@
     <meta charset="UTF-8" />
     <title>Admin – Magnetic Memories</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="/styles.css" />
-    <!-- JSZip for "Download all images" -->
+    <link rel="stylesheet" href="./styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
       body {
@@ -366,7 +365,6 @@
       </header>
 
       <div class="layout">
-        <!-- Orders list -->
         <section class="panel">
           <div class="small-flex">
             <div>
@@ -405,7 +403,6 @@
           </div>
         </section>
 
-        <!-- Order details -->
         <section class="panel">
           <h2>Order details</h2>
           <small id="details-subtitle">Select an order from the left.</small>
@@ -448,6 +445,8 @@
         if (fromUrl) {
           adminKey = fromUrl;
           localStorage.setItem("mm_admin_key", adminKey);
+          // SECURITY UPDATE: Clean the URL bar so key isn't visible
+          window.history.replaceState({}, document.title, window.location.pathname);
         } else if (fromStorage) {
           adminKey = fromStorage;
         }

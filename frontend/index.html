@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Dropzone + Cropper CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
 </head>
@@ -15,7 +14,6 @@
     <h1>Magnetic Memories</h1>
     <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
-    <!-- Product selector -->
     <section class="card">
       <h2>Choose your magnet pack</h2>
       <div class="packs">
@@ -28,7 +26,6 @@
       <p class="hint">Each magnet is 50×50 mm. Your photo will be cropped to a perfect square.</p>
     </section>
 
-    <!-- Email -->
     <section class="card">
       <h2>Your email</h2>
       <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required />
@@ -36,13 +33,14 @@
       <p class="hint">We’ll send your order confirmation here.</p>
     </section>
 
-    <!-- Dropzone uploader -->
     <section class="card">
       <h2>Upload your photos</h2>
 
-      <!-- prevent accidental form submission -->
       <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
-        <div class="dz-message">Drag &amp; drop photos here, or click to choose</div>
+        <div class="dz-message">
+          Tap to select photos<br>
+          <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
+        </div>
       </form>
 
       <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
@@ -67,7 +65,6 @@
       </div>
     </section>
 
-    <!-- Pay -->
     <section class="card actions actions-centered">
       <button id="payBtn" class="cta" type="button" disabled>Pay securely</button>
       <div id="status" class="status"></div>
@@ -80,7 +77,6 @@
     </footer>
   </main>
 
-  <!-- Upgrade/Downgrade modal -->
   <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
     <div class="modal-card">
       <h3 id="upgrade-title">Change pack size?</h3>
@@ -92,7 +88,6 @@
     </div>
   </div>
 
-  <!-- Crop modal (forced) -->
   <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
     <div class="modal-card cropper-card">
       <h3 id="crop-title">Crop your photo</h3>
@@ -107,10 +102,8 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
   <script src="./app.js"></script>
