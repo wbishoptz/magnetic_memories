@@ -1,5 +1,5 @@
 // functions/api/order.js
-// Create a new order in KV (no photo count validation here)
+// Create a new order in KV (no photo-count validation here)
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -15,14 +15,16 @@ export async function onRequest(context) {
     return jsonError("Invalid JSON body", 400);
   }
 
-  const emailRaw = (body.email || "").trim();
+  const rawEmail = (body.email || "").trim();
   const packSize = Number(body.packSize);
 
   const PACKS = [3, 6, 9, 12, 15];
   const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
-  // Basic validation
-  if (!/\S+@\S+\.\S+\.\S*/.test(emailRaw)) {
+  // 🔧 Simpler, correct email check
+  // Allows things like: test@gmail.com, name.surname@domain.co.uk, etc.
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+(\.[^\s@]+)*$/;
+  if (!emailRegex.test(rawEmail)) {
     return jsonError("Please provide a valid email address.", 400);
   }
 
@@ -36,17 +38,17 @@ export async function onRequest(context) {
 
   const order = {
     orderId,
-    email: emailRaw,
+    email: rawEmail,
     packSize,
     price,
-    status: "draft",              // will move to checkout_created, paid, etc.
+    status: "draft", // will move to checkout_created, paid, etc.
     createdAt,
-    imageKeys: [],                // /api/upload will push into this
+    imageKeys: [], // /api/upload will push into this
     stripeSessionId: null,
     stripePaymentIntentId: null,
   };
 
-  // Store in KV – binding name must be ORDERS_KV in Cloudflare Pages
+  // KV binding: ORDERS_KV (configured in Cloudflare Pages)
   await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
 
   return new Response(JSON.stringify({ orderId }), {
