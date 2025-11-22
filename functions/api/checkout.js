@@ -1,6 +1,5 @@
 // functions/api/checkout.js
-//
-// POST /api/checkout  -> create Stripe Checkout session for an order
+// POST /api/checkout -> create Stripe Checkout session for an order
 
 const PACKS = [3, 6, 9, 12, 15];
 const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
@@ -21,10 +20,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    // Try to load the order from KV (normal path)
+    // ---------------------------------------------------------
+    // CRITICAL FIX: Use "order:" prefix to find the record
+    // created by order.js and updated by upload.js
+    // ---------------------------------------------------------
+    const kvKey = `order:${orderId}`;
+
     let kvOrder = null;
     try {
-      const kvRaw = await env.ORDERS_KV.get(orderId);
+      const kvRaw = await env.ORDERS_KV.get(kvKey);
       if (kvRaw) kvOrder = JSON.parse(kvRaw);
     } catch (e) {
       console.error("KV get error in /api/checkout:", e);
@@ -82,6 +86,9 @@ export async function onRequestPost({ request, env }) {
       params.append("customer_email", email);
     }
 
+    // Pass orderId in metadata so webhook can find it later
+    params.append("metadata[orderId]", orderId);
+
     const stripeRes = await fetch(
       "https://api.stripe.com/v1/checkout/sessions",
       {
@@ -104,7 +111,7 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    // Build / update the order in KV (even if it didn't exist before)
+    // Build / update the order in KV
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
@@ -120,10 +127,11 @@ export async function onRequestPost({ request, env }) {
     };
 
     try {
-      await env.ORDERS_KV.put(orderId, JSON.stringify(updatedOrder));
+      // CRITICAL FIX: Save using the same kvKey ("order:...")
+      await env.ORDERS_KV.put(kvKey, JSON.stringify(updatedOrder));
     } catch (e) {
       console.error("KV put error in /api/checkout:", e);
-      // still continue – payment session exists
+      // continue anyway since checkout session was created
     }
 
     return jsonResponse({ checkoutUrl: session.url });

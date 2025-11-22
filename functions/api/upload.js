@@ -17,6 +17,7 @@ export async function onRequestPost({ request, env }) {
       return json(400, { error: "Missing orderId." });
     }
 
+    // 1. USE THE PREFIX (Fixes "Order not found")
     const kvKey = `order:${orderId}`;
     const order = await env.ORDERS_KV.get(kvKey, { type: "json" });
 
@@ -36,14 +37,20 @@ export async function onRequestPost({ request, env }) {
       return json(400, { error: "Missing file upload." });
     }
 
+    // 2. RESTORE ADMIN COMPATIBILITY
+    // We must use "orders/{orderId}/..." so the Admin Dashboard can find them.
     const originalName = file.name || "photo.jpg";
-    // Keep it simple – store under orderId folder
-    const r2Key = `${orderId}/${Date.now()}-${originalName}`;
+    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const r2Key = `orders/${orderId}/original/${Date.now()}_${safeName}`;
 
     await env.R2_BUCKET.put(r2Key, file.stream(), {
       httpMetadata: {
         contentType: file.type || "image/jpeg",
       },
+      customMetadata: {
+        orderId: orderId,
+        filename: safeName
+      }
     });
 
     // Attach to order record
