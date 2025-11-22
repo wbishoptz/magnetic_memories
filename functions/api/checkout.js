@@ -21,17 +21,34 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    const raw = await env.ORDERS_KV.get(orderId);
-    if (!raw) {
-      return jsonResponse({ error: "Order not found." }, 404);
+    // Try to load the order from KV (normal path)
+    let kvRaw = null;
+    let kvOrder = null;
+
+    try {
+      kvRaw = await env.ORDERS_KV.get(orderId);
+      if (kvRaw) kvOrder = JSON.parse(kvRaw);
+    } catch (e) {
+      console.error("KV get error in /api/checkout:", e);
     }
 
-    const order = JSON.parse(raw);
+    // Fallback data from body (so we still know what to charge)
+    const emailFromBody = String(body?.email || "").trim();
+    const packSizeFromBody = Number(body?.packSize || 0) || 3;
 
-    const email = String(order.email || "").trim();
-    const packSize = Number(order.packSize || order.pack || 3);
-    const validPack = PACKS.includes(packSize) ? packSize : 3;
-    const price = order.price ?? PRICES[validPack] ?? PRICES[3];
+    const email = String(
+      (kvOrder && kvOrder.email) || emailFromBody || ""
+    ).trim();
+
+    let packSize =
+      (kvOrder && Number(kvOrder.packSize || kvOrder.pack)) ||
+      packSizeFromBody ||
+      3;
+
+    if (!PACKS.includes(packSize)) packSize = 3;
+
+    const price =
+      (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
 
     const amount = price * 100;
 
@@ -48,15 +65,14 @@ export async function onRequestPost({ request, env }) {
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 
-    // One line item with dynamic price
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append(
       "line_items[0][price_data][product_data][name]",
-      `${validPack} custom photo magnets`
+      `${packSize} custom photo magnets`
     );
     params.append(
-      "line_items[0][price_data][product_data][description]",
+      "line_items[0][price_data][product_data][description]`,
       "50×50mm fridge magnets – printed using your uploaded photos."
     );
     params.append(
@@ -84,18 +100,22 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // Update order in KV
-    const updated = {
-      ...order,
-      packSize: validPack,
-      pack: validPack,
+    // Build an updated order (works whether or not KV had one already)
+    const now = new Date().toISOString();
+    const updatedOrder = {
+      orderId,
+      email,
+      packSize,
+      pack: packSize,
       price,
       status: "checkout_created",
+      createdAt: kvOrder?.createdAt || now,
+      images: kvOrder?.images || [],
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent ?? null,
     };
 
-    await env.ORDERS_KV.put(orderId, JSON.stringify(updated));
+    await env.ORDERS_KV.put(orderId, JSON.stringify(updatedOrder));
 
     return jsonResponse({ checkoutUrl: session.url });
   } catch (err) {
