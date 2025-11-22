@@ -1,129 +1,64 @@
 // functions/api/order.js
-//
-// POST /api/order
-//   → Create a new order in KV and return { orderId }
-//
-// GET /api/order?orderId=... 
-//   → Return full order JSON (used by return page)
 
-export async function onRequestPost(context) {
-  const { request, env } = context;
+const PACK_PRICES = {
+  3: 7,
+  6: 14,
+  9: 20,
+  12: 25,
+  15: 30,
+};
 
-  let body;
-  try {
-    body = await request.json();
-  } catch (err) {
-    console.error("Failed to parse order JSON body:", err);
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+function withDerivedPrice(order) {
+  if (!order) return order;
+  if (order.price != null) return order;
 
-  // Be deliberately permissive so we don't break the frontend.
-  // We only *gently* validate email & packSize if present.
-  const email = body.email;
-  const packSize = body.packSize ?? body.pack ?? null;
+  const packSize = Number(order.packSize);
+  const derived = PACK_PRICES[packSize];
 
-  if (!email || typeof email !== "string") {
-    return new Response(
-      JSON.stringify({ error: "Email is required" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  // packSize is nice to have, but don't block the order if something is weird.
-  const safePackSize =
-    typeof packSize === "number"
-      ? packSize
-      : parseInt(packSize, 10) || null;
-
-  const createdAt = new Date().toISOString();
-  const orderId = crypto.randomUUID();
-
-  const order = {
-    orderId,
-    email,
-    packSize: safePackSize,
-    price: body.price ?? null,
-    // Preserve whatever else the frontend sends (files, crops, etc.)
-    ...body,
-    orderId, // ensure our generated ID wins
-    status: "checkout_created",
-    createdAt,
-    updatedAt: createdAt,
+  return {
+    ...order,
+    price: derived != null ? derived : null,
   };
-
-  try {
-    const kvKey = `order:${orderId}`;
-    await env.ORDERS_KV.put(kvKey, JSON.stringify(order));
-
-    return new Response(
-      JSON.stringify({ orderId }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  } catch (err) {
-    console.error("Failed to save order to KV:", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to create order" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
 }
 
-export async function onRequestGet(context) {
-  const { request, env } = context;
-  const url = new URL(request.url);
-  const orderId = url.searchParams.get("orderId");
-
-  if (!orderId) {
-    return new Response(
-      JSON.stringify({ error: "orderId is required" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  const kvKey = `order:${orderId}`;
-
+export async function onRequestGet({ request, env }) {
   try {
-    const raw = await env.ORDERS_KV.get(kvKey);
-    if (!raw) {
+    const url = new URL(request.url);
+    const orderId =
+      url.searchParams.get("id") || url.searchParams.get("orderId");
+
+    if (!orderId) {
       return new Response(
-        JSON.stringify({ error: "Order not found" }),
+        JSON.stringify({ error: "Missing orderId in query string" }),
         {
-          status: 404,
+          status: 400,
           headers: { "Content-Type": "application/json" },
         }
       );
     }
 
-    return new Response(raw, {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    const order = await env.ORDERS_KV.get(orderId, "json");
+
+    if (!order) {
+      return new Response(JSON.stringify({ error: "Order not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const enriched = withDerivedPrice(order);
+
+    return new Response(JSON.stringify(enriched), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   } catch (err) {
-    console.error("Failed to read order from KV:", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to load order" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    console.error("order API error", err);
+    return new Response(JSON.stringify({ error: "Failed to load order" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
