@@ -6,6 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./styles.css" />
 
+  <meta name="description" content="Turn your favorite photos into high-quality square magnets. Printed in the UK." />
+  <meta property="og:title" content="Magnetic Memories – Custom Photo Magnets" />
+  <meta property="og:description" content="Turn your favorite photos into high-quality square magnets. Packs start at just £7." />
+  <meta property="og:type" content="website" />
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
 </head>
@@ -27,10 +32,18 @@
     </section>
 
     <section class="card">
-      <h2>Your email</h2>
-      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+      <h2>Your details</h2>
+      
+      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Email address</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 16px;" />
       <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
-      <p class="hint">We’ll send your order confirmation here.</p>
+
+      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Shipping destination</label>
+      <select id="shipping-country" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #e8e8e8; outline: none;">
+        <option value="GI">Gibraltar (Free Delivery)</option>
+        <option value="GB">United Kingdom (+£5.00)</option>
+      </select>
+      <p class="hint" style="margin-top:8px;">We’ll send your order confirmation here.</p>
     </section>
 
     <section class="card">
@@ -73,6 +86,9 @@
     <footer>
       <p class="tiny">
         By uploading you confirm you have the rights to print these images. We store photos only to fulfill your order.
+      </p>
+      <p class="tiny" style="margin-top:8px;">
+        <a href="/legal.html" style="color:#555; text-decoration:underline;">Privacy & Terms</a>
       </p>
     </footer>
   </main>

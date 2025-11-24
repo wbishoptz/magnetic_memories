@@ -1,5 +1,5 @@
 // functions/api/checkout.js
-// POST /api/checkout -> create Stripe Checkout session for an order
+// POST /api/checkout -> create Stripe Checkout session
 
 const PACKS = [3, 6, 9, 12, 15];
 const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
@@ -15,6 +15,8 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
+    // Get the country the user selected on the frontend (Default to GI)
+    const targetCountry = body?.country || "GI"; 
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -47,36 +49,6 @@ export async function onRequestPost({ request, env }) {
 
     params.append("mode", "payment");
     params.append("allow_promotion_codes", "true");
-    
-    // --- 1. COUNTRY SETTINGS ---
-    // The first country in this list becomes the DEFAULT selection.
-    params.append("shipping_address_collection[allowed_countries][0]", "GI"); // Default: Gibraltar
-    params.append("shipping_address_collection[allowed_countries][1]", "GB"); // Option: UK
-
-    // --- 2. SHIPPING RATES (Defined Inline) ---
-    
-    // OPTION A: Gibraltar (Free)
-    params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
-    params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
-    params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
-    params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery (Gibraltar)");
-    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
-    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "1");
-    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
-    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "2");
-
-    // OPTION B: UK Shipping (£5.00)
-    params.append("shipping_options[1][shipping_rate_data][type]", "fixed_amount");
-    params.append("shipping_options[1][shipping_rate_data][fixed_amount][amount]", "500"); // 500 pence = £5.00
-    params.append("shipping_options[1][shipping_rate_data][fixed_amount][currency]", "gbp");
-    params.append("shipping_options[1][shipping_rate_data][display_name]", "UK Postage");
-    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
-    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][minimum][value]", "5");
-    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
-    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][maximum][value]", "10");
-
-    // ---------------------------------------------------------
-
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 
@@ -88,6 +60,35 @@ export async function onRequestPost({ request, env }) {
 
     if (email) params.append("customer_email", email);
     params.append("metadata[orderId]", orderId);
+
+    // --- SMART SHIPPING LOGIC ---
+    // We strictly enforce the country and rate based on what they chose.
+    
+    if (targetCountry === "GB") {
+        // UK MODE: Restrict address to UK, Show £5 Option
+        params.append("shipping_address_collection[allowed_countries][0]", "GB");
+        
+        params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500"); // £5.00
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+        params.append("shipping_options[0][shipping_rate_data][display_name]", "UK Postage");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "5");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "10");
+    } else {
+        // GIBRALTAR MODE (Default): Restrict address to GI, Show Free Option
+        params.append("shipping_address_collection[allowed_countries][0]", "GI");
+
+        params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+        params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery (Gibraltar)");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "1");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
+        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "2");
+    }
 
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
