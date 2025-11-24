@@ -20,105 +20,92 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    // ---------------------------------------------------------
-    // CRITICAL FIX: Use "order:" prefix to find the record
-    // created by order.js and updated by upload.js
-    // ---------------------------------------------------------
     const kvKey = `order:${orderId}`;
-
     let kvOrder = null;
     try {
       const kvRaw = await env.ORDERS_KV.get(kvKey);
       if (kvRaw) kvOrder = JSON.parse(kvRaw);
     } catch (e) {
-      console.error("KV get error in /api/checkout:", e);
+      console.error("KV get error:", e);
     }
 
-    // Fallback data coming from the request body
     const emailFromBody = String(body?.email || "").trim();
     const packSizeFromBody = Number(body?.packSize || 0) || 3;
 
-    const email = String(
-      (kvOrder && kvOrder.email) || emailFromBody || ""
-    ).trim();
-
-    let packSize =
-      (kvOrder && Number(kvOrder.packSize || kvOrder.pack)) ||
-      packSizeFromBody ||
-      3;
-
+    const email = String((kvOrder && kvOrder.email) || emailFromBody || "").trim();
+    let packSize = (kvOrder && Number(kvOrder.packSize || kvOrder.pack)) || packSizeFromBody || 3;
     if (!PACKS.includes(packSize)) packSize = 3;
 
-    const price =
-      (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
-
+    const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
     const amount = price * 100;
 
-    const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(
-      orderId
-    )}`;
-    const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(
-      orderId
-    )}`;
+    // Update these URLs to your real domain
+    const successUrl = `https://magneticmemories.org/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `https://magneticmemories.org/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
     const params = new URLSearchParams();
 
     params.append("mode", "payment");
+    params.append("allow_promotion_codes", "true");
     
-    // --- NEW: Ask Stripe to collect the shipping address ---
-    // You can add more country codes (e.g., "US", "FR") or remove the array index logic to allow all supported countries.
-    // Since your currency is GBP, defaulting to GB is safest for now.
-    params.append("shipping_address_collection[allowed_countries][0]", "GB");
-    // -------------------------------------------------------
+    // --- 1. COUNTRY SETTINGS ---
+    // The first country in this list becomes the DEFAULT selection.
+    params.append("shipping_address_collection[allowed_countries][0]", "GI"); // Default: Gibraltar
+    params.append("shipping_address_collection[allowed_countries][1]", "GB"); // Option: UK
+
+    // --- 2. SHIPPING RATES (Defined Inline) ---
+    
+    // OPTION A: Gibraltar (Free)
+    params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+    params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
+    params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+    params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery (Gibraltar)");
+    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
+    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "1");
+    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
+    params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "2");
+
+    // OPTION B: UK Shipping (£5.00)
+    params.append("shipping_options[1][shipping_rate_data][type]", "fixed_amount");
+    params.append("shipping_options[1][shipping_rate_data][fixed_amount][amount]", "500"); // 500 pence = £5.00
+    params.append("shipping_options[1][shipping_rate_data][fixed_amount][currency]", "gbp");
+    params.append("shipping_options[1][shipping_rate_data][display_name]", "UK Postage");
+    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
+    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][minimum][value]", "5");
+    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
+    params.append("shipping_options[1][shipping_rate_data][delivery_estimate][maximum][value]", "10");
+
+    // ---------------------------------------------------------
 
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
-    params.append(
-      "line_items[0][price_data][product_data][name]",
-      `${packSize} custom photo magnets`
-    );
-    params.append(
-      "line_items[0][price_data][product_data][description]",
-      "50×50mm fridge magnets – printed using your uploaded photos."
-    );
-    params.append(
-      "line_items[0][price_data][unit_amount]",
-      String(amount)
-    );
+    params.append("line_items[0][price_data][product_data][name]", `${packSize} custom photo magnets`);
+    params.append("line_items[0][price_data][product_data][description]", "50×50mm fridge magnets – printed using your uploaded photos.");
+    params.append("line_items[0][price_data][unit_amount]", String(amount));
 
-    if (email) {
-      params.append("customer_email", email);
-    }
-
-    // Pass orderId in metadata so webhook can find it later
+    if (email) params.append("customer_email", email);
     params.append("metadata[orderId]", orderId);
 
-    const stripeRes = await fetch(
-      "https://api.stripe.com/v1/checkout/sessions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      }
-    );
+    const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
 
     const session = await stripeRes.json();
 
     if (!stripeRes.ok) {
       console.error("Stripe error:", session);
-      return jsonResponse(
-        { error: "Failed to create Stripe checkout." },
-        500
-      );
+      return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // Build / update the order in KV
+    // Save back to KV
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
@@ -134,11 +121,9 @@ export async function onRequestPost({ request, env }) {
     };
 
     try {
-      // CRITICAL FIX: Save using the same kvKey ("order:...")
       await env.ORDERS_KV.put(kvKey, JSON.stringify(updatedOrder));
     } catch (e) {
-      console.error("KV put error in /api/checkout:", e);
-      // continue anyway since checkout session was created
+      console.error("KV put error:", e);
     }
 
     return jsonResponse({ checkoutUrl: session.url });
