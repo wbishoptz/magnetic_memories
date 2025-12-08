@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
     const targetCountry = body?.country || "GI"; 
-    const packType = body?.packType || "standard"; // Receive packType
+    const packType = body?.packType || "standard"; 
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -41,8 +41,10 @@ export async function onRequestPost({ request, env }) {
     const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
     const amount = price * 100;
 
-    const successUrl = `https://magneticmemories.org/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
-    const cancelUrl = `https://magneticmemories.org/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
+    // --- FIX: Updated domain to magneticmemory.org (Singular) ---
+    const successUrl = `https://magneticmemory.org/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `https://magneticmemory.org/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
+    // -----------------------------------------------------------
 
     const params = new URLSearchParams();
 
@@ -52,7 +54,6 @@ export async function onRequestPost({ request, env }) {
     params.append("cancel_url", cancelUrl);
 
     // --- PRODUCT DESCRIPTION ---
-    // Customize text based on pack type
     let productName = `${packSize} custom photo magnets`;
     let productDesc = "50×50mm fridge magnets – printed using your uploaded photos.";
     
@@ -111,13 +112,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // Save back to KV with the new type
+    // Save back to KV
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
       email,
       packSize,
-      packType: kvOrder?.packType || packType, // Persist type
+      packType: kvOrder?.packType || packType,
       price,
       status: "checkout_created",
       createdAt: kvOrder?.createdAt || now,
