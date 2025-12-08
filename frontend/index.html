@@ -20,18 +20,6 @@
     <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
     <section class="card">
-      <h2>Choose your magnet pack</h2>
-      <div class="packs">
-        <label><input type="radio" name="pack" value="3" checked> 3 magnets — £7</label>
-        <label><input type="radio" name="pack" value="6"> 6 magnets — £14</label>
-        <label><input type="radio" name="pack" value="9"> 9 magnets — £20</label>
-        <label><input type="radio" name="pack" value="12"> 12 magnets — £25</label>
-        <label><input type="radio" name="pack" value="15"> 15 magnets — £30</label>
-      </div>
-      <p class="hint">Each magnet is 50×50 mm. Your photo will be cropped to a perfect square.</p>
-    </section>
-
-    <section class="card">
       <h2>Your details</h2>
       
       <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Email address</label>
@@ -44,6 +32,28 @@
         <option value="GB">United Kingdom (+£5.00)</option>
       </select>
       <p class="hint" style="margin-top:8px;">We’ll send your order confirmation here.</p>
+    </section>
+
+    <section class="card">
+      <h2>Choose your magnet pack</h2>
+      
+      <h3 style="font-size: 1rem; color: #e8e8e8; margin: 16px 0 8px;">Individual Photos (1 magnet per photo)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="standard_3" checked> 3 magnets — £7</label>
+        <label><input type="radio" name="pack" value="standard_6"> 6 magnets — £14</label>
+        <label><input type="radio" name="pack" value="standard_9"> 9 magnets — £20</label>
+        <label><input type="radio" name="pack" value="standard_12"> 12 magnets — £25</label>
+        <label><input type="radio" name="pack" value="standard_15"> 15 magnets — £30</label>
+      </div>
+
+      <h3 style="font-size: 1rem; color: #e8e8e8; margin: 24px 0 8px;">Big Picture (1 photo split across magnets)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="big_6"> 6 magnets (2x3 grid) — £14</label>
+        <label><input type="radio" name="pack" value="big_9"> 9 magnets (3x3 grid) — £20</label>
+        <label><input type="radio" name="pack" value="big_15"> 15 magnets (3x5 grid) — £30</label>
+      </div>
+
+      <p class="hint" style="margin-top:16px;">Each magnet is 50×50 mm. Your photo(s) will be cropped to fit.</p>
     </section>
 
     <section class="card">

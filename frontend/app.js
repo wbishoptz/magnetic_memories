@@ -3,9 +3,10 @@
 // ==========================
 
 // ---- State ----
-let selectedPack = 3;
+let selectedPackSize = 3;
+let selectedPackType = 'standard'; // 'standard' or 'big_picture'
 let requiredCount = 3;
-let previousPack = 3;
+let previousRadioValue = "standard_3";
 let customerEmail = "";
 let emailTouched = false;
 
@@ -31,8 +32,7 @@ const modalText    = document.getElementById("upgrade-text");
 const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep    = document.getElementById("upgrade-keep");
 
-let modalMode = "upgrade"; // 'upgrade' | 'downgrade'
-let pendingTargetPack = null;
+let pendingTargetValue = null; // Stores the "standard_6" string
 
 // --- Safety Net: Prevent accidental tab close ---
 window.addEventListener("beforeunload", (e) => {
@@ -85,6 +85,15 @@ const myDropzone = new Dropzone(dzElement, {
   dictRemoveFile: "Remove",
 });
 
+// ---- Helper: Parsing Radio Values ----
+function parsePackValue(val) {
+  const parts = val.split('_'); // "standard_3" -> ["standard", "3"]
+  return {
+    type: parts[0] === 'big' ? 'big_picture' : 'standard',
+    size: parseInt(parts[1], 10)
+  };
+}
+
 // ---- Helper: cropping status & UI ----
 function getUncroppedFiles() {
   return myDropzone.files.filter((f) => !f._cropped);
@@ -115,15 +124,15 @@ function updateCountHelp() {
   countHelp.classList.remove("ok", "warn", "error");
 
   if (count === need) {
-    countHelp.textContent = `Perfect — you have exactly ${need} photos.`;
+    countHelp.textContent = `Perfect — you have exactly ${need} photo${need > 1 ? "s" : ""}.`;
     countHelp.classList.add("ok");
   } else if (count < need) {
     const remaining = need - count;
-    countHelp.textContent = `You need exactly ${need} photos — add ${remaining} more.`;
+    countHelp.textContent = `You need exactly ${need} photo${need > 1 ? "s" : ""} — add ${remaining} more.`;
     countHelp.classList.add("warn");
   } else {
     const extra = count - need;
-    countHelp.textContent = `You need exactly ${need} photos — remove ${extra} photo${extra > 1 ? "s" : ""}.`;
+    countHelp.textContent = `You need exactly ${need} photo${need > 1 ? "s" : ""} — remove ${extra} photo${extra > 1 ? "s" : ""}.`;
     countHelp.classList.add("error");
   }
 }
@@ -145,37 +154,45 @@ function updatePhotoCount() {
 // ---- Pack selector (with downgrade guard) ----
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
-    const newPack = parseInt(radio.value, 10);
+    const newVal = radio.value;
+    const { type, size } = parsePackValue(newVal);
+    
+    // Logic: If 'big_picture', required is ALWAYS 1. If 'standard', required is 'size'.
+    const newRequired = (type === 'big_picture') ? 1 : size;
     const currentCount = myDropzone.files.length;
 
-    if (newPack < selectedPack && currentCount > newPack) {
+    // Guard: If we are switching to a pack that needs FEWER photos than we have
+    if (newRequired < currentCount) {
       // Revert radio UI for now (until confirmed)
-      const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
+      const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
       if (prevRadio) prevRadio.checked = true;
 
-      modalMode = "downgrade";
-      pendingTargetPack = newPack;
-      const toRemove = currentCount - newPack;
+      pendingTargetValue = newVal;
+      const toRemove = currentCount - newRequired;
 
-      modalTitle.textContent = "Reduce pack size?";
+      modalTitle.textContent = "Too many photos selected";
       modalText.textContent =
-        `You currently have ${currentCount} photos selected. ` +
-        `If you move to a pack of ${newPack}, we’ll remove ${toRemove} photo(s). ` +
-        `Do you want to continue?`;
+        `You currently have ${currentCount} photos. ` +
+        `The pack you selected only requires ${newRequired} photo${newRequired > 1 ? "s" : ""}. ` +
+        `We need to remove ${toRemove} photo${toRemove > 1 ? "s" : ""} to continue.`;
 
-      modalConfirm.textContent = `Downgrade to ${newPack}`;
+      modalConfirm.textContent = `Remove extra photos`;
       modalKeep.textContent    = "Cancel";
       modal.classList.remove("hidden");
       return;
     }
 
-    // Upgrade or OK downgrade
-    previousPack  = selectedPack;
-    selectedPack  = newPack;
-    requiredCount = newPack;
+    // Success update
+    previousRadioValue = newVal;
+    selectedPackSize = size;
+    selectedPackType = type;
+    requiredCount = newRequired;
+    
     requiredCountEl.textContent = String(requiredCount);
     updatePhotoCount();
-    showToast(`Pack set to ${newPack} magnets`, "ok");
+    
+    const label = type === 'big_picture' ? `Big Picture (${size} magnets)` : `${size} magnets`;
+    showToast(`Selected: ${label}`, "ok");
   });
 });
 
@@ -224,19 +241,35 @@ myDropzone.on("addedfile", (file) => {
   enqueueForCrop(file);
 
   const total = myDropzone.files.length;
+  // Use requiredCount instead of packSize, because Big Picture only needs 1
   if (total > requiredCount) {
-    const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
-    modalMode = "upgrade";
-    pendingTargetPack = suggested;
+    // If we have too many, we can only suggest upgrading if they are in STANDARD mode.
+    // If they are in BIG picture mode (req=1), they can't "upgrade" to add more photos easily.
+    
+    if (selectedPackType === 'standard') {
+        const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
+        // Suggest the standard pack
+        pendingTargetValue = `standard_${suggested}`;
+        
+        modalTitle.textContent = "Add more magnets?";
+        modalText.textContent =
+          `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
+          `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
 
-    modalTitle.textContent = "Add more magnets?";
-    modalText.textContent =
-      `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
-      `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
-
-    modalConfirm.textContent = `Upgrade to ${suggested}`;
-    modalKeep.textContent    = "Keep current & remove extras";
-    modal.classList.remove("hidden");
+        modalConfirm.textContent = `Upgrade to ${suggested}`;
+        modalKeep.textContent    = "Keep current & remove extras";
+        modal.classList.remove("hidden");
+    } else {
+        // In Big Picture mode, just warn them
+        modalTitle.textContent = "Limit Reached";
+        modalText.textContent = `This Big Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
+        modalConfirm.textContent = "OK";
+        modalKeep.style.display = "none"; // Hide cancel
+        
+        // Hack: store "keep" as pending to trigger removal logic
+        pendingTargetValue = "KEEP_CURRENT"; 
+        modal.classList.remove("hidden");
+    }
   } else {
     updatePhotoCount();
   }
@@ -249,41 +282,61 @@ myDropzone.on("removedfile", () => {
 
 // ---- Upgrade/Downgrade modal actions ----
 modalConfirm.addEventListener("click", () => {
-  if (!pendingTargetPack) return;
+  modalKeep.style.display = "inline-block"; // reset UI
+  
+  if (pendingTargetValue === "KEEP_CURRENT") {
+      // Just trim extras
+      while (myDropzone.files.length > requiredCount) {
+        myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
+      }
+      modal.classList.add("hidden");
+      return;
+  }
 
-  previousPack  = selectedPack;
-  selectedPack  = pendingTargetPack;
-  requiredCount = pendingTargetPack;
+  if (!pendingTargetValue) return;
+
+  // Apply new selection
+  const { type, size } = parsePackValue(pendingTargetValue);
+  selectedPackType = type;
+  selectedPackSize = size;
+  requiredCount = (type === 'big_picture') ? 1 : size;
+  
+  previousRadioValue = pendingTargetValue;
   requiredCountEl.textContent = String(requiredCount);
 
-  const radio = document.querySelector(`input[name="pack"][value="${pendingTargetPack}"]`);
+  const radio = document.querySelector(`input[name="pack"][value="${pendingTargetValue}"]`);
   if (radio) radio.checked = true;
 
+  // Trim extras if still over
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
 
   statusEl.textContent = "";
   modal.classList.add("hidden");
-  pendingTargetPack = null;
+  pendingTargetValue = null;
   updatePhotoCount();
-  showToast(`Pack set to ${selectedPack} magnets`, "ok");
+  
+  const label = type === 'big_picture' ? `Big Picture (${size} magnets)` : `${size} magnets`;
+  showToast(`Switched to ${label}`, "ok");
 });
 
 modalKeep.addEventListener("click", () => {
-  if (modalMode === "upgrade") {
-    while (myDropzone.files.length > requiredCount) {
-      myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
-    }
-    statusEl.textContent = `Limit reached: your pack allows ${requiredCount} photo(s).`;
-    showToast("Kept current pack", "warn");
-  } else if (modalMode === "downgrade") {
-    const prevRadio = document.querySelector(`input[name="pack"][value="${selectedPack}"]`);
-    if (prevRadio) prevRadio.checked = true;
-    showToast("Cancelled downgrade", "warn");
+  modalKeep.style.display = "inline-block"; // reset UI
+  
+  // User cancelled the switch. Keep current pack settings.
+  // BUT we must enforce the current limit (remove the photo they just tried to add).
+  while (myDropzone.files.length > requiredCount) {
+    myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
+  
+  // Reset radio visually
+  const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
+  if (prevRadio) prevRadio.checked = true;
+
+  showToast("Limit maintained", "warn");
   modal.classList.add("hidden");
-  pendingTargetPack = null;
+  pendingTargetValue = null;
   updatePhotoCount();
 });
 
@@ -297,10 +350,9 @@ payBtn.addEventListener("click", async () => {
   try {
     payBtn.disabled = true;
     
-    // --- NEW: Calculate Total including shipping ---
     const country = document.getElementById("shipping-country").value;
     const shippingCost = country === "GB" ? 5 : 0;
-    const total = prices[selectedPack] + shippingCost;
+    const total = prices[selectedPackSize] + shippingCost;
     
     statusEl.textContent = "Creating order…";
 
@@ -308,7 +360,11 @@ payBtn.addEventListener("click", async () => {
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: customerEmail, packSize: selectedPack }),
+      body: JSON.stringify({ 
+          email: customerEmail, 
+          packSize: selectedPackSize,
+          packType: selectedPackType // <--- SEND TYPE
+      }),
     });
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
@@ -335,7 +391,7 @@ payBtn.addEventListener("click", async () => {
 
     progressBar.style.width = "100%";
 
-    // 3) Create checkout (Sending the country logic now)
+    // 3) Create checkout
     statusEl.textContent = `Creating checkout (£${total})…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
@@ -343,8 +399,9 @@ payBtn.addEventListener("click", async () => {
       body: JSON.stringify({
         orderId,
         email: customerEmail,
-        packSize: selectedPack,
-        country: country // <--- SEND SELECTED COUNTRY
+        packSize: selectedPackSize,
+        packType: selectedPackType, // <--- SEND TYPE
+        country: country
       }),
     });
     if (!ckRes.ok) throw new Error((await ckRes.text().catch(() => "")) || "Checkout creation failed");

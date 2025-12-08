@@ -15,8 +15,8 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
-    // Get the country the user selected on the frontend (Default to GI)
     const targetCountry = body?.country || "GI"; 
+    const packType = body?.packType || "standard"; // Receive packType
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -41,7 +41,6 @@ export async function onRequestPost({ request, env }) {
     const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
     const amount = price * 100;
 
-    // Update these URLs to your real domain
     const successUrl = `https://magneticmemories.org/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magneticmemories.org/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
@@ -52,24 +51,31 @@ export async function onRequestPost({ request, env }) {
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 
+    // --- PRODUCT DESCRIPTION ---
+    // Customize text based on pack type
+    let productName = `${packSize} custom photo magnets`;
+    let productDesc = "50×50mm fridge magnets – printed using your uploaded photos.";
+    
+    if (packType === 'big_picture') {
+        productName = `Big Picture (${packSize} magnets)`;
+        productDesc = `One large photo split across ${packSize} magnets (Mosaic style).`;
+    }
+
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
-    params.append("line_items[0][price_data][product_data][name]", `${packSize} custom photo magnets`);
-    params.append("line_items[0][price_data][product_data][description]", "50×50mm fridge magnets – printed using your uploaded photos.");
+    params.append("line_items[0][price_data][product_data][name]", productName);
+    params.append("line_items[0][price_data][product_data][description]", productDesc);
     params.append("line_items[0][price_data][unit_amount]", String(amount));
 
     if (email) params.append("customer_email", email);
     params.append("metadata[orderId]", orderId);
 
     // --- SMART SHIPPING LOGIC ---
-    // We strictly enforce the country and rate based on what they chose.
-    
     if (targetCountry === "GB") {
-        // UK MODE: Restrict address to UK, Show £5 Option
         params.append("shipping_address_collection[allowed_countries][0]", "GB");
         
         params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
-        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500"); // £5.00
+        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500");
         params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
         params.append("shipping_options[0][shipping_rate_data][display_name]", "UK Postage");
         params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
@@ -77,7 +83,6 @@ export async function onRequestPost({ request, env }) {
         params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
         params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "10");
     } else {
-        // GIBRALTAR MODE (Default): Restrict address to GI, Show Free Option
         params.append("shipping_address_collection[allowed_countries][0]", "GI");
 
         params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
@@ -106,13 +111,13 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // Save back to KV
+    // Save back to KV with the new type
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
       email,
       packSize,
-      pack: packSize,
+      packType: kvOrder?.packType || packType, // Persist type
       price,
       status: "checkout_created",
       createdAt: kvOrder?.createdAt || now,

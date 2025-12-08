@@ -18,6 +18,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => null);
     const emailRaw = body?.email ?? "";
     const packSizeRaw = body?.packSize;
+    const packType = body?.packType || "standard"; // "standard" or "big_picture"
 
     const email = String(emailRaw).trim();
     const packSize = Number(packSizeRaw);
@@ -42,7 +43,7 @@ export async function onRequestPost({ request, env }) {
       orderId,
       email,
       packSize,
-      pack: packSize,
+      packType, // Store the type!
       price,
       status: "draft",         
       createdAt: now,
@@ -51,7 +52,7 @@ export async function onRequestPost({ request, env }) {
       stripePaymentIntentId: null,
     };
 
-    // FIX 1: Save with "order:" prefix
+    // Save with "order:" prefix
     await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
 
     return jsonResponse({ orderId });
@@ -71,8 +72,6 @@ export async function onRequestGet({ request, env }) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
 
-    // FIX 2: Retrieve with "order:" prefix
-    // (This is why your status page was failing—it couldn't find the key!)
     const raw = await env.ORDERS_KV.get(`order:${orderId}`);
     
     if (!raw) {
@@ -80,10 +79,6 @@ export async function onRequestGet({ request, env }) {
     }
 
     const order = JSON.parse(raw);
-
-    // Backwards compatibility for older order formats
-    if (!order.pack && order.packSize) order.pack = order.packSize;
-    if (!order.packSize && order.pack) order.packSize = order.pack;
 
     if (!order.price && order.packSize && PRICES[order.packSize]) {
       order.price = PRICES[order.packSize];
