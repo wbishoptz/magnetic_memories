@@ -41,15 +41,19 @@ export async function onRequestPost({ request, env }) {
     const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
     const amount = price * 100;
 
-    // --- FIX: Updated domain to magneticmemory.org (Singular) ---
-    const successUrl = `https://magneticmemory.org/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
-    const cancelUrl = `https://magneticmemory.org/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
-    // -----------------------------------------------------------
+    // --- FIX: RESTORED THE WORKING PAGES.DEV URL ---
+    const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
+    // -----------------------------------------------
 
     const params = new URLSearchParams();
 
     params.append("mode", "payment");
     params.append("allow_promotion_codes", "true");
+    
+    // Disable currency conversion toggle
+    params.append("automatic_tax[enabled]", "false");
+
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
 
