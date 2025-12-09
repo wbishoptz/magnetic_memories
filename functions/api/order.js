@@ -17,16 +17,23 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const emailRaw = body?.email ?? "";
+    const phoneRaw = body?.phone ?? ""; // <--- GET PHONE
     const packSizeRaw = body?.packSize;
-    const packType = body?.packType || "standard"; // "standard" or "big_picture"
+    const packType = body?.packType || "standard";
 
     const email = String(emailRaw).trim();
+    const phone = String(phoneRaw).trim();
     const packSize = Number(packSizeRaw);
 
     // Basic validation
     const emailOk = /\S+@\S+\.\S+/.test(email);
     if (!emailOk) {
       return jsonResponse({ error: "Please provide a valid email address." }, 400);
+    }
+    
+    // Simple phone check (just to ensure it's not empty/too short)
+    if (phone.length < 6) {
+        return jsonResponse({ error: "Please provide a valid phone number." }, 400);
     }
 
     if (!PACKS.includes(packSize)) {
@@ -42,8 +49,9 @@ export async function onRequestPost({ request, env }) {
     const order = {
       orderId,
       email,
+      phone, // <--- SAVE PHONE
       packSize,
-      packType, // Store the type!
+      packType,
       price,
       status: "draft",         
       createdAt: now,

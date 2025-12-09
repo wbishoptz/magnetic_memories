@@ -485,6 +485,7 @@
           [
             "orderId",
             "email",
+            "phone",
             "packSize",
             "price",
             "status",
@@ -495,6 +496,7 @@
           rows.push([
             o.orderId,
             o.email || "",
+            o.phone || "",
             o.packSize ?? "",
             o.price ?? "",
             o.status || "",
@@ -727,16 +729,17 @@
             order.email || "Unknown email"
           }</div>`;
 
-          // --- NEW: SHIPPING ADDRESS DISPLAY ---
-          // Checks if customer.address exists (from Stripe Webhook)
+          // --- ADDED PHONE DISPLAY ---
+          html += `<div class="field-label">Phone</div>`;
+          html += `<div class="field-value">${order.phone || "No phone provided"}</div>`;
+          // ---------------------------
+
           if (order.customer && order.customer.address) {
              const addr = order.customer.address;
-             // Build an array of lines, filtering out empty ones
              const lines = [
                order.customer.name,
                addr.line1,
                addr.line2,
-               // Combine city + postcode on one line if both exist
                (addr.city && addr.postal_code) ? `${addr.city}, ${addr.postal_code}` : (addr.city || addr.postal_code),
                addr.state,
                addr.country
@@ -747,12 +750,11 @@
                html += `<div class="field-value" style="background: #111827; padding: 10px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.5;">${lines.join("<br>")}</div>`;
              }
           }
-          // -------------------------------------
 
           html += `<div class="field-label">Pack</div>`;
           html += `<div class="field-value">${
             order.packSize || "?"
-          } magnets – £${order.price?.toFixed?.(2) ?? order.price ?? "?"}</div>`;
+          } magnets (${order.packType === 'big_picture' ? 'Big Picture' : 'Standard'}) – £${order.price?.toFixed?.(2) ?? order.price ?? "?"}</div>`;
 
           html += `<div class="field-label">Created</div>`;
           html += `<div class="field-value">${created}</div>`;

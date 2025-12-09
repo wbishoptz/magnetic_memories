@@ -8,7 +8,9 @@ let selectedPackType = 'standard'; // 'standard' or 'big_picture'
 let requiredCount = 3;
 let previousRadioValue = "standard_3";
 let customerEmail = "";
+let customerPhone = "";
 let emailTouched = false;
+let phoneTouched = false;
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -16,6 +18,7 @@ const PACKS = [3, 6, 9, 12, 15];
 // ---- Elements ----
 const requiredCountEl = document.getElementById("required-count");
 const emailInput       = document.getElementById("email");
+const phoneInput       = document.getElementById("phone");
 const payBtn           = document.getElementById("payBtn");
 const statusEl         = document.getElementById("status");
 const photoCountEl     = document.getElementById("photo-count");
@@ -32,7 +35,7 @@ const modalText    = document.getElementById("upgrade-text");
 const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep    = document.getElementById("upgrade-keep");
 
-let pendingTargetValue = null; // Stores the "standard_6" string
+let pendingTargetValue = null;
 
 // --- Safety Net: Prevent accidental tab close ---
 window.addEventListener("beforeunload", (e) => {
@@ -53,7 +56,7 @@ function showToast(message, type = "ok") {
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
 }
 
-// ---- Email validation UI ----
+// ---- Validation UI Helpers ----
 function setEmailValidityUI(isValid) {
   const errEl = document.getElementById("emailError");
   if (!emailTouched) {
@@ -64,6 +67,18 @@ function setEmailValidityUI(isValid) {
   emailInput.classList.toggle("input-error", !isValid);
   errEl.style.display = isValid ? "none" : "block";
   emailInput.setAttribute("aria-invalid", String(!isValid));
+}
+
+function setPhoneValidityUI(isValid) {
+  const errEl = document.getElementById("phoneError");
+  if (!phoneTouched) {
+    phoneInput.classList.remove("input-error");
+    errEl.style.display = "none";
+    return;
+  }
+  phoneInput.classList.toggle("input-error", !isValid);
+  errEl.style.display = isValid ? "none" : "block";
+  phoneInput.setAttribute("aria-invalid", String(!isValid));
 }
 
 // ---- Dropzone ----
@@ -140,8 +155,11 @@ function updateCountHelp() {
 function enforcePayButtonState() {
   const count = myDropzone.files.length;
   const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
+  // Basic phone validation: at least 6 chars (handles international formats)
+  const validPhone = customerPhone.length >= 6;
   const allCropped = getUncroppedFiles().length === 0 && count > 0;
-  payBtn.disabled = !(validEmail && count === requiredCount && allCropped);
+  
+  payBtn.disabled = !(validEmail && validPhone && count === requiredCount && allCropped);
 }
 
 function updatePhotoCount() {
@@ -196,7 +214,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   });
 });
 
-// ---- Email wiring ----
+// ---- Email & Phone wiring ----
 emailInput.addEventListener("input", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
@@ -207,7 +225,22 @@ emailInput.addEventListener("blur", () => {
   emailTouched  = true;
   setEmailValidityUI(/\S+@\S+\.\S+/.test(emailInput.value.trim()));
 });
+
+phoneInput.addEventListener("input", () => {
+  phoneTouched = true;
+  // Strip non-numeric/plus chars for simpler validation if desired, 
+  // but for now just trim whitespace.
+  customerPhone = phoneInput.value.trim();
+  setPhoneValidityUI(customerPhone.length >= 6);
+  enforcePayButtonState();
+});
+phoneInput.addEventListener("blur", () => {
+  phoneTouched = true;
+  setPhoneValidityUI(phoneInput.value.trim().length >= 6);
+});
+
 setEmailValidityUI(false);
+setPhoneValidityUI(false);
 
 // ---- Add/Remove files ----
 const cropQueue = [];
@@ -243,9 +276,6 @@ myDropzone.on("addedfile", (file) => {
   const total = myDropzone.files.length;
   // Use requiredCount instead of packSize, because Big Picture only needs 1
   if (total > requiredCount) {
-    // If we have too many, we can only suggest upgrading if they are in STANDARD mode.
-    // If they are in BIG picture mode (req=1), they can't "upgrade" to add more photos easily.
-    
     if (selectedPackType === 'standard') {
         const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
         // Suggest the standard pack
@@ -356,14 +386,15 @@ payBtn.addEventListener("click", async () => {
     
     statusEl.textContent = "Creating order…";
 
-    // 1) Create order
+    // 1) Create order (now sending Phone)
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
           email: customerEmail, 
+          phone: customerPhone, // <--- SEND PHONE
           packSize: selectedPackSize,
-          packType: selectedPackType // <--- SEND TYPE
+          packType: selectedPackType
       }),
     });
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
@@ -400,7 +431,7 @@ payBtn.addEventListener("click", async () => {
         orderId,
         email: customerEmail,
         packSize: selectedPackSize,
-        packType: selectedPackType, // <--- SEND TYPE
+        packType: selectedPackType,
         country: country
       }),
     });
