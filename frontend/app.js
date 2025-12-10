@@ -112,7 +112,6 @@ function updatePayButtonAppearance() {
     payBtn.textContent = "Pay securely";
   } else {
     payBtn.classList.add("disabled-look");
-    // Optional: could change text to "Complete details to pay"
   }
 }
 
@@ -591,3 +590,6 @@ function openCropModal(file, done) {
   };
   reader.readAsDataURL(file);
 }
+
+// --- NEW: Initialize button state correctly on load ---
+updatePayButtonAppearance();
