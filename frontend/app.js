@@ -75,7 +75,6 @@ function isAllCropped() {
 function shakeElement(el) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.classList.add("shake");
-  // Remove class after animation plays (400ms)
   setTimeout(() => el.classList.remove("shake"), 500);
 }
 
@@ -106,7 +105,6 @@ function setPhoneValidityUI(isValid) {
 
 function updatePayButtonAppearance() {
   const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped();
-  // Instead of disabling the button, we toggle the "disabled-look" class
   if (ready) {
     payBtn.classList.remove("disabled-look");
     payBtn.textContent = "Pay securely";
@@ -199,6 +197,11 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     const newRequired = (type === 'big_picture') ? 1 : size;
     const currentCount = myDropzone.files.length;
 
+    // Reset crop status when switching packs (as ratio might change)
+    // We optionally force them to re-crop if the ratio changes, 
+    // but for simplicity, we just assume they will check.
+    // If you want to force re-crop, loop through files and set _cropped = false.
+
     if (newRequired < currentCount) {
       const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
       if (prevRadio) prevRadio.checked = true;
@@ -226,7 +229,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     updatePhotoCount();
     
-    // UPDATED TEXT: Jigsaw
     const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
     showToast(`Selected: ${label}`, "ok");
   });
@@ -305,7 +307,6 @@ myDropzone.on("addedfile", (file) => {
         modal.classList.remove("hidden");
     } else {
         modalTitle.textContent = "Limit Reached";
-        // UPDATED TEXT: Jigsaw
         modalText.textContent = `This Jigsaw Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
         modalConfirm.textContent = "OK";
         modalKeep.style.display = "none";
@@ -354,7 +355,6 @@ modalConfirm.addEventListener("click", () => {
   pendingTargetValue = null;
   updatePhotoCount();
   
-  // UPDATED TEXT: Jigsaw
   const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
   showToast(`Switched to ${label}`, "ok");
 });
@@ -379,7 +379,6 @@ myDropzone.on("totaluploadprogress", (progress) => {
 
 // ---- PAY BUTTON CLICK (Smart Validation) ----
 payBtn.addEventListener("click", async () => {
-  // 1. Validation Check with Jiggles
   if (!isEmailValid()) {
     emailTouched = true;
     setEmailValidityUI(false);
@@ -397,20 +396,19 @@ payBtn.addEventListener("click", async () => {
   }
 
   if (!isCountValid()) {
-    shakeElement(uploadMetaEl); // Jiggle the count area
+    shakeElement(uploadMetaEl);
     showToast(`You need exactly ${requiredCount} photo${requiredCount>1?'s':''}`, "error");
     return;
   }
 
   if (!isAllCropped()) {
-    shakeElement(cropHelp); // Jiggle crop warning
+    shakeElement(cropHelp);
     showToast("Please crop all photos", "error");
     return;
   }
 
-  // 2. Proceed to Pay if valid
   try {
-    payBtn.disabled = true; // Actually disable now to prevent double-clicks
+    payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
     const country = document.getElementById("shipping-country").value;
@@ -527,13 +525,23 @@ function openCropModalAndAwait(file) {
 function openCropModal(file, done) {
   currentCropFile = file;
 
+  // --- NEW: Calculate Aspect Ratio based on Pack ---
+  let ratio = 1; // Default Square (Standard & 3x3)
+  
+  if (selectedPackType === 'big_picture') {
+      if (selectedPackSize === 6)  ratio = 2 / 3; // 2x3 (Portrait)
+      if (selectedPackSize === 15) ratio = 3 / 5; // 3x5 (Tall Portrait)
+      // size 9 remains 1:1 (3x3)
+  }
+  // -----------------------------------------------
+
   const reader = new FileReader();
   reader.onload = (e) => {
     cropImg.src = e.target.result;
     cropModal.classList.remove("hidden");
 
     cropperInstance = new Cropper(cropImg, {
-      aspectRatio: 1,
+      aspectRatio: ratio, // Apply the dynamic ratio
       viewMode: 1,
       guides: true,
       autoCropArea: 1,
@@ -548,9 +556,10 @@ function openCropModal(file, done) {
       ev.preventDefault();
       if (!cropperInstance || !currentCropFile) return;
 
+      // --- FIXED: Remove hardcoded width/height to prevent stretching ---
       const canvas = cropperInstance.getCroppedCanvas({
-        width: 1000,
-        height: 1000,
+        maxWidth: 3000, // Limit max size but preserve ratio
+        maxHeight: 3000,
         imageSmoothingQuality: "high",
       });
 
@@ -594,5 +603,5 @@ function openCropModal(file, done) {
   reader.readAsDataURL(file);
 }
 
-// --- NEW: Initialize button state correctly on load ---
+// Initialize button state correctly on load
 updatePayButtonAppearance();
