@@ -11,6 +11,7 @@ let customerEmail = "";
 let customerPhone = "";
 let emailTouched = false;
 let phoneTouched = false;
+let selectedOrientation = 'portrait'; // 'portrait' or 'landscape'
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -28,6 +29,7 @@ const countHelp        = document.getElementById("count-help");
 const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 const uploadMetaEl     = document.querySelector(".upload-meta"); // For scrolling
+const orientationWrapper = document.getElementById("orientation-wrapper"); // NEW
 
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
@@ -113,6 +115,17 @@ function updatePayButtonAppearance() {
   }
 }
 
+// ---- Helper: Show/Hide Orientation Toggle ----
+function updateOrientationVisibility() {
+    // Only show for Rectangular Jigsaws (6 and 15). 
+    // 9 is square (3x3), Standard is square (1x1).
+    if (selectedPackType === 'big_picture' && (selectedPackSize === 6 || selectedPackSize === 15)) {
+        orientationWrapper.style.display = "block";
+    } else {
+        orientationWrapper.style.display = "none";
+    }
+}
+
 // ---- Dropzone ----
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
@@ -189,6 +202,17 @@ function updatePhotoCount() {
   updatePayButtonAppearance();
 }
 
+// ---- Orientation Radio Listeners ----
+document.querySelectorAll('input[name="orientation"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+        selectedOrientation = radio.value; // 'portrait' or 'landscape'
+        
+        // OPTIONAL: Reset crops if they change orientation?
+        // For now, we leave it. If they re-open the cropper, it will use new ratio.
+        showToast(`Orientation set to ${selectedOrientation}`, "ok");
+    });
+});
+
 // ---- Pack selector ----
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
@@ -196,11 +220,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     const { type, size } = parsePackValue(newVal);
     const newRequired = (type === 'big_picture') ? 1 : size;
     const currentCount = myDropzone.files.length;
-
-    // Reset crop status when switching packs (as ratio might change)
-    // We optionally force them to re-crop if the ratio changes, 
-    // but for simplicity, we just assume they will check.
-    // If you want to force re-crop, loop through files and set _cropped = false.
 
     if (newRequired < currentCount) {
       const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
@@ -227,6 +246,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCount = newRequired;
     
     requiredCountEl.textContent = String(requiredCount);
+    updateOrientationVisibility(); // Check if we need to show the toggle
     updatePhotoCount();
     
     const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
@@ -353,6 +373,7 @@ modalConfirm.addEventListener("click", () => {
   statusEl.textContent = "";
   modal.classList.add("hidden");
   pendingTargetValue = null;
+  updateOrientationVisibility();
   updatePhotoCount();
   
   const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
@@ -525,15 +546,20 @@ function openCropModalAndAwait(file) {
 function openCropModal(file, done) {
   currentCropFile = file;
 
-  // --- NEW: Calculate Aspect Ratio based on Pack ---
-  let ratio = 1; // Default Square (Standard & 3x3)
+  // --- NEW: Dynamic Ratio Calculation ---
+  let ratio = 1; // Default Square
   
   if (selectedPackType === 'big_picture') {
       if (selectedPackSize === 6)  ratio = 2 / 3; // 2x3 (Portrait)
       if (selectedPackSize === 15) ratio = 3 / 5; // 3x5 (Tall Portrait)
-      // size 9 remains 1:1 (3x3)
+      
+      // FLIP for Landscape
+      if (selectedOrientation === 'landscape') {
+          if (selectedPackSize === 6)  ratio = 3 / 2; // 3x2 (Landscape)
+          if (selectedPackSize === 15) ratio = 5 / 3; // 5x3 (Wide Landscape)
+      }
   }
-  // -----------------------------------------------
+  // -------------------------------------
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -541,7 +567,7 @@ function openCropModal(file, done) {
     cropModal.classList.remove("hidden");
 
     cropperInstance = new Cropper(cropImg, {
-      aspectRatio: ratio, // Apply the dynamic ratio
+      aspectRatio: ratio,
       viewMode: 1,
       guides: true,
       autoCropArea: 1,
@@ -556,9 +582,8 @@ function openCropModal(file, done) {
       ev.preventDefault();
       if (!cropperInstance || !currentCropFile) return;
 
-      // --- FIXED: Remove hardcoded width/height to prevent stretching ---
       const canvas = cropperInstance.getCroppedCanvas({
-        maxWidth: 3000, // Limit max size but preserve ratio
+        maxWidth: 3000,
         maxHeight: 3000,
         imageSmoothingQuality: "high",
       });
@@ -605,3 +630,5 @@ function openCropModal(file, done) {
 
 // Initialize button state correctly on load
 updatePayButtonAppearance();
+// Init visibility incase of reload
+updateOrientationVisibility();
