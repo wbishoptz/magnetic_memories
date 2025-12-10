@@ -1,13 +1,5 @@
 // functions/api/webhook.js
 // Stripe webhook handler for checkout.session.completed
-//
-// Env used:
-//  - ORDERS_KV
-//  - RESEND_API_KEY
-//  - RESEND_FROM_EMAIL
-//  - NOTIFY_EMAIL      (comma/newline-separated list for internal notifications)
-//  - TELEGRAM_BOT_TOKEN
-//  - TELEGRAM_CHAT_ID  (comma-separated list)
 
 export const onRequestPost = async ({ request, env }) => {
   let rawBody = "";
@@ -19,31 +11,23 @@ export const onRequestPost = async ({ request, env }) => {
     const session = event?.data?.object;
 
     if (type !== "checkout.session.completed" || !session) {
-      // Not an event we care about – just acknowledge
       return json({ received: true, ignored: true });
     }
 
     // --- Extract orderId ---
-
-    // 1) Preferred: from metadata
     let orderId = session.metadata?.orderId;
 
-    // 2) Fallback: parse from success_url / cancel_url query
     if (!orderId && session.success_url) {
       try {
         const u = new URL(session.success_url);
         orderId = u.searchParams.get("orderId") || orderId;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
     if (!orderId && session.cancel_url) {
       try {
         const u = new URL(session.cancel_url);
         orderId = u.searchParams.get("orderId") || orderId;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     if (!orderId) {
@@ -57,6 +41,7 @@ export const onRequestPost = async ({ request, env }) => {
       return json({ error: "ORDERS_KV missing" }, 200);
     }
 
+    // 1. Fetch existing order
     const kvKey = `order:${orderId}`;
     const rawOrder = await ordersKV.get(kvKey);
 
@@ -67,26 +52,27 @@ export const onRequestPost = async ({ request, env }) => {
 
     const order = JSON.parse(rawOrder);
 
-    // --- Update order fields ---
-
+    // 2. Update order fields (Preserving existing data like phone/packType)
     order.status = "paid";
     order.paidAt = new Date().toISOString();
     order.stripeSessionId = session.id;
-    order.stripePaymentIntentId =
-      session.payment_intent || order.stripePaymentIntentId;
+    order.stripePaymentIntentId = session.payment_intent || order.stripePaymentIntentId;
 
+    // --- ADDRESS FIX: Check both shipping and customer details ---
+    const shipping = session.shipping_details || session.customer_details;
+    
     order.customer = {
       email: session.customer_details?.email || order.email,
-      name: session.customer_details?.name || null,
-      address: session.customer_details?.address || null,
+      name: shipping?.name || session.customer_details?.name || null,
+      address: shipping?.address || session.customer_details?.address || null,
     };
 
+    // 3. Save back to KV
     await ordersKV.put(kvKey, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });
 
-    // --- Wait for all notifications (customer + internal + telegram) ---
-
+    // 4. Send Notifications
     await Promise.allSettled([
       sendPaidEmail(order, env),
       sendAdminEmail(order, env),
@@ -96,7 +82,6 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ received: true, updated: true });
   } catch (err) {
     console.error("webhook error:", err, "rawBody:", rawBody);
-    // Still return 200 so Stripe doesn’t spam retries
     return json({ error: err.message || "Webhook error", received: true });
   }
 };
@@ -108,8 +93,6 @@ function json(body, status = 200) {
   });
 }
 
-// ---------- Shared helper ----------
-
 function buildTotalText(order) {
   if (typeof order.price === "number") {
     return "£" + order.price.toFixed(2);
@@ -118,204 +101,108 @@ function buildTotalText(order) {
 }
 
 // ------------- CUSTOMER EMAIL (Resend) -------------
-
 async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
 
-  if (!apiKey || !from || !order.email) {
-    console.log(
-      "Skipping paid CUSTOMER email – missing RESEND config or order email",
-      { hasApiKey: !!apiKey, hasFrom: !!from, email: order.email }
-    );
-    return;
-  }
+  if (!apiKey || !from || !order.email) return;
 
   const subject = "We’ve received your Magnetic Memories order";
   const totalText = buildTotalText(order);
 
   const html = `
-    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="font-family: system-ui, sans-serif;">
       <h2>Thanks for your order!</h2>
       <p>We’ve received your payment and will start preparing your magnets shortly.</p>
       <p>
         <strong>Order ID:</strong> ${order.orderId}<br/>
-        <strong>Status:</strong> paid<br/>
         <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
         <strong>Total:</strong> ${totalText}
       </p>
       <p>
-        You can track your order status here:<br/>
-        <a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(
-          order.orderId
-        )}">
-          Track your order
-        </a>
+        Track your order here:<br/>
+        <a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(order.orderId)}">Track Order</a>
       </p>
       <p>— Magnetic Memories</p>
     </div>
   `;
 
-  const res = await fetch("https://api.resend.com/emails", {
+  await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [order.email],
-      subject,
-      html,
-    }),
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [order.email], subject, html }),
   });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error("Resend CUSTOMER email failed", res.status, text);
-  }
 }
 
-// ------------- ADMIN / INTERNAL EMAIL (Resend) -------------
-
+// ------------- ADMIN EMAIL (Resend) -------------
 async function sendAdminEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
   const notifyRaw = env.NOTIFY_EMAIL || "";
+  const recipients = notifyRaw.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
 
-  // Support commas, semicolons, or newlines as separators
-  const recipients = notifyRaw
-    .split(/[,;\n]+/)
-    .map((x) => x.trim())
-    .filter(Boolean);
-
-  if (!apiKey || !from || recipients.length === 0) {
-    console.log("Skipping ADMIN email – missing RESEND/NOTIFY_EMAIL config", {
-      hasApiKey: !!apiKey,
-      hasFrom: !!from,
-      recipients,
-    });
-    return;
-  }
+  if (!apiKey || !from || recipients.length === 0) return;
 
   const subject = `New paid order – ${order.orderId}`;
   const totalText = buildTotalText(order);
   const customerEmail = order.email || order.customer?.email || "Unknown";
+  
+  // --- ADDED PHONE TO ADMIN EMAIL ---
+  const customerPhone = order.phone || "No phone"; 
 
   const html = `
-    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="font-family: system-ui, sans-serif;">
       <h2>New paid order</h2>
-      <p>A customer has just completed a Stripe checkout.</p>
       <p>
         <strong>Order ID:</strong> ${order.orderId}<br/>
         <strong>Status:</strong> ${order.status}<br/>
-        <strong>Customer email:</strong> ${customerEmail}<br/>
-        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
-        <strong>Total:</strong> ${totalText}<br/>
-        <strong>Created:</strong> ${order.createdAt || ""}<br/>
-        <strong>Paid at:</strong> ${order.paidAt || ""}<br/>
+        <strong>Customer:</strong> ${customerEmail}<br/>
+        <strong>Phone:</strong> ${customerPhone}<br/>
+        <strong>Pack:</strong> ${order.packSize} magnets (${order.packType || 'standard'})<br/>
+        <strong>Total:</strong> ${totalText}
       </p>
       <p>
-        <strong>Stripe session:</strong> ${order.stripeSessionId || ""}<br/>
-        <strong>Payment intent:</strong> ${order.stripePaymentIntentId || ""}<br/>
-      </p>
-      <p>
-        Admin dashboard:<br/>
-        <a href="https://magnetic-memories.pages.dev/admin.html">
-          Open admin dashboard
-        </a>
-      </p>
-      <p>
-        Customer tracking page:<br/>
-        <a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(
-          order.orderId
-        )}">
-          View customer order page
-        </a>
-      </p>
-      <hr/>
-      <p style="font-size: 12px; color: #888;">
-        This email was sent to: ${recipients.join(", ")}
+        <a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a>
       </p>
     </div>
   `;
 
-  // Send one email per recipient – more robust than a single multi-to call
-  await Promise.all(
-    recipients.map(async (to) => {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from,
-          to: [to],
-          subject,
-          html,
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.error(
-          "Resend ADMIN email failed for",
-          to,
-          "status",
-          res.status,
-          text
-        );
-      }
+  await Promise.all(recipients.map(to => 
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, html }),
     })
-  );
+  ));
 }
 
-// ------------- TELEGRAM (admin group) -------------
-
+// ------------- TELEGRAM -------------
 async function sendPaidTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = env.TELEGRAM_CHAT_ID;
-  const notifyEmail = env.NOTIFY_EMAIL || "";
 
-  if (!token || !chatIdsRaw) {
-    console.log("Skipping paid Telegram – missing bot config");
-    return;
-  }
+  if (!token || !chatIdsRaw) return;
 
-  const chatIds = chatIdsRaw
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-
+  const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
   if (!chatIds.length) return;
 
   const lines = [
-    "💳 New paid order",
-    `Order ID: ${order.orderId}`,
+    "💳 *New paid order*",
+    `ID: \`${order.orderId}\``,
     `Email: ${order.email || "Unknown"}`,
-    `Pack: ${order.packSize || "?"} magnets`,
-    typeof order.price === "number"
-      ? `Total: £${order.price.toFixed(2)}`
-      : null,
-    notifyEmail ? `Internal notify: ${notifyEmail}` : null,
+    `Phone: ${order.phone || "No phone"}`,
+    `Pack: ${order.packSize} magnets (${order.packType || 'standard'})`,
+    typeof order.price === "number" ? `Total: £${order.price.toFixed(2)}` : null,
   ].filter(Boolean);
 
   const text = lines.join("\n");
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
 
-  await Promise.all(
-    chatIds.map((chatId) =>
-      fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-        }),
-      }).catch((err) =>
-        console.error("Telegram send error for chat", chatId, err)
-      )
-    )
-  );
+  await Promise.all(chatIds.map(chatId =>
+    fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+    }).catch(console.error)
+  ));
 }

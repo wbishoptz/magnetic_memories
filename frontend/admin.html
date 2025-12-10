@@ -582,35 +582,24 @@
         const statusVal = statusFilter.value;
         const dateVal = dateFilter.value;
 
-        // Calculate Date Cutoff
         let cutoffTime = 0;
         const now = new Date();
         
         if (dateVal === 'today') {
-            // Midnight today
             cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         } else if (dateVal === 'last_week') {
-            // 7 days ago
             cutoffTime = now.getTime() - (7 * 24 * 60 * 60 * 1000);
         } else if (dateVal === 'last_month') {
-            // 30 days ago
             cutoffTime = now.getTime() - (30 * 24 * 60 * 60 * 1000);
         }
-        // 'all' leaves cutoffTime at 0
 
         filteredOrders = orders.filter((o) => {
-          // 1. Status Check
           if (statusVal && o.status !== statusVal) return false;
-
-          // 2. Date Check
           if (cutoffTime > 0) {
               const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : 0;
               if (orderTime < cutoffTime) return false;
           }
-
-          // 3. Search Check
           if (!q) return true;
-          // Search email, ID, or phone
           const haystack = `${o.orderId || ""} ${o.email || ""} ${o.phone || ""}`.toLowerCase();
           return haystack.includes(q);
         });
@@ -627,7 +616,6 @@
 
         const counts = new Map();
         for (const o of filteredOrders) {
-          // Only count visible (filtered) orders in the summary
           if (!o.packSize) continue;
           const k = String(o.packSize);
           counts.set(k, (counts.get(k) || 0) + 1);
@@ -764,10 +752,8 @@
             order.email || "Unknown email"
           }</div>`;
 
-          // --- ADDED PHONE DISPLAY ---
           html += `<div class="field-label">Phone</div>`;
           html += `<div class="field-value">${order.phone || "No phone provided"}</div>`;
-          // ---------------------------
 
           if (order.customer && order.customer.address) {
              const addr = order.customer.address;
@@ -780,9 +766,10 @@
                addr.country
              ].filter(Boolean);
 
+             // --- IMPROVED ADDRESS CONTRAST ---
              if (lines.length > 0) {
                html += `<div class="field-label">Shipping Address</div>`;
-               html += `<div class="field-value" style="background: #111827; padding: 10px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.5;">${lines.join("<br>")}</div>`;
+               html += `<div class="field-value" style="background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.6;">${lines.join("<br>")}</div>`;
              }
           }
 
@@ -797,11 +784,6 @@
           if (order.stripeSessionId) {
             html += `<div class="field-label">Stripe session</div>`;
             html += `<div class="field-value">${order.stripeSessionId}</div>`;
-          }
-
-          if (order.stripePaymentIntentId) {
-            html += `<div class="field-label">Payment intent</div>`;
-            html += `<div class="field-value">${order.stripePaymentIntentId}</div>`;
           }
 
           html += `<div class="field-label">
@@ -877,7 +859,6 @@
             });
           }
 
-          // Load images + hook up "Download all"
           await loadOrderImages(orderId);
           const downloadAllBtn = document.getElementById("download-all-btn");
           if (downloadAllBtn) {

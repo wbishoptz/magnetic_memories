@@ -41,10 +41,8 @@ export async function onRequestPost({ request, env }) {
     const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
     const amount = price * 100;
 
-    // --- FIX: RESTORED THE WORKING PAGES.DEV URL ---
     const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
-    // -----------------------------------------------
 
     const params = new URLSearchParams();
 
@@ -62,7 +60,6 @@ export async function onRequestPost({ request, env }) {
     let productDesc = "50×50mm fridge magnets – printed using your uploaded photos.";
     
     if (packType === 'big_picture') {
-        // UPDATED: "Jigsaw Picture"
         productName = `Jigsaw Picture (${packSize} magnets)`;
         productDesc = `One large photo split across ${packSize} magnets (Jigsaw style).`;
     }
@@ -117,13 +114,14 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // Save back to KV
+    // --- CRITICAL FIX: PRESERVE PHONE NUMBER ---
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
       email,
       packSize,
       packType: kvOrder?.packType || packType,
+      phone: kvOrder?.phone || null, // <--- This line saves the phone number!
       price,
       status: "checkout_created",
       createdAt: kvOrder?.createdAt || now,
