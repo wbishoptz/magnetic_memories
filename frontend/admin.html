@@ -130,6 +130,25 @@
         background: #1f2937;
       }
 
+      /* Red Danger Button Style */
+      button.btn-danger {
+        background: rgba(220, 38, 38, 0.15);
+        color: #f87171;
+        border: 1px solid rgba(220, 38, 38, 0.4);
+        margin-top: 24px;
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      button.btn-danger:hover {
+        background: rgba(220, 38, 38, 0.25);
+        border-color: #f87171;
+        color: #fff;
+      }
+
       .table-wrapper {
         margin-top: 6px;
         border-radius: 10px;
@@ -766,7 +785,6 @@
                addr.country
              ].filter(Boolean);
 
-             // --- IMPROVED ADDRESS CONTRAST ---
              if (lines.length > 0) {
                html += `<div class="field-label">Shipping Address</div>`;
                html += `<div class="field-value" style="background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.6;">${lines.join("<br>")}</div>`;
@@ -796,6 +814,10 @@
           html += `<pre class="json">${escapeHtml(
             JSON.stringify(order, null, 2)
           )}</pre>`;
+
+          // --- NEW: DELETE BUTTON ---
+          html += `<button id="delete-order-btn" class="btn-danger">Delete Order (Careful!)</button>`;
+          // --------------------------
 
           detailsContainer.innerHTML = html;
           detailsSubtitle.textContent = "Full order payload";
@@ -858,6 +880,43 @@
               }
             });
           }
+
+          // --- DELETE BUTTON LOGIC ---
+          const deleteBtn = document.getElementById("delete-order-btn");
+          if (deleteBtn) {
+            deleteBtn.addEventListener("click", async () => {
+              const confirmed = window.confirm(
+                "Are you sure you want to PERMANENTLY DELETE this order?\n\nThis cannot be undone."
+              );
+              if (!confirmed) return;
+
+              deleteBtn.disabled = true;
+              deleteBtn.textContent = "Deleting...";
+
+              try {
+                const res = await fetch("/api/admin-order-delete", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ key: adminKey, orderId }),
+                });
+
+                if (!res.ok) throw new Error("Delete failed");
+
+                // Success: Remove from list and clear view
+                orders = orders.filter((o) => o.orderId !== orderId);
+                applyFilters();
+                detailsContainer.innerHTML = '<div class="empty-state">Order deleted.</div>';
+                detailsSubtitle.textContent = "Deleted";
+                
+              } catch (err) {
+                console.error("Failed to delete", err);
+                alert("Failed to delete order.");
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = "Delete Order (Careful!)";
+              }
+            });
+          }
+          // --------------------------
 
           await loadOrderImages(orderId);
           const downloadAllBtn = document.getElementById("download-all-btn");
