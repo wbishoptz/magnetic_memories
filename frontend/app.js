@@ -226,7 +226,8 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCountEl.textContent = String(requiredCount);
     updatePhotoCount();
     
-    const label = type === 'big_picture' ? `Big Picture (${size} magnets)` : `${size} magnets`;
+    // UPDATED TEXT: Jigsaw
+    const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
     showToast(`Selected: ${label}`, "ok");
   });
 });
@@ -304,7 +305,8 @@ myDropzone.on("addedfile", (file) => {
         modal.classList.remove("hidden");
     } else {
         modalTitle.textContent = "Limit Reached";
-        modalText.textContent = `This Big Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
+        // UPDATED TEXT: Jigsaw
+        modalText.textContent = `This Jigsaw Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
         modalConfirm.textContent = "OK";
         modalKeep.style.display = "none";
         pendingTargetValue = "KEEP_CURRENT"; 
@@ -352,7 +354,8 @@ modalConfirm.addEventListener("click", () => {
   pendingTargetValue = null;
   updatePhotoCount();
   
-  const label = type === 'big_picture' ? `Big Picture (${size} magnets)` : `${size} magnets`;
+  // UPDATED TEXT: Jigsaw
+  const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
   showToast(`Switched to ${label}`, "ok");
 });
 

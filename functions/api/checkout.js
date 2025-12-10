@@ -62,8 +62,9 @@ export async function onRequestPost({ request, env }) {
     let productDesc = "50×50mm fridge magnets – printed using your uploaded photos.";
     
     if (packType === 'big_picture') {
-        productName = `Big Picture (${packSize} magnets)`;
-        productDesc = `One large photo split across ${packSize} magnets (Mosaic style).`;
+        // UPDATED: "Jigsaw Picture"
+        productName = `Jigsaw Picture (${packSize} magnets)`;
+        productDesc = `One large photo split across ${packSize} magnets (Jigsaw style).`;
     }
 
     params.append("line_items[0][quantity]", "1");
