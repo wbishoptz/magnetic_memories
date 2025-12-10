@@ -4,7 +4,7 @@
 
 // ---- State ----
 let selectedPackSize = 3;
-let selectedPackType = 'standard'; // 'standard' or 'big_picture'
+let selectedPackType = 'standard'; 
 let requiredCount = 3;
 let previousRadioValue = "standard_3";
 let customerEmail = "";
@@ -27,6 +27,7 @@ const progressBar      = document.getElementById("upload-progress-bar");
 const countHelp        = document.getElementById("count-help");
 const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
+const uploadMetaEl     = document.querySelector(".upload-meta"); // For scrolling
 
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
@@ -37,7 +38,7 @@ const modalKeep    = document.getElementById("upgrade-keep");
 
 let pendingTargetValue = null;
 
-// --- Safety Net: Prevent accidental tab close ---
+// --- Safety Net ---
 window.addEventListener("beforeunload", (e) => {
   if (myDropzone.files.length > 0 && !payBtn.disabled) {
     e.preventDefault();
@@ -56,7 +57,29 @@ function showToast(message, type = "ok") {
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
 }
 
-// ---- Validation UI Helpers ----
+// ---- Validation Logic ----
+function isEmailValid() {
+  return /\S+@\S+\.\S+/.test(customerEmail);
+}
+function isPhoneValid() {
+  return customerPhone.length >= 6;
+}
+function isCountValid() {
+  return myDropzone.files.length === requiredCount;
+}
+function isAllCropped() {
+  return getUncroppedFiles().length === 0 && myDropzone.files.length > 0;
+}
+
+// ---- UI Feedback (Jiggle) ----
+function shakeElement(el) {
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add("shake");
+  // Remove class after animation plays (400ms)
+  setTimeout(() => el.classList.remove("shake"), 500);
+}
+
+// ---- UI State Update ----
 function setEmailValidityUI(isValid) {
   const errEl = document.getElementById("emailError");
   if (!emailTouched) {
@@ -81,6 +104,18 @@ function setPhoneValidityUI(isValid) {
   phoneInput.setAttribute("aria-invalid", String(!isValid));
 }
 
+function updatePayButtonAppearance() {
+  const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped();
+  // Instead of disabling the button, we toggle the "disabled-look" class
+  if (ready) {
+    payBtn.classList.remove("disabled-look");
+    payBtn.textContent = "Pay securely";
+  } else {
+    payBtn.classList.add("disabled-look");
+    // Optional: could change text to "Complete details to pay"
+  }
+}
+
 // ---- Dropzone ----
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
@@ -91,7 +126,7 @@ const myDropzone = new Dropzone(dzElement, {
   autoProcessQueue: false,
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 10, // MB
+  maxFilesize: 10, 
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
   addRemoveLinks: true,
@@ -100,16 +135,14 @@ const myDropzone = new Dropzone(dzElement, {
   dictRemoveFile: "Remove",
 });
 
-// ---- Helper: Parsing Radio Values ----
 function parsePackValue(val) {
-  const parts = val.split('_'); // "standard_3" -> ["standard", "3"]
+  const parts = val.split('_'); 
   return {
     type: parts[0] === 'big' ? 'big_picture' : 'standard',
     size: parseInt(parts[1], 10)
   };
 }
 
-// ---- Helper: cropping status & UI ----
 function getUncroppedFiles() {
   return myDropzone.files.filter((f) => !f._cropped);
 }
@@ -152,36 +185,22 @@ function updateCountHelp() {
   }
 }
 
-function enforcePayButtonState() {
-  const count = myDropzone.files.length;
-  const validEmail = /\S+@\S+\.\S+/.test(customerEmail);
-  // Basic phone validation: at least 6 chars (handles international formats)
-  const validPhone = customerPhone.length >= 6;
-  const allCropped = getUncroppedFiles().length === 0 && count > 0;
-  
-  payBtn.disabled = !(validEmail && validPhone && count === requiredCount && allCropped);
-}
-
 function updatePhotoCount() {
   photoCountEl.textContent = String(myDropzone.files.length);
   updateCountHelp();
   updateCropHelp();
-  enforcePayButtonState();
+  updatePayButtonAppearance();
 }
 
-// ---- Pack selector (with downgrade guard) ----
+// ---- Pack selector ----
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
     const newVal = radio.value;
     const { type, size } = parsePackValue(newVal);
-    
-    // Logic: If 'big_picture', required is ALWAYS 1. If 'standard', required is 'size'.
     const newRequired = (type === 'big_picture') ? 1 : size;
     const currentCount = myDropzone.files.length;
 
-    // Guard: If we are switching to a pack that needs FEWER photos than we have
     if (newRequired < currentCount) {
-      // Revert radio UI for now (until confirmed)
       const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
       if (prevRadio) prevRadio.checked = true;
 
@@ -200,7 +219,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
       return;
     }
 
-    // Success update
     previousRadioValue = newVal;
     selectedPackSize = size;
     selectedPackType = type;
@@ -214,35 +232,33 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   });
 });
 
-// ---- Email & Phone wiring ----
+// ---- Inputs ----
 emailInput.addEventListener("input", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
-  setEmailValidityUI(/\S+@\S+\.\S+/.test(customerEmail));
-  enforcePayButtonState();
+  setEmailValidityUI(isEmailValid());
+  updatePayButtonAppearance();
 });
 emailInput.addEventListener("blur", () => {
   emailTouched  = true;
-  setEmailValidityUI(/\S+@\S+\.\S+/.test(emailInput.value.trim()));
+  setEmailValidityUI(isEmailValid());
 });
 
 phoneInput.addEventListener("input", () => {
   phoneTouched = true;
-  // Strip non-numeric/plus chars for simpler validation if desired, 
-  // but for now just trim whitespace.
   customerPhone = phoneInput.value.trim();
-  setPhoneValidityUI(customerPhone.length >= 6);
-  enforcePayButtonState();
+  setPhoneValidityUI(isPhoneValid());
+  updatePayButtonAppearance();
 });
 phoneInput.addEventListener("blur", () => {
   phoneTouched = true;
-  setPhoneValidityUI(phoneInput.value.trim().length >= 6);
+  setPhoneValidityUI(isPhoneValid());
 });
 
 setEmailValidityUI(false);
 setPhoneValidityUI(false);
 
-// ---- Add/Remove files ----
+// ---- Dropzone Logic ----
 const cropQueue = [];
 let croppingActive = false;
 
@@ -257,7 +273,7 @@ async function processCropQueue() {
 
   while (cropQueue.length > 0) {
     const next = cropQueue.shift();
-    if (!next || myDropzone.files.indexOf(next) === -1) continue; // already removed
+    if (!next || myDropzone.files.indexOf(next) === -1) continue; 
     await openCropModalAndAwait(next); 
   }
 
@@ -274,11 +290,9 @@ myDropzone.on("addedfile", (file) => {
   enqueueForCrop(file);
 
   const total = myDropzone.files.length;
-  // Use requiredCount instead of packSize, because Big Picture only needs 1
   if (total > requiredCount) {
     if (selectedPackType === 'standard') {
         const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
-        // Suggest the standard pack
         pendingTargetValue = `standard_${suggested}`;
         
         modalTitle.textContent = "Add more magnets?";
@@ -290,13 +304,10 @@ myDropzone.on("addedfile", (file) => {
         modalKeep.textContent    = "Keep current & remove extras";
         modal.classList.remove("hidden");
     } else {
-        // In Big Picture mode, just warn them
         modalTitle.textContent = "Limit Reached";
         modalText.textContent = `This Big Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
         modalConfirm.textContent = "OK";
-        modalKeep.style.display = "none"; // Hide cancel
-        
-        // Hack: store "keep" as pending to trigger removal logic
+        modalKeep.style.display = "none";
         pendingTargetValue = "KEEP_CURRENT"; 
         modal.classList.remove("hidden");
     }
@@ -310,22 +321,18 @@ myDropzone.on("removedfile", () => {
   updatePhotoCount();
 });
 
-// ---- Upgrade/Downgrade modal actions ----
+// ---- Upgrade/Downgrade ----
 modalConfirm.addEventListener("click", () => {
-  modalKeep.style.display = "inline-block"; // reset UI
-  
+  modalKeep.style.display = "inline-block";
   if (pendingTargetValue === "KEEP_CURRENT") {
-      // Just trim extras
       while (myDropzone.files.length > requiredCount) {
         myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
       }
       modal.classList.add("hidden");
       return;
   }
-
   if (!pendingTargetValue) return;
 
-  // Apply new selection
   const { type, size } = parsePackValue(pendingTargetValue);
   selectedPackType = type;
   selectedPackSize = size;
@@ -337,7 +344,6 @@ modalConfirm.addEventListener("click", () => {
   const radio = document.querySelector(`input[name="pack"][value="${pendingTargetValue}"]`);
   if (radio) radio.checked = true;
 
-  // Trim extras if still over
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
@@ -352,15 +358,10 @@ modalConfirm.addEventListener("click", () => {
 });
 
 modalKeep.addEventListener("click", () => {
-  modalKeep.style.display = "inline-block"; // reset UI
-  
-  // User cancelled the switch. Keep current pack settings.
-  // BUT we must enforce the current limit (remove the photo they just tried to add).
+  modalKeep.style.display = "inline-block";
   while (myDropzone.files.length > requiredCount) {
     myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
   }
-  
-  // Reset radio visually
   const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
   if (prevRadio) prevRadio.checked = true;
 
@@ -370,15 +371,45 @@ modalKeep.addEventListener("click", () => {
   updatePhotoCount();
 });
 
-// ---- Upload progress ----
 myDropzone.on("totaluploadprogress", (progress) => {
   progressBar.style.width = `${progress}%`;
 });
 
-// ---- Pay flow ----
+// ---- PAY BUTTON CLICK (Smart Validation) ----
 payBtn.addEventListener("click", async () => {
+  // 1. Validation Check with Jiggles
+  if (!isEmailValid()) {
+    emailTouched = true;
+    setEmailValidityUI(false);
+    shakeElement(emailInput);
+    showToast("Please enter a valid email", "error");
+    return;
+  }
+
+  if (!isPhoneValid()) {
+    phoneTouched = true;
+    setPhoneValidityUI(false);
+    shakeElement(phoneInput);
+    showToast("Please enter a phone number", "error");
+    return;
+  }
+
+  if (!isCountValid()) {
+    shakeElement(uploadMetaEl); // Jiggle the count area
+    showToast(`You need exactly ${requiredCount} photo${requiredCount>1?'s':''}`, "error");
+    return;
+  }
+
+  if (!isAllCropped()) {
+    shakeElement(cropHelp); // Jiggle crop warning
+    showToast("Please crop all photos", "error");
+    return;
+  }
+
+  // 2. Proceed to Pay if valid
   try {
-    payBtn.disabled = true;
+    payBtn.disabled = true; // Actually disable now to prevent double-clicks
+    payBtn.textContent = "Processing...";
     
     const country = document.getElementById("shipping-country").value;
     const shippingCost = country === "GB" ? 5 : 0;
@@ -386,13 +417,12 @@ payBtn.addEventListener("click", async () => {
     
     statusEl.textContent = "Creating order…";
 
-    // 1) Create order (now sending Phone)
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
           email: customerEmail, 
-          phone: customerPhone, // <--- SEND PHONE
+          phone: customerPhone,
           packSize: selectedPackSize,
           packType: selectedPackType
       }),
@@ -400,7 +430,6 @@ payBtn.addEventListener("click", async () => {
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
 
-    // 2) Upload files
     statusEl.textContent = "Uploading photos…";
     progressWrap.style.display = "block";
     progressWrap.setAttribute("aria-hidden", "false");
@@ -422,7 +451,6 @@ payBtn.addEventListener("click", async () => {
 
     progressBar.style.width = "100%";
 
-    // 3) Create checkout
     statusEl.textContent = `Creating checkout (£${total})…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
@@ -445,6 +473,7 @@ payBtn.addEventListener("click", async () => {
     console.error(err);
     statusEl.textContent = err?.message || "Something went wrong. Please try again.";
     payBtn.disabled = false;
+    payBtn.textContent = "Pay securely";
   } finally {
     setTimeout(() => {
       progressWrap.style.display = "none";
@@ -482,7 +511,6 @@ function addCropButton(_file) {
   preview.appendChild(cropBtn);
 }
 
-// Crop modal elements
 const cropModal   = document.getElementById("crop-modal");
 const cropImg     = document.getElementById("crop-image");
 const cropSave    = document.getElementById("crop-save");

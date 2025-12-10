@@ -48,7 +48,10 @@ h1 { font-size: 2rem; margin: 0 0 6px; }
   cursor: pointer;
 }
 
-input[type="email"] {
+/* --- UPDATED: Unified Input Styling (Email, Phone, Select) --- */
+input[type="email"],
+input[type="tel"],
+select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
@@ -56,6 +59,14 @@ input[type="email"] {
   background: rgba(255,255,255,0.04);
   color: var(--text);
   outline: none;
+  font-size: 1rem; /* Ensure legible size on mobile */
+  transition: border-color 0.2s;
+}
+
+input[type="email"]:focus,
+input[type="tel"]:focus,
+select:focus {
+  border-color: var(--accent);
 }
 
 .hint { color: var(--muted); font-size: 0.9rem; }
@@ -68,11 +79,38 @@ input[type="email"] {
   background: linear-gradient(180deg, #6be0bd, var(--accent));
   color: #082015; border: none; font-weight: 800; cursor: pointer;
   box-shadow: 0 8px 20px rgba(89, 201, 165, 0.35);
+  transition: opacity 0.2s, transform 0.1s;
 }
-.actions-centered .cta[disabled] { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+/* NEW: "Fake" Disabled State (Still Clickable) */
+.actions-centered .cta.disabled-look {
+  opacity: 0.5;
+  box-shadow: none;
+  background: #374151; /* Darker grey when disabled */
+  color: #9ca3af;
+  cursor: pointer; /* Keep pointer so they know they can click to check errors */
+}
+
+/* Real disabled (processing) */
+.actions-centered .cta:disabled { 
+  opacity: 0.5; 
+  cursor: wait; 
+}
 
 .status { color: var(--muted); font-size: 0.95rem; text-align: center; }
 .tiny { color: var(--muted); font-size: 0.8rem; text-align: center; }
+
+/* --- JIGGLE ANIMATION --- */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.shake {
+  animation: shake 0.4s ease-in-out;
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 2px rgba(255, 102, 102, 0.3);
+}
 
 /* --- DROPZONE STYLING --- */
 #mm-dropzone {
@@ -88,13 +126,9 @@ input[type="email"] {
 }
 #mm-dropzone .dz-message { color: var(--muted); font-size: 1rem; text-align: center; grid-column: 1 / -1; margin-top: 40px;}
 #mm-dropzone.dz-started .dz-message { display: none; }
-
-/* Hide the annoying white box details */
 #mm-dropzone .dz-details { display: none !important; }
-/* Hide progress bar container */
 #mm-dropzone .dz-progress { display: none !important; }
 
-/* Preview Card */
 .dz-preview {
   display: flex !important;
   flex-direction: column;
@@ -103,23 +137,17 @@ input[type="email"] {
   width: 100%;
 }
 
-/* The Image */
 .dz-image {
   border-radius: 12px !important;
   overflow: hidden;
   width: 100% !important;
-  aspect-ratio: 1 / 1; /* Force square container */
+  aspect-ratio: 1 / 1; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   border: 1px solid rgba(255,255,255,0.1);
   margin-bottom: 8px;
 }
-.dz-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.dz-image img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Action Buttons (Pill Style) */
 .dz-crop-btn, 
 .dz-preview .dz-remove {
   display: block !important;
@@ -138,46 +166,25 @@ input[type="email"] {
   margin-top: 4px !important;
 }
 
-/* Crop Button: Green Theme */
-.dz-crop-btn {
-  background: rgba(89, 201, 165, 0.1);
-  color: #66d19e !important;
-}
-.dz-crop-btn:hover {
-  background: rgba(89, 201, 165, 0.2);
-  transform: translateY(-1px);
-}
+.dz-crop-btn { background: rgba(89, 201, 165, 0.1); color: #66d19e !important; }
+.dz-crop-btn:hover { background: rgba(89, 201, 165, 0.2); transform: translateY(-1px); }
 
-/* Remove Button: Red Theme */
-.dz-preview .dz-remove {
-  background: rgba(255, 102, 102, 0.1);
-  color: #ff8a8a !important;
-}
-.dz-preview .dz-remove:hover {
-  background: rgba(255, 102, 102, 0.2);
-  transform: translateY(-1px);
-}
-/* --- END DROPZONE --- */
+.dz-preview .dz-remove { background: rgba(255, 102, 102, 0.1); color: #ff8a8a !important; }
+.dz-preview .dz-remove:hover { background: rgba(255, 102, 102, 0.2); transform: translateY(-1px); }
 
-/* Meta row */
 .upload-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
 .counter { color: var(--text); }
-
-/* Helper text colours */
 .count-help { margin-top: 4px; font-size: 0.9rem; }
 .count-help.ok { color: var(--ok); }
 .count-help.warn { color: var(--warn); }
 .count-help.error { color: var(--danger); }
 
-/* Progress */
 .progress { margin-top: 12px; width: 100%; height: 10px; border-radius: 8px; background: rgba(255,255,255,0.08); overflow: hidden; display: none; }
 .progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 120ms linear; }
 
-/* Email validation */
 .input-error { border: 2px solid #ff5d5d !important; background: rgba(255, 93, 93, 0.08) !important; }
 .error-text { color: #ff8a8a; font-size: 0.9rem; margin-top: 8px; }
 
-/* Modal */
 .modal.hidden { display: none; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: grid; place-items: center; z-index: 1000; backdrop-filter: blur(4px); }
 .modal-card { background: #181a20; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: min(520px, 92vw); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
@@ -186,7 +193,6 @@ input[type="email"] {
 .btn-primary { background: var(--accent); color: #081a12; border: none; border-radius: 10px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
 .btn-ghost { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 10px 18px; cursor: pointer; }
 
-/* Toast */
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
   background: #181a20; color: var(--text);
@@ -200,26 +206,11 @@ input[type="email"] {
 .toast.warn { border-color: rgba(240,195,106,0.7); color: var(--warn); }
 .toast.error { border-color: rgba(255,102,102,0.7); color: var(--danger); }
 
-/* Cropper modal */
 .cropper-card { width: min(650px, 95vw); }
 .cropper-container { width: 100%; max-height: 500px; overflow: hidden; border-radius: 10px; background: #000; }
 .cropper-container img { max-width: 100%; display: block; margin: 0 auto; }
 
-/* Mobile Breakpoint */
 @media (max-width: 768px) {
-  /* Prevent iOS Safari from auto-zooming form fields on focus */
-  input[type="email"],
-  input[type="text"],
-  input[type="number"],
-  input[type="tel"],
-  input[type="password"],
-  select,
-  textarea {
-    font-size: 16px;
-  }
-
-  /* NEW: Hide "(or drag & drop)" text on mobile */
-  #mm-dropzone .dz-message span {
-    display: none;
-  }
+  input[type="email"], input[type="text"], input[type="number"], input[type="tel"], input[type="password"], select, textarea { font-size: 16px; }
+  #mm-dropzone .dz-message span { display: none; }
 }
