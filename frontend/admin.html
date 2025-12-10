@@ -112,7 +112,7 @@
       }
 
       .toolbar select {
-        min-width: 140px;
+        min-width: 130px;
       }
 
       .toolbar button {
@@ -378,8 +378,16 @@
             <input
               id="search-input"
               type="text"
-              placeholder="Search email or order ID"
+              placeholder="Search..."
             />
+            
+            <select id="date-filter">
+                <option value="all">All time</option>
+                <option value="today">Today</option>
+                <option value="last_week" selected>Last 7 days</option>
+                <option value="last_month">Last 30 days</option>
+            </select>
+
             <select id="status-filter">
               <option value="">All statuses</option>
               <option value="paid">paid</option>
@@ -427,6 +435,7 @@
       const detailsSubtitle = document.getElementById("details-subtitle");
       const searchInput = document.getElementById("search-input");
       const statusFilter = document.getElementById("status-filter");
+      const dateFilter = document.getElementById("date-filter");
       const downloadCsvBtn = document.getElementById("download-csv-btn");
       const packSummaryEl = document.getElementById("pack-summary");
 
@@ -445,7 +454,6 @@
         if (fromUrl) {
           adminKey = fromUrl;
           localStorage.setItem("mm_admin_key", adminKey);
-          // Security: Clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else if (fromStorage) {
           adminKey = fromStorage;
@@ -475,6 +483,7 @@
 
       searchInput.addEventListener("input", applyFilters);
       statusFilter.addEventListener("change", applyFilters);
+      dateFilter.addEventListener("change", applyFilters);
 
       downloadCsvBtn.addEventListener("click", () => {
         if (!filteredOrders.length) {
@@ -571,13 +580,38 @@
       function applyFilters() {
         const q = searchInput.value.trim().toLowerCase();
         const statusVal = statusFilter.value;
+        const dateVal = dateFilter.value;
+
+        // Calculate Date Cutoff
+        let cutoffTime = 0;
+        const now = new Date();
+        
+        if (dateVal === 'today') {
+            // Midnight today
+            cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        } else if (dateVal === 'last_week') {
+            // 7 days ago
+            cutoffTime = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        } else if (dateVal === 'last_month') {
+            // 30 days ago
+            cutoffTime = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+        }
+        // 'all' leaves cutoffTime at 0
 
         filteredOrders = orders.filter((o) => {
+          // 1. Status Check
           if (statusVal && o.status !== statusVal) return false;
 
-          if (!q) return true;
+          // 2. Date Check
+          if (cutoffTime > 0) {
+              const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : 0;
+              if (orderTime < cutoffTime) return false;
+          }
 
-          const haystack = `${o.orderId || ""} ${o.email || ""}`.toLowerCase();
+          // 3. Search Check
+          if (!q) return true;
+          // Search email, ID, or phone
+          const haystack = `${o.orderId || ""} ${o.email || ""} ${o.phone || ""}`.toLowerCase();
           return haystack.includes(q);
         });
 
@@ -592,7 +626,8 @@
         }
 
         const counts = new Map();
-        for (const o of orders) {
+        for (const o of filteredOrders) {
+          // Only count visible (filtered) orders in the summary
           if (!o.packSize) continue;
           const k = String(o.packSize);
           counts.set(k, (counts.get(k) || 0) + 1);
