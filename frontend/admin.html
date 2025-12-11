@@ -41,16 +41,8 @@
         background: radial-gradient(circle at top left, #111827, #050608);
       }
 
-      header h1 {
-        font-size: 20px;
-        margin: 0 0 2px;
-      }
-
-      header p {
-        margin: 0;
-        font-size: 12px;
-        color: #9ca3af;
-      }
+      header h1 { font-size: 20px; margin: 0 0 2px; }
+      header p { margin: 0; font-size: 12px; color: #9ca3af; }
 
       .key-badge {
         font-size: 11px;
@@ -69,24 +61,10 @@
         min-height: 420px;
       }
 
-      .panel {
-        padding: 18px 18px 20px;
-        overflow: auto;
-      }
-
-      .panel + .panel {
-        border-left: 1px solid #1f2933;
-      }
-
-      .panel h2 {
-        font-size: 14px;
-        margin: 0 0 8px;
-      }
-
-      .panel small {
-        color: #9ca3af;
-        font-size: 12px;
-      }
+      .panel { padding: 18px 18px 20px; overflow: auto; }
+      .panel + .panel { border-left: 1px solid #1f2933; }
+      .panel h2 { font-size: 14px; margin: 0 0 8px; }
+      .panel small { color: #9ca3af; font-size: 12px; }
 
       .toolbar {
         display: flex;
@@ -97,8 +75,7 @@
         margin-bottom: 6px;
       }
 
-      .toolbar input,
-      .toolbar select {
+      .toolbar input, .toolbar select {
         background: #020617;
         border-radius: 999px;
         border: 1px solid #374151;
@@ -106,14 +83,8 @@
         font-size: 12px;
         color: #e5e7eb;
       }
-
-      .toolbar input {
-        min-width: 180px;
-      }
-
-      .toolbar select {
-        min-width: 130px;
-      }
+      .toolbar input { min-width: 180px; }
+      .toolbar select { min-width: 130px; }
 
       .toolbar button {
         border-radius: 999px;
@@ -125,10 +96,7 @@
         border: 1px solid #374151;
         color: #e5e7eb;
       }
-
-      .toolbar button:hover {
-        background: #1f2937;
-      }
+      .toolbar button:hover { background: #1f2937; }
 
       /* Red Danger Button Style */
       button.btn-danger {
@@ -156,86 +124,21 @@
         overflow: hidden;
       }
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-      }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      thead { background: #111827; }
+      th, td { padding: 8px 10px; white-space: nowrap; text-align: left; }
+      th { font-weight: 500; color: #9ca3af; border-bottom: 1px solid #1f2933; position: sticky; top: 0; background: #111827; z-index: 1; }
+      tbody tr { cursor: pointer; border-bottom: 1px solid #111827; }
+      tbody tr:hover { background: rgba(55, 65, 81, 0.35); }
+      tbody tr.selected { background: rgba(59, 130, 246, 0.25); }
 
-      thead {
-        background: #111827;
-      }
+      .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
+      .status-pill.paid, .status-pill.printing, .status-pill.shipped, .status-pill.completed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+      .status-pill.checkout_created, .status-pill.pending, .status-pill.draft { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+      .status-pill.error { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
+      .status-pill.unknown { background: rgba(148, 163, 184, 0.2); color: #e5e7eb; }
 
-      th,
-      td {
-        padding: 8px 10px;
-        white-space: nowrap;
-        text-align: left;
-      }
-
-      th {
-        font-weight: 500;
-        color: #9ca3af;
-        border-bottom: 1px solid #1f2933;
-        position: sticky;
-        top: 0;
-        background: #111827;
-        z-index: 1;
-      }
-
-      tbody tr {
-        cursor: pointer;
-        border-bottom: 1px solid #111827;
-      }
-
-      tbody tr:hover {
-        background: rgba(55, 65, 81, 0.35);
-      }
-
-      tbody tr.selected {
-        background: rgba(59, 130, 246, 0.25);
-      }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 11px;
-        font-weight: 500;
-      }
-
-      .status-pill.paid,
-      .status-pill.printing,
-      .status-pill.shipped,
-      .status-pill.completed {
-        background: rgba(16, 185, 129, 0.2);
-        color: #6ee7b7;
-      }
-
-      .status-pill.checkout_created,
-      .status-pill.pending,
-      .status-pill.draft {
-        background: rgba(245, 158, 11, 0.18);
-        color: #fbbf24;
-      }
-
-      .status-pill.error {
-        background: rgba(248, 113, 113, 0.18);
-        color: #fecaca;
-      }
-
-      .status-pill.unknown {
-        background: rgba(148, 163, 184, 0.2);
-        color: #e5e7eb;
-      }
-
-      .empty-state {
-        padding: 40px 16px;
-        text-align: center;
-        color: #9ca3af;
-        font-size: 13px;
-      }
+      .empty-state { padding: 40px 16px; text-align: center; color: #9ca3af; font-size: 13px; }
 
       .field-label {
         font-size: 11px;
@@ -248,117 +151,45 @@
         align-items: center;
         gap: 8px;
       }
+      .field-value { font-size: 13px; margin-bottom: 12px; word-break: break-all; }
 
-      .field-value {
-        font-size: 13px;
-        margin-bottom: 12px;
-        word-break: break-all;
+      pre.json { background: #020617; border-radius: 10px; padding: 10px 12px; border: 1px solid #1f2937; font-size: 12px; overflow: auto; max-height: 260px; }
+
+      .input-inline { display: inline-flex; align-items: center; gap: 6px; }
+      .input-inline input, .input-inline select {
+        background: #020617; border-radius: 999px; border: 1px solid #374151; padding: 6px 10px; font-size: 12px; color: #e5e7eb; min-width: 160px;
       }
-
-      pre.json {
-        background: #020617;
-        border-radius: 10px;
-        padding: 10px 12px;
-        border: 1px solid #1f2937;
-        font-size: 12px;
-        overflow: auto;
-        max-height: 260px;
-      }
-
-      .input-inline {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .input-inline input,
-      .input-inline select {
-        background: #020617;
-        border-radius: 999px;
-        border: 1px solid #374151;
-        padding: 6px 10px;
-        font-size: 12px;
-        color: #e5e7eb;
-        min-width: 160px;
-      }
-
       .input-inline button {
-        border-radius: 999px;
-        border: none;
-        padding: 6px 10px;
-        font-size: 12px;
-        cursor: pointer;
-        background: #16a34a;
-        color: #f9fafb;
+        border-radius: 999px; border: none; padding: 6px 10px; font-size: 12px; cursor: pointer; background: #16a34a; color: #f9fafb;
       }
+      .input-inline button:disabled { opacity: 0.5; cursor: default; }
 
-      .input-inline button:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-
+      /* Tag Styles */
       .tag {
-        display: inline-flex;
-        align-items: center;
-        font-size: 11px;
-        border-radius: 999px;
-        padding: 2px 8px;
-        background: #111827;
-        border: 1px solid #1f2933;
-        color: #9ca3af;
+        display: inline-flex; align-items: center; font-size: 11px; border-radius: 999px; padding: 2px 8px;
+        background: #111827; border: 1px solid #1f2933; color: #9ca3af;
+      }
+      /* New Purple Tag for Jigsaw */
+      .tag.purple {
+        background: rgba(168, 85, 247, 0.15);
+        color: #d8b4fe;
+        border-color: rgba(168, 85, 247, 0.3);
+        font-weight: 600;
+        letter-spacing: 0.03em;
       }
 
-      .small-flex {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-      }
+      .small-flex { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
-      .images-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 6px;
-      }
-
-      .image-thumb {
-        width: 90px;
-      }
-
-      .image-thumb img {
-        width: 100%;
-        height: 80px;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 1px solid #1f2933;
-        background: #020617;
-        display: block;
-      }
-
-      .image-thumb a {
-        display: block;
-        margin-top: 3px;
-        font-size: 11px;
-        color: #93c5fd;
-        text-decoration: none;
-      }
-
-      .image-thumb a:hover {
-        text-decoration: underline;
-      }
+      .images-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+      .image-thumb { width: 90px; }
+      .image-thumb img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #1f2933; background: #020617; display: block; }
+      .image-thumb a { display: block; margin-top: 3px; font-size: 11px; color: #93c5fd; text-decoration: none; }
+      .image-thumb a:hover { text-decoration: underline; }
 
       @media (max-width: 900px) {
-        body {
-          padding: 12px;
-        }
-        .layout {
-          grid-template-columns: minmax(0, 1fr);
-        }
-        .panel + .panel {
-          border-left: none;
-          border-top: 1px solid #1f2933;
-        }
+        body { padding: 12px; }
+        .layout { grid-template-columns: minmax(0, 1fr); }
+        .panel + .panel { border-left: none; border-top: 1px solid #1f2933; }
       }
     </style>
   </head>
@@ -370,17 +201,10 @@
           <p id="header-subtitle">Enter your admin key to load orders.</p>
         </div>
         <div class="input-inline" id="key-form">
-          <input
-            id="admin-key-input"
-            type="password"
-            placeholder="Admin key"
-            autocomplete="off"
-          />
+          <input id="admin-key-input" type="password" placeholder="Admin key" autocomplete="off" />
           <button id="save-key-btn">Unlock</button>
         </div>
-        <div class="key-badge" id="key-badge" style="display: none">
-          Admin mode
-        </div>
+        <div class="key-badge" id="key-badge" style="display: none">Admin mode</div>
       </header>
 
       <div class="layout">
@@ -394,11 +218,7 @@
           </div>
 
           <div class="toolbar">
-            <input
-              id="search-input"
-              type="text"
-              placeholder="Search..."
-            />
+            <input id="search-input" type="text" placeholder="Search..." />
             
             <select id="date-filter">
                 <option value="all">All time</option>
@@ -424,19 +244,14 @@
           </div>
 
           <div id="orders-container" class="table-wrapper">
-            <div class="empty-state">
-              Enter the admin key above to load orders.
-            </div>
+            <div class="empty-state">Enter the admin key above to load orders.</div>
           </div>
         </section>
 
         <section class="panel">
           <h2>Order details</h2>
           <small id="details-subtitle">Select an order from the left.</small>
-
-          <div id="details-container" class="empty-state">
-            No order selected.
-          </div>
+          <div id="details-container" class="empty-state">No order selected.</div>
         </section>
       </div>
     </div>
@@ -462,9 +277,8 @@
       let orders = [];
       let filteredOrders = [];
       let selectedOrderId = null;
-      let lastImagesForOrder = {}; // orderId -> images[]
+      let lastImagesForOrder = {};
 
-      // ----- init key from URL or local storage -----
       (function initKey() {
         const urlParams = new URLSearchParams(window.location.search);
         const fromUrl = urlParams.get("key");
@@ -492,7 +306,6 @@
       saveKeyBtn.addEventListener("click", () => {
         const value = keyInput.value.trim();
         if (!value) return;
-
         adminKey = value;
         localStorage.setItem("mm_admin_key", adminKey);
         headerSubtitle.textContent = "Loading latest orders…";
@@ -505,93 +318,41 @@
       dateFilter.addEventListener("change", applyFilters);
 
       downloadCsvBtn.addEventListener("click", () => {
-        if (!filteredOrders.length) {
-          alert("No orders to export.");
-          return;
-        }
-        const rows = [
-          [
-            "orderId",
-            "email",
-            "phone",
-            "packSize",
-            "price",
-            "status",
-            "createdAt",
-          ],
-        ];
+        if (!filteredOrders.length) { alert("No orders to export."); return; }
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "createdAt"]];
         for (const o of filteredOrders) {
-          rows.push([
-            o.orderId,
-            o.email || "",
-            o.phone || "",
-            o.packSize ?? "",
-            o.price ?? "",
-            o.status || "",
-            o.createdAt || "",
-          ]);
+          rows.push([o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.createdAt || ""]);
         }
-        const csv = rows
-          .map((r) =>
-            r
-              .map((v) =>
-                String(v)
-                  .replace(/"/g, '""')
-                  .includes(",")
-                  ? `"${String(v).replace(/"/g, '""')}"`
-                  : String(v)
-              )
-              .join(",")
-          )
-          .join("\n");
-
+        const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
-        a.download = "magnetic-memories-orders.csv";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = "magnetic-memories-orders.csv";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       });
 
       async function loadOrders() {
         if (!adminKey) return;
-
-        ordersContainer.innerHTML =
-          '<div class="empty-state">Loading orders…</div>';
+        ordersContainer.innerHTML = '<div class="empty-state">Loading orders…</div>';
         ordersSubtitle.textContent = "Loading orders…";
-
         try {
-          const res = await fetch(
-            `/api/admin-orders?key=${encodeURIComponent(adminKey)}`,
-            { cache: "no-store" }
-          );
-
+          const res = await fetch(`/api/admin-orders?key=${encodeURIComponent(adminKey)}`, { cache: "no-store" });
           if (res.status === 401) {
             headerSubtitle.textContent = "Invalid admin key.";
             ordersSubtitle.textContent = "Unauthorized";
-            ordersContainer.innerHTML =
-              '<div class="empty-state">Invalid key. Try again.</div>';
-            keyForm.style.opacity = "1";
-            keyForm.style.pointerEvents = "auto";
+            ordersContainer.innerHTML = '<div class="empty-state">Invalid key. Try again.</div>';
+            keyForm.style.opacity = "1"; keyForm.style.pointerEvents = "auto";
             keyBadge.style.display = "none";
             localStorage.removeItem("mm_admin_key");
             return;
           }
-
-          if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-          }
-
+          if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           orders = data.orders || [];
-          applyFilters(); // sets filteredOrders + renders + pack summary
+          applyFilters();
         } catch (err) {
           console.error("Failed to load orders", err);
-          ordersContainer.innerHTML =
-            '<div class="empty-state">Error loading orders.</div>';
+          ordersContainer.innerHTML = '<div class="empty-state">Error loading orders.</div>';
           ordersSubtitle.textContent = "Error loading orders";
         }
       }
@@ -600,17 +361,11 @@
         const q = searchInput.value.trim().toLowerCase();
         const statusVal = statusFilter.value;
         const dateVal = dateFilter.value;
-
         let cutoffTime = 0;
         const now = new Date();
-        
-        if (dateVal === 'today') {
-            cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        } else if (dateVal === 'last_week') {
-            cutoffTime = now.getTime() - (7 * 24 * 60 * 60 * 1000);
-        } else if (dateVal === 'last_month') {
-            cutoffTime = now.getTime() - (30 * 24 * 60 * 60 * 1000);
-        }
+        if (dateVal === 'today') cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        else if (dateVal === 'last_week') cutoffTime = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        else if (dateVal === 'last_month') cutoffTime = now.getTime() - (30 * 24 * 60 * 60 * 1000);
 
         filteredOrders = orders.filter((o) => {
           if (statusVal && o.status !== statusVal) return false;
@@ -622,76 +377,58 @@
           const haystack = `${o.orderId || ""} ${o.email || ""} ${o.phone || ""}`.toLowerCase();
           return haystack.includes(q);
         });
-
         renderOrders();
         updatePackSummary();
       }
 
       function updatePackSummary() {
-        if (!orders.length) {
-          packSummaryEl.textContent = "Pack summary: –";
-          return;
-        }
-
+        if (!orders.length) { packSummaryEl.textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
           if (!o.packSize) continue;
           const k = String(o.packSize);
           counts.set(k, (counts.get(k) || 0) + 1);
         }
-
-        if (!counts.size) {
-          packSummaryEl.textContent = "Pack summary: –";
-          return;
-        }
-
+        if (!counts.size) { packSummaryEl.textContent = "Pack summary: –"; return; }
         const parts = [];
-        const sorted = Array.from(counts.entries()).sort(
-          (a, b) => Number(a[0]) - Number(b[0])
-        );
-        for (const [size, count] of sorted) {
-          parts.push(`${count}× ${size}-pack`);
-        }
-
+        const sorted = Array.from(counts.entries()).sort((a, b) => Number(a[0]) - Number(b[0]));
+        for (const [size, count] of sorted) parts.push(`${count}× ${size}-pack`);
         packSummaryEl.textContent = "Pack summary: " + parts.join(" · ");
       }
 
       function renderOrders() {
         if (!filteredOrders.length) {
-          ordersContainer.innerHTML =
-            '<div class="empty-state">No orders match your filters.</div>';
+          ordersContainer.innerHTML = '<div class="empty-state">No orders match your filters.</div>';
           ordersSubtitle.textContent = "No orders";
           ordersCountEl.textContent = "0 orders";
           return;
         }
-
         ordersSubtitle.textContent = "Newest first";
-        ordersCountEl.textContent =
-          filteredOrders.length === 1
-            ? "1 order"
-            : `${filteredOrders.length} orders`;
+        ordersCountEl.textContent = filteredOrders.length === 1 ? "1 order" : `${filteredOrders.length} orders`;
 
         let html = '<div class="table-wrapper"><table><thead><tr>';
         html += "<th>Created</th><th>Status</th><th>Email</th><th>Pack</th><th>£</th>";
         html += "</tr></thead><tbody>";
 
         for (const o of filteredOrders) {
-          const created = o.createdAt
-            ? new Date(o.createdAt).toLocaleString()
-            : "–";
-          const statusClass =
-            "status-pill " + (o.status ? o.status.replace(/\s+/g, "_") : "unknown");
+          const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
+          const statusClass = "status-pill " + (o.status ? o.status.replace(/\s+/g, "_") : "unknown");
           const isSelected = o.orderId === selectedOrderId ? " selected" : "";
+          
+          // --- UPDATED: Add Puzzle Icon for Jigsaws ---
+          let packDisplay = o.packSize || "?";
+          if (o.packType === 'big_picture') {
+              packDisplay = '🧩 ' + packDisplay; // Icon + Number
+          }
 
           html += `<tr data-order-id="${o.orderId}" class="${isSelected}">`;
           html += `<td>${created}</td>`;
           html += `<td><span class="${statusClass}">${o.status}</span></td>`;
           html += `<td>${o.email || "–"}</td>`;
-          html += `<td>${o.packSize || "?"}</td>`;
+          html += `<td>${packDisplay}</td>`;
           html += `<td>${typeof o.price === "number" ? o.price.toFixed(2) : "–"}</td>`;
           html += "</tr>";
         }
-
         html += "</tbody></table></div>";
         ordersContainer.innerHTML = html;
 
@@ -708,328 +445,149 @@
       }
 
       async function loadOrderDetails(orderId) {
-        detailsContainer.innerHTML =
-          '<div class="empty-state">Loading order details…</div>';
+        detailsContainer.innerHTML = '<div class="empty-state">Loading order details…</div>';
         detailsSubtitle.textContent = "Loading…";
-
         try {
-          const res = await fetch(
-            `/api/admin-orders?orderId=${encodeURIComponent(
-              orderId
-            )}&key=${encodeURIComponent(adminKey)}`,
-            { cache: "no-store" }
-          );
-
-          if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-          }
-
+          const res = await fetch(`/api/admin-orders?orderId=${encodeURIComponent(orderId)}&key=${encodeURIComponent(adminKey)}`, { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const order = data.order;
-
           if (!order) {
-            detailsContainer.innerHTML =
-              '<div class="empty-state">Order not found.</div>';
+            detailsContainer.innerHTML = '<div class="empty-state">Order not found.</div>';
             detailsSubtitle.textContent = "Order not found";
             return;
           }
 
-          const created = order.createdAt
-            ? new Date(order.createdAt).toLocaleString()
-            : "–";
-
-          const statusClass =
-            "status-pill " +
-            (order.status ? order.status.replace(/\s+/g, "_") : "unknown");
+          const created = order.createdAt ? new Date(order.createdAt).toLocaleString() : "–";
+          const statusClass = "status-pill " + (order.status ? order.status.replace(/\s+/g, "_") : "unknown");
+          
+          // --- UPDATED: Jigsaw Visuals ---
+          const isJigsaw = order.packType === 'big_picture';
+          const packLabel = isJigsaw 
+              ? `<span class="tag purple">🧩 JIGSAW PICTURE</span>` 
+              : `<span class="tag">Standard</span>`;
 
           let html = "";
-
-          html += `<div class="field-label">Order ID</div>`;
-          html += `<div class="field-value">${order.orderId || orderId}</div>`;
-
-          html += `<div class="field-label">Status</div>`;
-          html += `<div class="field-value">
-              <span class="${statusClass}" id="status-pill-detail">${order.status}</span>
-            </div>`;
-
-          html += `<div class="field-value">
-              <div class="input-inline">
-                <select id="status-select">
-                  <option value="paid">paid</option>
-                  <option value="printing">printing</option>
-                  <option value="shipped">shipped</option>
-                  <option value="completed">completed</option>
-                  <option value="checkout_created">checkout_created</option>
-                  <option value="draft">draft</option>
-                </select>
-                <button id="status-update-btn">Update status</button>
-              </div>
-            </div>`;
-
-          html += `<div class="field-label">Customer</div>`;
-          html += `<div class="field-value">${
-            order.email || "Unknown email"
-          }</div>`;
-
-          html += `<div class="field-label">Phone</div>`;
-          html += `<div class="field-value">${order.phone || "No phone provided"}</div>`;
+          html += `<div class="field-label">Order ID</div><div class="field-value">${order.orderId || orderId}</div>`;
+          html += `<div class="field-label">Status</div><div class="field-value"><span class="${statusClass}" id="status-pill-detail">${order.status}</span></div>`;
+          html += `<div class="field-value"><div class="input-inline"><select id="status-select">
+                  <option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option><option value="checkout_created">checkout_created</option><option value="draft">draft</option>
+                </select><button id="status-update-btn">Update status</button></div></div>`;
+          html += `<div class="field-label">Customer</div><div class="field-value">${order.email || "Unknown email"}</div>`;
+          html += `<div class="field-label">Phone</div><div class="field-value">${order.phone || "No phone provided"}</div>`;
 
           if (order.customer && order.customer.address) {
              const addr = order.customer.address;
-             const lines = [
-               order.customer.name,
-               addr.line1,
-               addr.line2,
-               (addr.city && addr.postal_code) ? `${addr.city}, ${addr.postal_code}` : (addr.city || addr.postal_code),
-               addr.state,
-               addr.country
-             ].filter(Boolean);
-
+             const lines = [order.customer.name, addr.line1, addr.line2, (addr.city && addr.postal_code) ? `${addr.city}, ${addr.postal_code}` : (addr.city || addr.postal_code), addr.state, addr.country].filter(Boolean);
              if (lines.length > 0) {
-               html += `<div class="field-label">Shipping Address</div>`;
-               html += `<div class="field-value" style="background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.6;">${lines.join("<br>")}</div>`;
+               html += `<div class="field-label">Shipping Address</div><div class="field-value" style="background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; border: 1px solid #1f2933; line-height: 1.6;">${lines.join("<br>")}</div>`;
              }
           }
 
-          html += `<div class="field-label">Pack</div>`;
-          html += `<div class="field-value">${
-            order.packSize || "?"
-          } magnets (${order.packType === 'big_picture' ? 'Jigsaw Picture' : 'Standard'}) – £${order.price?.toFixed?.(2) ?? order.price ?? "?"}</div>`;
+          html += `<div class="field-label">Pack</div><div class="field-value">${order.packSize || "?"} magnets — ${packLabel} <br> <span style="opacity:0.6;font-size:0.9em">Total: £${order.price?.toFixed?.(2) ?? order.price ?? "?"}</span></div>`;
+          html += `<div class="field-label">Created</div><div class="field-value">${created}</div>`;
 
-          html += `<div class="field-label">Created</div>`;
-          html += `<div class="field-value">${created}</div>`;
+          // --- UPDATED: Image Section Label ---
+          const imageLabel = isJigsaw 
+              ? `<span style="color:#d8b4fe; font-weight:bold;">SOURCE IMAGE (SPLIT THIS)</span>` 
+              : `<span>Images</span>`;
 
-          if (order.stripeSessionId) {
-            html += `<div class="field-label">Stripe session</div>`;
-            html += `<div class="field-value">${order.stripeSessionId}</div>`;
-          }
-
-          html += `<div class="field-label">
-              <span>Images</span>
-              <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download all</button>
-            </div>`;
+          html += `<div class="field-label">${imageLabel} <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download all</button></div>`;
           html += `<div class="field-value" id="images-container">Loading images…</div>`;
-
-          html += `<div class="field-label">Raw JSON</div>`;
-          html += `<pre class="json">${escapeHtml(
-            JSON.stringify(order, null, 2)
-          )}</pre>`;
-
-          // --- NEW: DELETE BUTTON ---
+          html += `<div class="field-label">Raw JSON</div><pre class="json">${escapeHtml(JSON.stringify(order, null, 2))}</pre>`;
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order (Careful!)</button>`;
-          // --------------------------
 
           detailsContainer.innerHTML = html;
           detailsSubtitle.textContent = "Full order payload";
 
-          // Status select setup
           const statusSelect = document.getElementById("status-select");
           const statusUpdateBtn = document.getElementById("status-update-btn");
-          const statusPillDetail =
-            document.getElementById("status-pill-detail");
-
+          const statusPillDetail = document.getElementById("status-pill-detail");
           if (statusSelect) {
-            if (
-              Array.from(statusSelect.options).some(
-                (o) => o.value === order.status
-              )
-            ) {
-              statusSelect.value = order.status;
-            } else {
-              statusSelect.value = "paid";
-            }
-
+            statusSelect.value = Array.from(statusSelect.options).some(o => o.value === order.status) ? order.status : "paid";
             statusUpdateBtn.addEventListener("click", async () => {
-              const newStatus = statusSelect.value;
-              statusUpdateBtn.disabled = true;
-              statusUpdateBtn.textContent = "Updating…";
+              statusUpdateBtn.disabled = true; statusUpdateBtn.textContent = "Updating…";
               try {
-                const res = await fetch(
-                  `/api/admin-order-update?key=${encodeURIComponent(
-                    adminKey
-                  )}`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ orderId, status: newStatus }),
-                  }
-                );
-
+                const res = await fetch(`/api/admin-order-update?key=${encodeURIComponent(adminKey)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, status: statusSelect.value }), });
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 const data = await res.json();
                 const updated = data.order;
-
                 statusPillDetail.textContent = updated.status;
-                statusPillDetail.className =
-                  "status-pill " +
-                  (updated.status
-                    ? updated.status.replace(/\s+/g, "_")
-                    : "unknown");
-
+                statusPillDetail.className = "status-pill " + (updated.status ? updated.status.replace(/\s+/g, "_") : "unknown");
                 const idx = orders.findIndex((o) => o.orderId === orderId);
-                if (idx !== -1) {
-                  orders[idx].status = updated.status;
-                  applyFilters();
-                }
-              } catch (err) {
-                console.error("Failed to update status", err);
-                alert("Failed to update status – see console.");
-              } finally {
-                statusUpdateBtn.disabled = false;
-                statusUpdateBtn.textContent = "Update status";
-              }
+                if (idx !== -1) { orders[idx].status = updated.status; applyFilters(); }
+              } catch (err) { console.error("Failed to update", err); alert("Failed to update status."); } 
+              finally { statusUpdateBtn.disabled = false; statusUpdateBtn.textContent = "Update status"; }
             });
           }
 
-          // --- DELETE BUTTON LOGIC ---
           const deleteBtn = document.getElementById("delete-order-btn");
           if (deleteBtn) {
             deleteBtn.addEventListener("click", async () => {
-              const confirmed = window.confirm(
-                "Are you sure you want to PERMANENTLY DELETE this order?\n\nThis cannot be undone."
-              );
-              if (!confirmed) return;
-
-              deleteBtn.disabled = true;
-              deleteBtn.textContent = "Deleting...";
-
+              if (!confirm("Are you sure you want to PERMANENTLY DELETE this order?\n\nThis cannot be undone.")) return;
+              deleteBtn.disabled = true; deleteBtn.textContent = "Deleting...";
               try {
-                const res = await fetch("/api/admin-order-delete", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ key: adminKey, orderId }),
-                });
-
+                const res = await fetch("/api/admin-order-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: adminKey, orderId }), });
                 if (!res.ok) throw new Error("Delete failed");
-
-                // Success: Remove from list and clear view
-                orders = orders.filter((o) => o.orderId !== orderId);
-                applyFilters();
-                detailsContainer.innerHTML = '<div class="empty-state">Order deleted.</div>';
-                detailsSubtitle.textContent = "Deleted";
-                
-              } catch (err) {
-                console.error("Failed to delete", err);
-                alert("Failed to delete order.");
-                deleteBtn.disabled = false;
-                deleteBtn.textContent = "Delete Order (Careful!)";
-              }
+                orders = orders.filter((o) => o.orderId !== orderId); applyFilters();
+                detailsContainer.innerHTML = '<div class="empty-state">Order deleted.</div>'; detailsSubtitle.textContent = "Deleted";
+              } catch (err) { alert("Failed to delete order."); deleteBtn.disabled = false; deleteBtn.textContent = "Delete Order (Careful!)"; }
             });
           }
-          // --------------------------
 
           await loadOrderImages(orderId);
           const downloadAllBtn = document.getElementById("download-all-btn");
-          if (downloadAllBtn) {
-            downloadAllBtn.addEventListener("click", () =>
-              downloadAllImages(orderId)
-            );
-          }
-        } catch (err) {
-          console.error("Failed to load order details", err);
-          detailsContainer.innerHTML =
-            '<div class="empty-state">Error loading order details.</div>';
-          detailsSubtitle.textContent = "Error";
-        }
+          if (downloadAllBtn) { downloadAllBtn.addEventListener("click", () => downloadAllImages(orderId)); }
+        } catch (err) { console.error("Failed to load order details", err); detailsContainer.innerHTML = '<div class="empty-state">Error loading order details.</div>'; detailsSubtitle.textContent = "Error"; }
       }
 
       async function loadOrderImages(orderId) {
         const container = document.getElementById("images-container");
         if (!container) return;
-
         container.textContent = "Loading images…";
-
         try {
-          const res = await fetch(
-            `/api/admin-order-images?orderId=${encodeURIComponent(
-              orderId
-            )}&key=${encodeURIComponent(adminKey)}`,
-            { cache: "no-store" }
-          );
-
+          const res = await fetch(`/api/admin-order-images?orderId=${encodeURIComponent(orderId)}&key=${encodeURIComponent(adminKey)}`, { cache: "no-store" });
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const images = data.images || [];
           lastImagesForOrder[orderId] = images;
-
-          if (!images.length) {
-            container.textContent = "No images found for this order.";
-            return;
-          }
-
+          if (!images.length) { container.textContent = "No images found for this order."; return; }
           let html = '<div class="images-grid">';
           for (const img of images) {
             const key = encodeURIComponent(img.key);
-            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(
-              orderId
-            )}&objectKey=${key}&key=${encodeURIComponent(adminKey)}`;
+            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(orderId)}&objectKey=${key}&key=${encodeURIComponent(adminKey)}`;
             const dlUrl = `${imgUrl}&download=1`;
-
-            html += `<div class="image-thumb">
-              <img src="${imgUrl}" alt="${img.filename}" />
-              <a href="${dlUrl}">Download</a>
-            </div>`;
+            html += `<div class="image-thumb"><img src="${imgUrl}" alt="${img.filename}" /><a href="${dlUrl}">Download</a></div>`;
           }
           html += "</div>";
           container.innerHTML = html;
-        } catch (err) {
-          console.error("Failed to load images", err);
-          container.textContent = "Error loading images.";
-        }
+        } catch (err) { container.textContent = "Error loading images."; }
       }
 
       async function downloadAllImages(orderId) {
         const images = lastImagesForOrder[orderId] || [];
-        if (!images.length) {
-          alert("No images found for this order.");
-          return;
-        }
-
-        if (!window.JSZip) {
-          alert("JSZip not loaded, cannot create zip.");
-          return;
-        }
-
+        if (!images.length) { alert("No images found."); return; }
+        if (!window.JSZip) { alert("JSZip not loaded."); return; }
         const zip = new JSZip();
         const folder = zip.folder(orderId) || zip;
-
         try {
           for (const img of images) {
             const keyEnc = encodeURIComponent(img.key);
-            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(
-              orderId
-            )}&objectKey=${keyEnc}&key=${encodeURIComponent(adminKey)}`;
+            const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(orderId)}&objectKey=${keyEnc}&key=${encodeURIComponent(adminKey)}`;
             const res = await fetch(imgUrl);
-            if (!res.ok) {
-              console.warn("Failed to fetch image", img.key);
-              continue;
-            }
+            if (!res.ok) continue;
             const blob = await res.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            folder.file(img.filename || "image.jpg", arrayBuffer);
+            folder.file(img.filename || "image.jpg", await blob.arrayBuffer());
           }
-
           const content = await zip.generateAsync({ type: "blob" });
           const url = URL.createObjectURL(content);
           const a = document.createElement("a");
-          a.href = url;
-          a.download = `${orderId}-images.zip`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error("Download all failed", err);
-          alert("Failed to build zip – see console.");
-        }
+          a.href = url; a.download = `${orderId}-images.zip`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        } catch (err) { alert("Failed to build zip."); }
       }
 
-      function escapeHtml(str) {
-        return str
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-      }
+      function escapeHtml(str) { return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
     </script>
   </body>
 </html>
