@@ -17,21 +17,19 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const emailRaw = body?.email ?? "";
-    const phoneRaw = body?.phone ?? ""; // <--- GET PHONE
+    const phoneRaw = body?.phone ?? ""; 
     const packSizeRaw = body?.packSize;
     const packType = body?.packType || "standard";
+    const socialPermission = body?.socialPermission || false; // <--- GET PERMISSION
 
     const email = String(emailRaw).trim();
     const phone = String(phoneRaw).trim();
     const packSize = Number(packSizeRaw);
 
-    // Basic validation
-    const emailOk = /\S+@\S+\.\S+/.test(email);
-    if (!emailOk) {
+    if (!/\S+@\S+\.\S+/.test(email)) {
       return jsonResponse({ error: "Please provide a valid email address." }, 400);
     }
     
-    // Simple phone check (just to ensure it's not empty/too short)
     if (phone.length < 6) {
         return jsonResponse({ error: "Please provide a valid phone number." }, 400);
     }
@@ -41,17 +39,16 @@ export async function onRequestPost({ request, env }) {
     }
 
     const price = PRICES[packSize];
-
-    // Build order object
     const orderId = crypto.randomUUID();
     const now = new Date().toISOString();
 
     const order = {
       orderId,
       email,
-      phone, // <--- SAVE PHONE
+      phone, 
       packSize,
       packType,
+      socialPermission, // <--- SAVE PERMISSION
       price,
       status: "draft",         
       createdAt: now,
@@ -60,7 +57,6 @@ export async function onRequestPost({ request, env }) {
       stripePaymentIntentId: null,
     };
 
-    // Save with "order:" prefix
     await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
 
     return jsonResponse({ orderId });
@@ -81,13 +77,11 @@ export async function onRequestGet({ request, env }) {
     }
 
     const raw = await env.ORDERS_KV.get(`order:${orderId}`);
-    
     if (!raw) {
       return jsonResponse({ error: "Order not found." }, 404);
     }
 
     const order = JSON.parse(raw);
-
     if (!order.price && order.packSize && PRICES[order.packSize]) {
       order.price = PRICES[order.packSize];
     }

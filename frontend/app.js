@@ -11,7 +11,7 @@ let customerEmail = "";
 let customerPhone = "";
 let emailTouched = false;
 let phoneTouched = false;
-let selectedOrientation = 'portrait'; // 'portrait' or 'landscape'
+let selectedOrientation = 'portrait'; 
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -28,8 +28,9 @@ const progressBar      = document.getElementById("upload-progress-bar");
 const countHelp        = document.getElementById("count-help");
 const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
-const uploadMetaEl     = document.querySelector(".upload-meta"); // For scrolling
-const orientationWrapper = document.getElementById("orientation-wrapper"); // NEW
+const uploadMetaEl     = document.querySelector(".upload-meta"); 
+const orientationWrapper = document.getElementById("orientation-wrapper");
+const socialCheckbox   = document.getElementById("social-permission"); // NEW
 
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
@@ -117,8 +118,6 @@ function updatePayButtonAppearance() {
 
 // ---- Helper: Show/Hide Orientation Toggle ----
 function updateOrientationVisibility() {
-    // Only show for Rectangular Jigsaws (6 and 15). 
-    // 9 is square (3x3), Standard is square (1x1).
     if (selectedPackType === 'big_picture' && (selectedPackSize === 6 || selectedPackSize === 15)) {
         orientationWrapper.style.display = "block";
     } else {
@@ -205,10 +204,7 @@ function updatePhotoCount() {
 // ---- Orientation Radio Listeners ----
 document.querySelectorAll('input[name="orientation"]').forEach((radio) => {
     radio.addEventListener("change", () => {
-        selectedOrientation = radio.value; // 'portrait' or 'landscape'
-        
-        // OPTIONAL: Reset crops if they change orientation?
-        // For now, we leave it. If they re-open the cropper, it will use new ratio.
+        selectedOrientation = radio.value; 
         showToast(`Orientation set to ${selectedOrientation}`, "ok");
     });
 });
@@ -246,7 +242,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     requiredCount = newRequired;
     
     requiredCountEl.textContent = String(requiredCount);
-    updateOrientationVisibility(); // Check if we need to show the toggle
+    updateOrientationVisibility(); 
     updatePhotoCount();
     
     const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
@@ -436,6 +432,9 @@ payBtn.addEventListener("click", async () => {
     const shippingCost = country === "GB" ? 5 : 0;
     const total = prices[selectedPackSize] + shippingCost;
     
+    // --- NEW: Grab Checkbox ---
+    const socialPermission = socialCheckbox ? socialCheckbox.checked : false;
+
     statusEl.textContent = "Creating order…";
 
     const orderRes = await fetch("/api/order", {
@@ -445,7 +444,8 @@ payBtn.addEventListener("click", async () => {
           email: customerEmail, 
           phone: customerPhone,
           packSize: selectedPackSize,
-          packType: selectedPackType
+          packType: selectedPackType,
+          socialPermission: socialPermission // <--- SEND
       }),
     });
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
@@ -546,20 +546,17 @@ function openCropModalAndAwait(file) {
 function openCropModal(file, done) {
   currentCropFile = file;
 
-  // --- NEW: Dynamic Ratio Calculation ---
-  let ratio = 1; // Default Square
+  let ratio = 1; 
   
   if (selectedPackType === 'big_picture') {
-      if (selectedPackSize === 6)  ratio = 2 / 3; // 2x3 (Portrait)
-      if (selectedPackSize === 15) ratio = 3 / 5; // 3x5 (Tall Portrait)
+      if (selectedPackSize === 6)  ratio = 2 / 3; 
+      if (selectedPackSize === 15) ratio = 3 / 5; 
       
-      // FLIP for Landscape
       if (selectedOrientation === 'landscape') {
-          if (selectedPackSize === 6)  ratio = 3 / 2; // 3x2 (Landscape)
-          if (selectedPackSize === 15) ratio = 5 / 3; // 5x3 (Wide Landscape)
+          if (selectedPackSize === 6)  ratio = 3 / 2; 
+          if (selectedPackSize === 15) ratio = 5 / 3; 
       }
   }
-  // -------------------------------------
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -628,7 +625,5 @@ function openCropModal(file, done) {
   reader.readAsDataURL(file);
 }
 
-// Initialize button state correctly on load
 updatePayButtonAppearance();
-// Init visibility incase of reload
 updateOrientationVisibility();

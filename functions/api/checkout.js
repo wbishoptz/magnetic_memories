@@ -114,14 +114,15 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
     }
 
-    // --- CRITICAL FIX: PRESERVE PHONE NUMBER ---
+    // Save back to KV with PERMISSION preserved
     const now = new Date().toISOString();
     const updatedOrder = {
       orderId,
       email,
       packSize,
       packType: kvOrder?.packType || packType,
-      phone: kvOrder?.phone || null, // <--- This line saves the phone number!
+      phone: kvOrder?.phone || null, 
+      socialPermission: kvOrder?.socialPermission || false, // <--- PRESERVE THIS!
       price,
       status: "checkout_created",
       createdAt: kvOrder?.createdAt || now,
