@@ -58,7 +58,7 @@ export const onRequestPost = async ({ request, env }) => {
     order.stripeSessionId = session.id;
     order.stripePaymentIntentId = session.payment_intent || order.stripePaymentIntentId;
 
-    // --- ADDRESS FIX: Check both shipping and customer details ---
+    // Address Capture
     const shipping = session.shipping_details || session.customer_details;
     
     order.customer = {
@@ -98,6 +98,32 @@ function buildTotalText(order) {
     return "£" + order.price.toFixed(2);
   }
   return "£" + (order.price ?? "");
+}
+
+// Helper: Escape HTML characters for Telegram
+function esc(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Helper: Retry Fetch (3 attempts)
+async function fetchWithRetry(url, options, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      // If it's a 400 error (Bad Request), retrying won't help, so stop.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) return res;
+    } catch (err) {
+      console.error(`Fetch attempt ${i + 1} failed:`, err);
+    }
+    // Wait 1 second before retrying
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
 }
 
 // ------------- CUSTOMER EMAIL (Resend) -------------
@@ -146,8 +172,6 @@ async function sendAdminEmail(order, env) {
   const subject = `New paid order – ${order.orderId}`;
   const totalText = buildTotalText(order);
   const customerEmail = order.email || order.customer?.email || "Unknown";
-  
-  // --- ADDED PHONE TO ADMIN EMAIL ---
   const customerPhone = order.phone || "No phone"; 
 
   const html = `
@@ -176,7 +200,7 @@ async function sendAdminEmail(order, env) {
   ));
 }
 
-// ------------- TELEGRAM -------------
+// ------------- TELEGRAM (UPDATED: HTML + Retry) -------------
 async function sendPaidTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = env.TELEGRAM_CHAT_ID;
@@ -186,23 +210,34 @@ async function sendPaidTelegram(order, env) {
   const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
   if (!chatIds.length) return;
 
+  const total = typeof order.price === "number" ? `£${order.price.toFixed(2)}` : "Paid";
+  const jigsaw = order.packType === 'big_picture' ? ' (🧩 Jigsaw)' : '';
+
+  // Use HTML tags (<b>, <code>) instead of Markdown (*, `)
   const lines = [
-    "💳 *New paid order*",
-    `ID: \`${order.orderId}\``,
-    `Email: ${order.email || "Unknown"}`,
-    `Phone: ${order.phone || "No phone"}`,
-    `Pack: ${order.packSize} magnets (${order.packType || 'standard'})`,
-    typeof order.price === "number" ? `Total: £${order.price.toFixed(2)}` : null,
+    "💳 <b>New paid order</b>",
+    `ID: <code>${esc(order.orderId)}</code>`,
+    `Email: ${esc(order.email || "Unknown")}`,
+    `Phone: ${esc(order.phone || "No phone")}`,
+    `Pack: ${esc(order.packSize)} magnets${jigsaw}`,
+    `Total: ${esc(total)}`
   ].filter(Boolean);
 
   const text = lines.join("\n");
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
 
+  // Send to all admin chats with Retry
   await Promise.all(chatIds.map(chatId =>
-    fetch(apiUrl, {
+    fetchWithRetry(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
-    }).catch(console.error)
+      body: JSON.stringify({ 
+          chat_id: chatId, 
+          text, 
+          parse_mode: "HTML" // <--- SWITCHED TO HTML (Safe!)
+      }),
+    }).then(res => {
+       if (!res || !res.ok) console.error("Telegram failed:", res ? res.status : "Network Error");
+    })
   ));
 }
