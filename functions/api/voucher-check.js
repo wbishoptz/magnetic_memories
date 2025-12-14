@@ -18,15 +18,19 @@ export async function onRequestPost({ request, env }) {
 
     const voucher = JSON.parse(raw);
 
-    if (voucher.redeemed) {
-      return new Response(JSON.stringify({ valid: false, error: "Code already used" }), { 
+    // LOGIC CHANGE: Handle Balance
+    // If 'balance' is undefined, we assume it equals 'value' (legacy support)
+    const currentBalance = (typeof voucher.balance === 'number') ? voucher.balance : voucher.value;
+
+    if (voucher.redeemed || currentBalance <= 0) {
+      return new Response(JSON.stringify({ valid: false, error: "Code fully redeemed" }), { 
         headers: { "Content-Type": "application/json" }
       });
     }
 
     return new Response(JSON.stringify({ 
       valid: true, 
-      value: voucher.value,
+      value: currentBalance, // Return the remaining balance, not the original value
       code: cleanCode 
     }), { headers: { "Content-Type": "application/json" } });
 

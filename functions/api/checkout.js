@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
     const targetCountry = body?.country || "GI"; 
-    const voucherCode = body?.voucherCode; // <--- NEW: User applying a code
+    const voucherCode = body?.voucherCode; 
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -39,14 +39,13 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
-    // --- DETERMINE PRODUCT (Magnets vs Voucher) ---
+    // --- DETERMINE PRODUCT ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
     let productName = "";
     let productDesc = "";
     let isVoucherPurchase = false;
 
-    // Check if buying a voucher
     if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
         const v = VOUCHERS[packSizeRaw];
         if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
@@ -55,7 +54,6 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
-        // Normal magnets
         let size = Number(packSizeRaw) || 3;
         if (!PACKS.includes(size)) size = 3;
         price = PRICES[size];
@@ -69,17 +67,24 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- APPLY DISCOUNT CODE (If Redeeming) ---
+    // --- APPLY DISCOUNT CODE (PARTIAL BALANCE LOGIC) ---
     let discountAmount = 0;
     let finalPrice = price;
+    let voucherData = null;
+    let voucherKey = null;
     
     if (voucherCode && !isVoucherPurchase) {
-        const vKey = `voucher:${voucherCode.trim().toUpperCase()}`;
-        const vRaw = await env.ORDERS_KV.get(vKey);
+        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        const vRaw = await env.ORDERS_KV.get(voucherKey);
         if (vRaw) {
-            const vData = JSON.parse(vRaw);
-            if (!vData.redeemed) {
-                discountAmount = vData.value;
+            voucherData = JSON.parse(vRaw);
+            const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
+            
+            // Only apply if there is balance left
+            if (!voucherData.redeemed && currentBalance > 0) {
+                // Deduct only what is needed (or the max available)
+                const deduction = Math.min(price, currentBalance);
+                discountAmount = deduction;
                 finalPrice = Math.max(0, price - discountAmount);
             }
         }
@@ -96,59 +101,63 @@ export async function onRequestPost({ request, env }) {
     if (kvOrder?.email) params.append("customer_email", kvOrder.email);
     params.append("metadata[orderId]", orderId);
     
-    // Pass isVoucher flag to metadata so Webhook knows to generate a code later
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
         params.append("metadata[voucherValue]", String(price));
     }
     
-    // Record used code in metadata to mark it redeemed later
     if (voucherCode && discountAmount > 0) {
         params.append("metadata[usedVoucher]", voucherCode);
     }
 
-    // Line Item 1: The Product
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("line_items[0][price_data][product_data][description]", productDesc);
-    params.append("line_items[0][price_data][unit_amount]", String(price * 100)); // Original price
+    params.append("line_items[0][price_data][unit_amount]", String(price * 100)); 
 
-    // Handle Discount logic
-    // Stripe Checkout coupons are complex to create on the fly. 
-    // Easier hack: Send "Price" as the discounted amount if a voucher is used.
-    // OR: If finalPrice is 0 (fully covered), we can't use Stripe Checkout normally (it requires >£0.30).
-    // For MVP: If fully covered, we skip Stripe and just confirm order immediately.
     
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
             // --- 100% DISCOUNT FLOW ---
-            // Mark voucher redeemed immediately and return "Success" URL directly
-            const vKey = `voucher:${voucherCode.trim().toUpperCase()}`;
-            const vRaw = await env.ORDERS_KV.get(vKey);
-            const vData = JSON.parse(vRaw);
-            vData.redeemed = true;
-            vData.usedByOrder = orderId;
-            await env.ORDERS_KV.put(vKey, JSON.stringify(vData));
+            
+            // 1. Update Voucher Balance
+            const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
+            const newBalance = currentBalance - discountAmount;
+            
+            voucherData.balance = newBalance;
+            if (newBalance <= 0) {
+                voucherData.redeemed = true;
+                voucherData.balance = 0;
+            }
+            voucherData.usedByOrder = orderId; // Track last usage
+            await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
-            // Update Order
+            // 2. Update Order
             kvOrder.status = "paid";
             kvOrder.paidAt = new Date().toISOString();
             kvOrder.price = 0;
             kvOrder.usedVoucher = voucherCode;
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
+            // 3. SEND NOTIFICATIONS (Since we skip Stripe Webhook)
+            // We replicate the notification logic here because Stripe won't fire for £0 orders.
+            const notifs = [
+                sendAdminEmail(kvOrder, env),
+                sendPaidTelegram(kvOrder, env),
+                sendPaidEmail(kvOrder, env)
+            ];
+            await Promise.allSettled(notifs);
+
             return jsonResponse({ checkoutUrl: successUrl });
         } else {
-            // Partial payment needed - Overwrite the unit_amount to the lower price
-            // We verify this is safe because we controlled the calculation above.
+            // Partial payment - Update Stripe Price
             params.set("line_items[0][price_data][unit_amount]", String(finalPrice * 100));
-            // Add note to description
-            params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode} applied: -£${discountAmount})`);
+            params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
         }
     }
 
-    // Shipping Logic (Only add shipping if it's NOT a digital voucher purchase)
+    // Shipping Logic
     if (!isVoucherPurchase) {
         if (targetCountry === "GB") {
             params.append("shipping_address_collection[allowed_countries][0]", "GB");
@@ -181,7 +190,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create checkout." }, 500);
     }
 
-    // Save session ID
     kvOrder.stripeSessionId = session.id;
     if (voucherCode && discountAmount > 0) kvOrder.usedVoucher = voucherCode;
     
@@ -193,4 +201,105 @@ export async function onRequestPost({ request, env }) {
     console.error("Checkout Error:", err);
     return jsonResponse({ error: "Checkout failed" }, 500);
   }
+}
+
+// --- HELPER FUNCTIONS FOR NOTIFICATIONS (Copied/Shared Logic) ---
+
+function buildTotalText(order) {
+  if (typeof order.price === "number") {
+    return "£" + order.price.toFixed(2);
+  }
+  return "£" + (order.price ?? "");
+}
+
+function esc(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function fetchWithRetry(url, options, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) return res;
+    } catch (err) { }
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
+}
+
+async function sendPaidEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from || !order.email) return;
+
+  const subject = "We’ve received your Magnetic Memories order";
+  const html = `
+    <div style="font-family: system-ui, sans-serif;">
+      <h2>Thanks for your order!</h2>
+      <p>We’ve received your payment (via voucher) and will start preparing your magnets shortly.</p>
+      <p>
+        <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
+        <strong>Total:</strong> £0.00 (Voucher Used)
+      </p>
+      <p><a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(order.orderId)}">Track Order</a></p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [order.email], subject, html }),
+  });
+}
+
+async function sendAdminEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  const notifyRaw = env.NOTIFY_EMAIL || "";
+  const recipients = notifyRaw.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
+
+  if (!apiKey || !from || recipients.length === 0) return;
+
+  const subject = `New paid order (Voucher) – ${order.orderId}`;
+  const html = `
+    <div style="font-family: system-ui, sans-serif;">
+      <h2>New paid order (Voucher)</h2>
+      <p>
+        <strong>Order ID:</strong> ${order.orderId}<br/>
+        <strong>Customer:</strong> ${order.email}<br/>
+        <strong>Item:</strong> ${order.packSize} magnets<br/>
+        <strong>Total:</strong> £0.00 (Voucher Used)
+      </p>
+      <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
+    </div>
+  `;
+
+  await Promise.all(recipients.map(to => 
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    })
+  ));
+}
+
+async function sendPaidTelegram(order, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  const chatIdsRaw = env.TELEGRAM_CHAT_ID;
+  if (!token || !chatIdsRaw) return;
+
+  const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
+  const text = `💳 <b>New paid order (Voucher)</b>\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nPack: ${order.packSize} magnets\nTotal: £0.00`;
+
+  const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+  await Promise.all(chatIds.map(chatId =>
+    fetchWithRetry(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    })
+  ));
 }

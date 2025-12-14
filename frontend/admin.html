@@ -181,12 +181,17 @@
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
 
-          // NEW: Check for recovery flag
           const recoveryBadge = o.wasRecovered 
               ? `<span title="Recovered via email" style="margin-left:6px; cursor:help;">♻️</span>` 
               : ``;
 
-          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"} ${recoveryBadge}</td><td ${style}>${packDisplay}</td><td>${typeof o.price === "number" ? o.price.toFixed(2) : "–"}</td></tr>`;
+          // NEW: Voucher badge in price column
+          let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
+          if (o.usedVoucher) {
+              priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a; border-color:rgba(240,195,106,0.3);">VOUCHER</span>`;
+          }
+
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"} ${recoveryBadge}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
         ordersContainer.innerHTML = html;

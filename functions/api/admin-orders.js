@@ -28,7 +28,6 @@ export async function onRequest({ request, env }) {
       .map(v => {
         try {
           const o = JSON.parse(v);
-          // Return essential fields for the list view
           return {
             orderId: o.orderId,
             email: o.email,
@@ -38,7 +37,8 @@ export async function onRequest({ request, env }) {
             packSize: o.packSize,
             packType: o.packType || 'standard',
             price: o.price,
-            wasRecovered: o.wasRecovered // <--- NEW: Send this to frontend
+            wasRecovered: o.wasRecovered,
+            usedVoucher: o.usedVoucher // <--- NEW: Passed to list view
           };
         } catch { return null; }
       })
