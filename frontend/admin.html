@@ -14,10 +14,11 @@
       header p { margin: 0; font-size: 12px; color: #9ca3af; }
       .key-badge { font-size: 11px; background: #111827; padding: 6px 10px; border-radius: 999px; border: 1px solid #374151; color: #d1d5db; }
       
-      /* New Nav Toggle */
-      .nav-toggle { display: flex; gap: 8px; background: #020617; padding: 4px; border-radius: 999px; border: 1px solid #1f2933; margin-left: 20px; }
-      .nav-btn { background: transparent; border: none; color: #9ca3af; padding: 6px 16px; font-size: 12px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
-      .nav-btn.active { background: #1f2937; color: #fff; font-weight: 600; shadow: 0 2px 4px rgba(0,0,0,0.2); }
+      /* Nav Toggle */
+      .nav-toggle { display: flex; gap: 4px; background: #020617; padding: 4px; border-radius: 999px; border: 1px solid #1f2933; margin-left: 20px; }
+      .nav-btn { background: transparent; border: none; color: #9ca3af; padding: 6px 14px; font-size: 12px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+      .nav-btn:hover { color: #e5e7eb; }
+      .nav-btn.active { background: #1f2937; color: #fff; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
       
       .layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; height: 100%; min-height: 500px; }
       .panel { padding: 18px 18px 20px; overflow: auto; display: flex; flex-direction: column; }
@@ -25,7 +26,7 @@
       .panel h2 { font-size: 14px; margin: 0 0 8px; }
       .panel small { color: #9ca3af; font-size: 12px; }
       .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; margin-bottom: 6px; }
-      .toolbar input, .toolbar select { background: #020617; border-radius: 999px; border: 1px solid #374151; padding: 6px 10px; font-size: 12px; color: #e5e7eb; min-width: 160px; }
+      .toolbar input, .toolbar select { background: #020617; border-radius: 999px; border: 1px solid #374151; padding: 6px 10px; font-size: 12px; color: #e5e7eb; min-width: 140px; }
       .toolbar button { border-radius: 999px; border: none; padding: 6px 10px; font-size: 12px; cursor: pointer; background: #111827; border: 1px solid #374151; color: #e5e7eb; }
       .toolbar button:hover { background: #1f2937; }
       button.btn-danger { background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); margin-top: 24px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
@@ -40,9 +41,10 @@
       tbody tr.selected { background: rgba(59, 130, 246, 0.25); }
       .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
       .status-pill.paid, .status-pill.printing, .status-pill.shipped, .status-pill.completed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
-      .status-pill.checkout_created, .status-pill.pending, .status-pill.draft { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+      .status-pill.draft { background: rgba(148, 163, 184, 0.2); color: #9ca3af; }
+      .status-pill.abandoned { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
       .status-pill.error { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
-      .status-pill.unknown { background: rgba(148, 163, 184, 0.2); color: #e5e7eb; }
+      .email-sent-badge { font-size: 10px; margin-left: 6px; color: #66d19e; border: 1px solid #66d19e; padding: 1px 5px; border-radius: 4px; }
       .empty-state { padding: 40px 16px; text-align: center; color: #9ca3af; font-size: 13px; }
       .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 16px; }
       .field-value { font-size: 13px; margin-bottom: 4px; word-break: break-all; }
@@ -67,6 +69,7 @@
           <div><h1>Magnetic Memories</h1><p id="header-subtitle">Enter admin key.</p></div>
           <div class="nav-toggle">
             <button class="nav-btn active" id="nav-orders">Orders</button>
+            <button class="nav-btn" id="nav-drafts">Drafts</button>
             <button class="nav-btn" id="nav-vouchers">Vouchers</button>
           </div>
         </div>
@@ -82,9 +85,9 @@
           </div>
           
           <div class="toolbar" id="order-toolbar">
-            <input id="search-input" type="text" placeholder="Search orders..." />
+            <input id="search-input" type="text" placeholder="Search..." />
             <select id="date-filter"><option value="all">All time</option><option value="today">Today</option><option value="last_week" selected>Last 7 days</option><option value="last_month">Last 30 days</option></select>
-            <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option><option value="draft">draft</option></select>
+            <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select>
             <button id="download-csv-btn">Export CSV</button>
           </div>
 
@@ -113,14 +116,14 @@
       const keyForm = document.getElementById("key-form");
       const keyBadge = document.getElementById("key-badge");
       const headerSubtitle = document.getElementById("header-subtitle");
-      
       const listContainer = document.getElementById("list-container");
       const detailsContainer = document.getElementById("details-container");
       
       // Navigation
       const navOrders = document.getElementById("nav-orders");
+      const navDrafts = document.getElementById("nav-drafts");
       const navVouchers = document.getElementById("nav-vouchers");
-      let currentMode = 'orders'; // 'orders' or 'vouchers'
+      let currentMode = 'orders'; // 'orders', 'drafts', 'vouchers'
 
       // Orders logic
       let adminKey = null;
@@ -155,25 +158,36 @@
 
       // --- NAVIGATION SWITCHING ---
       navOrders.onclick = () => switchMode('orders');
+      navDrafts.onclick = () => switchMode('drafts');
       navVouchers.onclick = () => switchMode('vouchers');
 
       function switchMode(mode) {
         currentMode = mode;
+        navOrders.classList.toggle('active', mode === 'orders');
+        navDrafts.classList.toggle('active', mode === 'drafts');
+        navVouchers.classList.toggle('active', mode === 'vouchers');
+
+        document.getElementById('voucher-toolbar').style.display = (mode === 'vouchers') ? 'flex' : 'none';
+        
         if (mode === 'orders') {
-            navOrders.classList.add('active');
-            navVouchers.classList.remove('active');
             document.getElementById('order-toolbar').style.display = 'flex';
-            document.getElementById('voucher-toolbar').style.display = 'none';
+            document.getElementById('status-filter').parentElement.style.display = 'block'; // Show status filter
             document.getElementById('pack-summary').style.display = 'inline-flex';
             document.getElementById('list-title').textContent = "Orders";
-            loadOrders();
+            document.getElementById('list-subtitle').textContent = "Paid & Processing";
+            applyFilters();
+        } else if (mode === 'drafts') {
+            document.getElementById('order-toolbar').style.display = 'flex';
+            document.getElementById('status-filter').parentElement.style.display = 'none'; // Hide status filter for drafts
+            document.getElementById('pack-summary').style.display = 'none';
+            document.getElementById('list-title').textContent = "Drafts";
+            document.getElementById('list-subtitle').textContent = "Abandoned Carts";
+            applyFilters();
         } else {
-            navOrders.classList.remove('active');
-            navVouchers.classList.add('active');
             document.getElementById('order-toolbar').style.display = 'none';
-            document.getElementById('voucher-toolbar').style.display = 'flex';
             document.getElementById('pack-summary').style.display = 'none';
             document.getElementById('list-title').textContent = "Vouchers";
+            document.getElementById('list-subtitle').textContent = "Active & Used";
             loadVouchers();
         }
       }
@@ -208,11 +222,9 @@
         for (const v of filteredVouchers) {
             const date = new Date(v.createdAt).toLocaleDateString();
             const isSelected = selectedVoucher === v.code ? 'selected' : '';
-            
-            // Calc status
             let status = `<span class="status-pill paid">Active</span>`;
             if (v.balance <= 0) status = `<span class="status-pill completed">Used</span>`;
-            else if (v.balance < v.value) status = `<span class="status-pill checkout_created">Partial</span>`;
+            else if (v.balance < v.value) status = `<span class="status-pill abandoned">Partial</span>`;
 
             html += `<tr class="${isSelected}" onclick="selectVoucher('${v.code}')">
                 <td style="font-family:monospace; font-weight:bold; color:#66d19e;">${v.code}</td>
@@ -228,25 +240,21 @@
       window.selectVoucher = function(code) {
           selectedVoucher = code;
           const v = vouchers.find(x => x.code === code);
-          renderVouchers(); // update selected state
-          
+          renderVouchers(); 
           if (!v) return;
           
           let html = `<div class="field-label">Voucher Code</div><div class="field-value" style="font-size:1.5em; font-family:monospace; color:#66d19e;">${v.code}</div>`;
           html += `<div class="field-label">Balance Available</div><div class="field-value" style="font-size:1.2em;">£${v.balance.toFixed(2)}</div>`;
           html += `<div class="field-label">Original Value</div><div class="field-value">£${v.value.toFixed(2)}</div>`;
           html += `<div class="field-label">Purchased By</div><div class="field-value">${v.purchasedBy || "Unknown"}</div>`;
-          
           if (v.orderId) {
              html += `<div class="field-label">Original Order</div><div class="field-value"><a href="#" onclick="switchMode('orders'); setTimeout(() => loadOrderDetails('${v.orderId}'), 500); return false;">${v.orderId}</a></div>`;
           }
-          
           html += `<div class="field-label">Created</div><div class="field-value">${new Date(v.createdAt).toLocaleString()}</div>`;
-          
           detailsContainer.innerHTML = html;
       }
 
-      // --- ORDER LOGIC (Existing) ---
+      // --- ORDER LOGIC ---
       document.getElementById("search-input").addEventListener("input", applyFilters); 
       document.getElementById("status-filter").addEventListener("change", applyFilters); 
       document.getElementById("date-filter").addEventListener("change", applyFilters);
@@ -272,7 +280,8 @@
       }
 
       function applyFilters() {
-        if (currentMode !== 'orders') return;
+        if (currentMode === 'vouchers') return;
+        
         const q = document.getElementById("search-input").value.trim().toLowerCase();
         const statusVal = document.getElementById("status-filter").value;
         const dateVal = document.getElementById("date-filter").value;
@@ -283,12 +292,23 @@
         else if (dateVal === 'last_month') cutoff = now.getTime() - (30 * 86400000);
 
         filteredOrders = orders.filter(o => {
-          if (statusVal && o.status !== statusVal) return false;
+          // --- MODE FILTERING ---
+          if (currentMode === 'orders') {
+             // Show everything EXCEPT draft and abandoned
+             if (o.status === 'draft' || o.status === 'abandoned') return false;
+             if (statusVal && o.status !== statusVal) return false;
+          } else if (currentMode === 'drafts') {
+             // Show ONLY draft and abandoned
+             if (o.status !== 'draft' && o.status !== 'abandoned') return false;
+          }
+
+          // --- COMMON FILTERS ---
           if (cutoff > 0 && (new Date(o.createdAt).getTime() < cutoff)) return false;
           if (!q) return true;
           return `${o.orderId} ${o.email} ${o.phone}`.toLowerCase().includes(q);
         });
-        renderOrders(); updatePackSummary();
+        renderOrders(); 
+        if(currentMode === 'orders') updatePackSummary();
       }
 
       function updatePackSummary() {
@@ -311,13 +331,28 @@
       }
 
       function renderOrders() {
-        document.getElementById('list-count').textContent = `${filteredOrders.length} orders`;
-        let html = '<div class="table-wrapper"><table><thead><tr><th>Created</th><th>Status</th><th>Email</th><th>Pack</th><th>£</th></tr></thead><tbody>';
+        document.getElementById('list-count').textContent = `${filteredOrders.length}`;
+        
+        let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
+        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack</th><th>£</th></tr></thead><tbody>`;
+        
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
-          const statusClass = "status-pill " + (o.status ? o.status.replace(/\s+/g, "_") : "unknown");
           const isSelected = o.orderId === selectedOrderId ? " selected" : "";
           
+          let statusDisplay = `<span class="status-pill ${o.status}">${o.status}</span>`;
+          
+          // --- DRAFTS SPECIFIC UI ---
+          if (currentMode === 'drafts') {
+              if (o.recoverySent || o.status === 'abandoned') {
+                  statusDisplay = `<span class="status-pill abandoned">Abandoned</span> <span class="email-sent-badge">✉️ Sent</span>`;
+              } else {
+                  statusDisplay = `<span class="status-pill draft">Active Draft</span>`;
+              }
+          } else {
+              statusDisplay = `<span class="status-pill ${(o.status||'').replace(/\s+/g, '_')}">${o.status}</span>`;
+          }
+
           let packDisplay = o.packSize || "?";
           let style = "";
           if (String(packDisplay).startsWith('voucher_')) {
@@ -332,7 +367,7 @@
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
 
-          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
         listContainer.innerHTML = html;
@@ -359,10 +394,21 @@
           if (order.packType === 'big_picture') packLabel = `<span class="tag purple">🧩 JIGSAW PICTURE</span>`;
 
           let html = `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
-          html += `<div class="field-label">Status</div><div class="field-value"><span class="status-pill ${order.status}">${order.status}</span></div>`;
-          html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           
+          // Status Section
+          html += `<div class="field-label">Status</div>`;
+          if (order.status === 'draft' || order.status === 'abandoned') {
+              let recoveryMsg = (order.recoverySent) 
+                  ? `<span style="color:#66d19e;">Recovery Email Sent ✅</span>` 
+                  : `<span style="color:#9ca3af;">Recovery Pending (Waiting 1hr) ⏳</span>`;
+              html += `<div class="field-value">${recoveryMsg}</div>`;
+          } else {
+             html += `<div class="field-value"><span class="status-pill ${order.status}">${order.status}</span></div>`;
+             html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
+          }
+
           html += `<div class="field-label">Customer</div><div class="field-value">${order.email}<br>${order.phone || "No phone"}</div>`;
+          
           if (order.customer?.address) {
              const a = order.customer.address;
              const addr = [order.customer.name, a.line1, a.line2, a.city, a.postal_code, a.country].filter(Boolean).join("<br>");
@@ -381,16 +427,19 @@
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
           detailsContainer.innerHTML = html;
 
-          document.getElementById("status-update-btn").onclick = async () => {
+          const updateBtn = document.getElementById("status-update-btn");
+          if(updateBtn) updateBtn.onclick = async () => {
              await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
              loadOrderDetails(orderId); loadOrders(); 
           };
+          
           document.getElementById("delete-order-btn").onclick = async () => {
              if(confirm("Delete forever?")) {
                  await fetch("/api/admin-order-delete", { method: "POST", body: JSON.stringify({ key: adminKey, orderId }) });
                  orders = orders.filter(o => o.orderId !== orderId); applyFilters(); detailsContainer.innerHTML="Deleted.";
              }
           };
+          
           if (!isVoucher) {
               const dlBtn = document.getElementById("download-all-btn");
               if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId);

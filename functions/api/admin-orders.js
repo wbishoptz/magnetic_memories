@@ -38,7 +38,9 @@ export async function onRequest({ request, env }) {
             packType: o.packType || 'standard',
             price: o.price,
             wasRecovered: o.wasRecovered,
-            usedVoucher: o.usedVoucher // <--- NEW: Passed to list view
+            usedVoucher: o.usedVoucher,
+            // NEW: Pass this flag so Admin knows if email was sent
+            recoverySent: o.recoverySent || (o.status === 'abandoned') 
           };
         } catch { return null; }
       })
