@@ -4,7 +4,7 @@
 
 // ---- State ----
 let selectedPackSize = 3;
-let selectedPackType = 'standard'; 
+let selectedPackType = 'standard'; // 'standard', 'big_picture', or 'voucher'
 let requiredCount = 3;
 let previousRadioValue = "standard_3";
 let customerEmail = "";
@@ -12,6 +12,8 @@ let customerPhone = "";
 let emailTouched = false;
 let phoneTouched = false;
 let selectedOrientation = 'portrait'; 
+let voucherApplied = 0;
+let voucherCode = "";
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -30,7 +32,13 @@ const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 const uploadMetaEl     = document.querySelector(".upload-meta"); 
 const orientationWrapper = document.getElementById("orientation-wrapper");
-const socialCheckbox   = document.getElementById("social-permission"); // NEW
+const uploadSection    = document.getElementById("upload-section");
+const socialCheckbox   = document.getElementById("social-permission");
+
+// Promo Code Elements
+const promoInput = document.getElementById("promo-code");
+const promoBtn = document.getElementById("apply-promo");
+const promoMsg = document.getElementById("promo-msg");
 
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
@@ -68,9 +76,11 @@ function isPhoneValid() {
   return customerPhone.length >= 6;
 }
 function isCountValid() {
+  if (selectedPackType === 'voucher') return true; // Vouchers need 0 photos
   return myDropzone.files.length === requiredCount;
 }
 function isAllCropped() {
+  if (selectedPackType === 'voucher') return true;
   return getUncroppedFiles().length === 0 && myDropzone.files.length > 0;
 }
 
@@ -116,12 +126,21 @@ function updatePayButtonAppearance() {
   }
 }
 
-// ---- Helper: Show/Hide Orientation Toggle ----
-function updateOrientationVisibility() {
+// ---- Helper: Show/Hide Elements ----
+function updateVisibility() {
+    // 1. Orientation Toggle
     if (selectedPackType === 'big_picture' && (selectedPackSize === 6 || selectedPackSize === 15)) {
         orientationWrapper.style.display = "block";
     } else {
         orientationWrapper.style.display = "none";
+    }
+
+    // 2. Upload Section (Hidden for Vouchers)
+    if (selectedPackType === 'voucher') {
+        uploadSection.style.display = "none";
+        // Also hide crop helper text logic by force
+    } else {
+        uploadSection.style.display = "block";
     }
 }
 
@@ -145,7 +164,12 @@ const myDropzone = new Dropzone(dzElement, {
 });
 
 function parsePackValue(val) {
-  const parts = val.split('_'); 
+  const parts = val.split('_'); // "standard_3" or "voucher_20"
+  
+  if (parts[0] === 'voucher') {
+      return { type: 'voucher', size: parseInt(parts[1], 10) };
+  }
+  
   return {
     type: parts[0] === 'big' ? 'big_picture' : 'standard',
     size: parseInt(parts[1], 10)
@@ -157,6 +181,7 @@ function getUncroppedFiles() {
 }
 
 function updateCropHelp() {
+  if (selectedPackType === 'voucher') return;
   const remaining = getUncroppedFiles().length;
   if (remaining > 0) {
     cropHelp.style.display = "block";
@@ -176,6 +201,7 @@ function updateCropHelp() {
 }
 
 function updateCountHelp() {
+  if (selectedPackType === 'voucher') return;
   const count = myDropzone.files.length;
   const need  = requiredCount;
   countHelp.classList.remove("ok", "warn", "error");
@@ -201,6 +227,42 @@ function updatePhotoCount() {
   updatePayButtonAppearance();
 }
 
+// ---- Promo Code Logic ----
+promoBtn.addEventListener("click", async () => {
+    const code = promoInput.value.trim();
+    if (!code) return;
+    
+    promoBtn.textContent = "...";
+    try {
+        const res = await fetch("/api/voucher-check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+        
+        if (data.valid) {
+            voucherApplied = data.value;
+            voucherCode = data.code;
+            promoMsg.style.color = "#66d19e";
+            promoMsg.textContent = `Voucher applied! -£${data.value}`;
+            promoMsg.style.display = "block";
+            promoInput.disabled = true;
+            promoBtn.style.display = "none";
+            showToast(`Discount applied: -£${data.value}`, "ok");
+        } else {
+            promoMsg.style.color = "#ff6666";
+            promoMsg.textContent = data.error || "Invalid code";
+            promoMsg.style.display = "block";
+        }
+    } catch (e) {
+        console.error(e);
+        promoMsg.textContent = "Error checking code";
+    } finally {
+        promoBtn.textContent = "Apply";
+    }
+});
+
 // ---- Orientation Radio Listeners ----
 document.querySelectorAll('input[name="orientation"]').forEach((radio) => {
     radio.addEventListener("change", () => {
@@ -214,10 +276,17 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
     const newVal = radio.value;
     const { type, size } = parsePackValue(newVal);
-    const newRequired = (type === 'big_picture') ? 1 : size;
+    
+    // Determine new Required Count
+    let newRequired = size;
+    if (type === 'big_picture') newRequired = 1;
+    if (type === 'voucher') newRequired = 0;
+
     const currentCount = myDropzone.files.length;
 
-    if (newRequired < currentCount) {
+    // Guard: Only run "Too many photos" check if NOT buying a voucher
+    // If buying voucher, we just ignore any uploaded photos (or let them sit there)
+    if (type !== 'voucher' && newRequired < currentCount) {
       const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
       if (prevRadio) prevRadio.checked = true;
 
@@ -237,15 +306,20 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     }
 
     previousRadioValue = newVal;
-    selectedPackSize = size;
+    selectedPackSize = size; // For vouchers this is the price (10, 20, 30)
     selectedPackType = type;
     requiredCount = newRequired;
     
     requiredCountEl.textContent = String(requiredCount);
-    updateOrientationVisibility(); 
+    
+    updateVisibility(); 
     updatePhotoCount();
     
-    const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
+    // Toast Logic
+    let label = `${size} magnets`;
+    if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
+    if (type === 'voucher') label = `£${size} Gift Voucher`;
+    
     showToast(`Selected: ${label}`, "ok");
   });
 });
@@ -308,7 +382,8 @@ myDropzone.on("addedfile", (file) => {
   enqueueForCrop(file);
 
   const total = myDropzone.files.length;
-  if (total > requiredCount) {
+  // Only enforce count limits for magnet packs, ignore for vouchers
+  if (selectedPackType !== 'voucher' && total > requiredCount) {
     if (selectedPackType === 'standard') {
         const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
         pendingTargetValue = `standard_${suggested}`;
@@ -355,6 +430,7 @@ modalConfirm.addEventListener("click", () => {
   selectedPackType = type;
   selectedPackSize = size;
   requiredCount = (type === 'big_picture') ? 1 : size;
+  if (type === 'voucher') requiredCount = 0;
   
   previousRadioValue = pendingTargetValue;
   requiredCountEl.textContent = String(requiredCount);
@@ -369,10 +445,14 @@ modalConfirm.addEventListener("click", () => {
   statusEl.textContent = "";
   modal.classList.add("hidden");
   pendingTargetValue = null;
-  updateOrientationVisibility();
+  updateVisibility();
   updatePhotoCount();
   
-  const label = type === 'big_picture' ? `Jigsaw Picture (${size} magnets)` : `${size} magnets`;
+  // Dynamic Label Logic
+  let label = `${size} magnets`;
+  if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
+  if (type === 'voucher') label = `£${size} Gift Voucher`;
+  
   showToast(`Switched to ${label}`, "ok");
 });
 
@@ -412,12 +492,14 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
+  // Count check (skip for vouchers)
   if (!isCountValid()) {
     shakeElement(uploadMetaEl);
     showToast(`You need exactly ${requiredCount} photo${requiredCount>1?'s':''}`, "error");
     return;
   }
 
+  // Crop check (skip for vouchers)
   if (!isAllCropped()) {
     shakeElement(cropHelp);
     showToast("Please crop all photos", "error");
@@ -429,11 +511,14 @@ payBtn.addEventListener("click", async () => {
     payBtn.textContent = "Processing...";
     
     const country = document.getElementById("shipping-country").value;
-    const shippingCost = country === "GB" ? 5 : 0;
-    const total = prices[selectedPackSize] + shippingCost;
-    
-    // --- NEW: Grab Checkbox ---
     const socialPermission = socialCheckbox ? socialCheckbox.checked : false;
+    
+    // For Vouchers, packSize is the voucher value identifier (e.g. "voucher_10")
+    // We send this as the string "voucher_10" so backend knows what product it is.
+    // If it's a magnet, we send the number.
+    const packSizePayload = (selectedPackType === 'voucher') 
+        ? `voucher_${selectedPackSize}` 
+        : selectedPackSize;
 
     statusEl.textContent = "Creating order…";
 
@@ -443,52 +528,56 @@ payBtn.addEventListener("click", async () => {
       body: JSON.stringify({ 
           email: customerEmail, 
           phone: customerPhone,
-          packSize: selectedPackSize,
+          packSize: packSizePayload, // Handles "3" or "voucher_10"
           packType: selectedPackType,
-          socialPermission: socialPermission // <--- SEND
+          socialPermission: socialPermission
       }),
     });
+    
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
 
-    statusEl.textContent = "Uploading photos…";
-    progressWrap.style.display = "block";
-    progressWrap.setAttribute("aria-hidden", "false");
-    progressBar.style.width = "0%";
+    // Only upload photos if NOT a voucher
+    if (selectedPackType !== 'voucher') {
+        statusEl.textContent = "Uploading photos…";
+        progressWrap.style.display = "block";
+        progressWrap.setAttribute("aria-hidden", "false");
+        progressBar.style.width = "0%";
 
-    const files = myDropzone.files.slice();
-    for (const file of files) {
-      const form = new FormData();
-      const uploadBlob = file._croppedBlob || file;
-      const uploadName = (file.name || "photo.jpg").replace(/\.(heic|heif)$/i, ".jpg");
-      form.append("file", uploadBlob, uploadName);
+        const files = myDropzone.files.slice();
+        for (const file of files) {
+          const form = new FormData();
+          const uploadBlob = file._croppedBlob || file;
+          const uploadName = (file.name || "photo.jpg").replace(/\.(heic|heif)$/i, ".jpg");
+          form.append("file", uploadBlob, uploadName);
 
-      const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-        method: "POST",
-        body: form,
-      });
-      if (!upRes.ok) throw new Error((await upRes.text().catch(() => "")) || "Upload failed");
+          const upRes = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
+            method: "POST",
+            body: form,
+          });
+          if (!upRes.ok) throw new Error((await upRes.text().catch(() => "")) || "Upload failed");
+        }
+        progressBar.style.width = "100%";
     }
 
-    progressBar.style.width = "100%";
-
-    statusEl.textContent = `Creating checkout (£${total})…`;
+    statusEl.textContent = `Creating checkout…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderId,
         email: customerEmail,
-        packSize: selectedPackSize,
+        packSize: packSizePayload, 
         packType: selectedPackType,
-        country: country
+        country: country,
+        voucherCode: voucherCode // Send code if applied
       }),
     });
     if (!ckRes.ok) throw new Error((await ckRes.text().catch(() => "")) || "Checkout creation failed");
 
     const { checkoutUrl } = await ckRes.json();
 
-    statusEl.textContent = "Redirecting to secure payment…";
+    statusEl.textContent = "Redirecting...";
     window.location.href = checkoutUrl;
   } catch (err) {
     console.error(err);
@@ -625,5 +714,6 @@ function openCropModal(file, done) {
   reader.readAsDataURL(file);
 }
 
+// Initial UI Setup
 updatePayButtonAppearance();
-updateOrientationVisibility();
+updateVisibility();

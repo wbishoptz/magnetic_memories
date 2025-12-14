@@ -1,8 +1,14 @@
 // functions/api/checkout.js
-// POST /api/checkout -> create Stripe Checkout session
+// POST /api/checkout
 
 const PACKS = [3, 6, 9, 12, 15];
 const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+// New Voucher "Products"
+const VOUCHERS = { 
+    "voucher_10": { price: 10, label: "£10 Gift Voucher" },
+    "voucher_20": { price: 20, label: "£20 Gift Voucher" },
+    "voucher_30": { price: 30, label: "£30 Gift Voucher" }
+};
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -16,7 +22,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
     const targetCountry = body?.country || "GI"; 
-    const packType = body?.packType || "standard"; 
+    const voucherCode = body?.voucherCode; // <--- NEW: User applying a code
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -31,71 +37,130 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
-    const emailFromBody = String(body?.email || "").trim();
-    const packSizeFromBody = Number(body?.packSize || 0) || 3;
+    // --- DETERMINE PRODUCT (Magnets vs Voucher) ---
+    const packSizeRaw = kvOrder?.packSize || body?.packSize;
+    let price = 0;
+    let productName = "";
+    let productDesc = "";
+    let isVoucherPurchase = false;
 
-    const email = String((kvOrder && kvOrder.email) || emailFromBody || "").trim();
-    let packSize = (kvOrder && Number(kvOrder.packSize || kvOrder.pack)) || packSizeFromBody || 3;
-    if (!PACKS.includes(packSize)) packSize = 3;
+    // Check if buying a voucher
+    if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
+        const v = VOUCHERS[packSizeRaw];
+        if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
+        price = v.price;
+        productName = v.label;
+        productDesc = "Digital code sent via email upon payment.";
+        isVoucherPurchase = true;
+    } else {
+        // Normal magnets
+        let size = Number(packSizeRaw) || 3;
+        if (!PACKS.includes(size)) size = 3;
+        price = PRICES[size];
+        
+        let type = kvOrder?.packType || body?.packType || "standard";
+        productName = `${size} custom photo magnets`;
+        productDesc = "50×50mm fridge magnets";
+        if (type === 'big_picture') {
+            productName = `Jigsaw Picture (${size} magnets)`;
+            productDesc = "One large photo split across magnets.";
+        }
+    }
 
-    const price = (kvOrder && kvOrder.price) || PRICES[packSize] || PRICES[3];
-    const amount = price * 100;
+    // --- APPLY DISCOUNT CODE (If Redeeming) ---
+    let discountAmount = 0;
+    let finalPrice = price;
+    
+    if (voucherCode && !isVoucherPurchase) {
+        const vKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        const vRaw = await env.ORDERS_KV.get(vKey);
+        if (vRaw) {
+            const vData = JSON.parse(vRaw);
+            if (!vData.redeemed) {
+                discountAmount = vData.value;
+                finalPrice = Math.max(0, price - discountAmount);
+            }
+        }
+    }
 
+    // --- STRIPE SESSION ---
     const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
     const params = new URLSearchParams();
-
     params.append("mode", "payment");
-    params.append("allow_promotion_codes", "true");
-    
-    // Disable currency conversion toggle
-    params.append("automatic_tax[enabled]", "false");
-
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
-
-    // --- PRODUCT DESCRIPTION ---
-    let productName = `${packSize} custom photo magnets`;
-    let productDesc = "50×50mm fridge magnets – printed using your uploaded photos.";
+    if (kvOrder?.email) params.append("customer_email", kvOrder.email);
+    params.append("metadata[orderId]", orderId);
     
-    if (packType === 'big_picture') {
-        productName = `Jigsaw Picture (${packSize} magnets)`;
-        productDesc = `One large photo split across ${packSize} magnets (Jigsaw style).`;
+    // Pass isVoucher flag to metadata so Webhook knows to generate a code later
+    if (isVoucherPurchase) {
+        params.append("metadata[isVoucher]", "true");
+        params.append("metadata[voucherValue]", String(price));
+    }
+    
+    // Record used code in metadata to mark it redeemed later
+    if (voucherCode && discountAmount > 0) {
+        params.append("metadata[usedVoucher]", voucherCode);
     }
 
+    // Line Item 1: The Product
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("line_items[0][price_data][product_data][description]", productDesc);
-    params.append("line_items[0][price_data][unit_amount]", String(amount));
+    params.append("line_items[0][price_data][unit_amount]", String(price * 100)); // Original price
 
-    if (email) params.append("customer_email", email);
-    params.append("metadata[orderId]", orderId);
+    // Handle Discount logic
+    // Stripe Checkout coupons are complex to create on the fly. 
+    // Easier hack: Send "Price" as the discounted amount if a voucher is used.
+    // OR: If finalPrice is 0 (fully covered), we can't use Stripe Checkout normally (it requires >£0.30).
+    // For MVP: If fully covered, we skip Stripe and just confirm order immediately.
+    
+    if (voucherCode && discountAmount > 0) {
+        if (finalPrice === 0) {
+            // --- 100% DISCOUNT FLOW ---
+            // Mark voucher redeemed immediately and return "Success" URL directly
+            const vKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+            const vRaw = await env.ORDERS_KV.get(vKey);
+            const vData = JSON.parse(vRaw);
+            vData.redeemed = true;
+            vData.usedByOrder = orderId;
+            await env.ORDERS_KV.put(vKey, JSON.stringify(vData));
 
-    // --- SMART SHIPPING LOGIC ---
-    if (targetCountry === "GB") {
-        params.append("shipping_address_collection[allowed_countries][0]", "GB");
-        
-        params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
-        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500");
-        params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
-        params.append("shipping_options[0][shipping_rate_data][display_name]", "UK Postage");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "5");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "10");
-    } else {
-        params.append("shipping_address_collection[allowed_countries][0]", "GI");
+            // Update Order
+            kvOrder.status = "paid";
+            kvOrder.paidAt = new Date().toISOString();
+            kvOrder.price = 0;
+            kvOrder.usedVoucher = voucherCode;
+            await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
-        params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
-        params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
-        params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
-        params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery (Gibraltar)");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][unit]", "business_day");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][minimum][value]", "1");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][unit]", "business_day");
-        params.append("shipping_options[0][shipping_rate_data][delivery_estimate][maximum][value]", "2");
+            return jsonResponse({ checkoutUrl: successUrl });
+        } else {
+            // Partial payment needed - Overwrite the unit_amount to the lower price
+            // We verify this is safe because we controlled the calculation above.
+            params.set("line_items[0][price_data][unit_amount]", String(finalPrice * 100));
+            // Add note to description
+            params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode} applied: -£${discountAmount})`);
+        }
+    }
+
+    // Shipping Logic (Only add shipping if it's NOT a digital voucher purchase)
+    if (!isVoucherPurchase) {
+        if (targetCountry === "GB") {
+            params.append("shipping_address_collection[allowed_countries][0]", "GB");
+            params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500");
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+            params.append("shipping_options[0][shipping_rate_data][display_name]", "UK Postage");
+        } else {
+            params.append("shipping_address_collection[allowed_countries][0]", "GI");
+            params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+            params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
+        }
     }
 
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
@@ -111,35 +176,19 @@ export async function onRequestPost({ request, env }) {
 
     if (!stripeRes.ok) {
       console.error("Stripe error:", session);
-      return jsonResponse({ error: "Failed to create Stripe checkout." }, 500);
+      return jsonResponse({ error: "Failed to create checkout." }, 500);
     }
 
-    // Save back to KV with PERMISSION preserved
-    const now = new Date().toISOString();
-    const updatedOrder = {
-      orderId,
-      email,
-      packSize,
-      packType: kvOrder?.packType || packType,
-      phone: kvOrder?.phone || null, 
-      socialPermission: kvOrder?.socialPermission || false, // <--- PRESERVE THIS!
-      price,
-      status: "checkout_created",
-      createdAt: kvOrder?.createdAt || now,
-      images: kvOrder?.images || [],
-      stripeSessionId: session.id,
-      stripePaymentIntentId: session.payment_intent ?? null,
-    };
-
-    try {
-      await env.ORDERS_KV.put(kvKey, JSON.stringify(updatedOrder));
-    } catch (e) {
-      console.error("KV put error:", e);
-    }
+    // Save session ID
+    kvOrder.stripeSessionId = session.id;
+    if (voucherCode && discountAmount > 0) kvOrder.usedVoucher = voucherCode;
+    
+    await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
     return jsonResponse({ checkoutUrl: session.url });
+
   } catch (err) {
-    console.error("ERROR in /api/checkout:", err);
-    return jsonResponse({ error: "Failed to create checkout." }, 500);
+    console.error("Checkout Error:", err);
+    return jsonResponse({ error: "Checkout failed" }, 500);
   }
 }

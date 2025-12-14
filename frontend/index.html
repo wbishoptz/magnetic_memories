@@ -36,6 +36,13 @@
         <option value="GB">United Kingdom (+£5.00)</option>
       </select>
 
+      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-top:16px; margin-bottom:6px;">Promo Code / Voucher</label>
+      <div style="display:flex; gap:8px;">
+        <input id="promo-code" type="text" placeholder="Enter code" style="flex:1; text-transform:uppercase;" />
+        <button id="apply-promo" type="button" class="btn-ghost" style="padding:10px 16px; border:1px solid rgba(255,255,255,0.2); color:white;">Apply</button>
+      </div>
+      <p id="promo-msg" style="font-size:0.85rem; margin-top:6px; display:none;"></p>
+
       <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; margin-top:16px; font-size:0.95rem; color:#e8e8e8; line-height: 1.4;">
         <input type="checkbox" id="social-permission" style="width:20px; height:20px; accent-color:#59c9a5; margin-top:2px; flex-shrink: 0;">
         <span>I am happy for you to share my order on social media 📸</span>
@@ -63,6 +70,13 @@
         <label><input type="radio" name="pack" value="big_15"> 15 magnets (3x5 grid) — £30</label>
       </div>
 
+      <h3 style="font-size: 1rem; color: #e8e8e8; margin: 24px 0 8px;">Gift Vouchers (Digital Code)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="voucher_10"> £10 Voucher</label>
+        <label><input type="radio" name="pack" value="voucher_20"> £20 Voucher</label>
+        <label><input type="radio" name="pack" value="voucher_30"> £30 Voucher</label>
+      </div>
+
       <div id="orientation-wrapper" style="display:none; margin-top: 16px; padding: 12px; background: rgba(89, 201, 165, 0.1); border-radius: 8px; border: 1px solid rgba(89, 201, 165, 0.2);">
         <label style="font-size: 0.9rem; color: #66d19e; display:block; margin-bottom:8px; font-weight:bold;">Choose Orientation:</label>
         <div style="display:flex; gap: 16px;">
@@ -78,7 +92,7 @@
       <p class="hint" style="margin-top:16px;">Each magnet is 50×50 mm. Your photo(s) will be cropped to fit.</p>
     </section>
 
-    <section class="card">
+    <section class="card" id="upload-section">
       <h2>Upload your photos</h2>
 
       <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
