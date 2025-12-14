@@ -145,8 +145,14 @@
         const counts = new Map();
         for (const o of filteredOrders) {
           if (!o.packSize) continue;
-          let k = String(o.packSize) + "-pack";
-          if (o.packType === 'big_picture') k += " (Jigsaw)";
+          let k = String(o.packSize);
+          if (k.startsWith("voucher_")) {
+             // Clean up voucher summary
+             k = "Voucher £" + k.split("_")[1];
+          } else {
+             k = k + "-pack";
+             if (o.packType === 'big_picture') k += " (Jigsaw)";
+          }
           counts.set(k, (counts.get(k) || 0) + 1);
         }
         if (!counts.size) { packSummaryEl.textContent = "Pack summary: –"; return; }
@@ -166,7 +172,13 @@
           
           let packDisplay = o.packSize || "?";
           let style = "";
-          if (o.packType === 'big_picture') {
+          
+          // --- UPDATED: Handling Vouchers in List ---
+          if (String(packDisplay).startsWith('voucher_')) {
+              const val = packDisplay.split('_')[1];
+              packDisplay = `🎁 £${val} Voucher`;
+              style = 'style="color: #66d19e; font-weight:600;"';
+          } else if (o.packType === 'big_picture') {
               packDisplay = '🧩 ' + packDisplay; 
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
@@ -194,11 +206,21 @@
           const order = data.order;
           if (!order) { detailsContainer.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
 
-          const isJigsaw = order.packType === 'big_picture';
-          const packLabel = isJigsaw ? `<span class="tag purple">🧩 JIGSAW PICTURE</span>` : `<span class="tag">Standard</span>`;
-          const imageLabel = isJigsaw ? `<span style="color:#d8b4fe; font-weight:bold;">SOURCE IMAGE (SPLIT THIS)</span>` : `<span>Images</span>`;
+          const isVoucher = String(order.packSize).startsWith('voucher_');
+          let packLabel = "";
+          let imageLabel = "Images";
           
-          // --- NEW: Social Badge ---
+          // --- UPDATED: Detail View Logic ---
+          if (isVoucher) {
+              const val = String(order.packSize).split('_')[1];
+              packLabel = `<span class="tag" style="background:rgba(102,209,158,0.15); color:#6ee7b7; border-color:rgba(102,209,158,0.3);">🎁 £${val} GIFT VOUCHER</span>`;
+              imageLabel = `Digital Product (No Images)`;
+          } else {
+              const isJigsaw = order.packType === 'big_picture';
+              packLabel = isJigsaw ? `<span class="tag purple">🧩 JIGSAW PICTURE</span>` : `<span class="tag">Standard</span>`;
+              imageLabel = isJigsaw ? `<span style="color:#d8b4fe; font-weight:bold;">SOURCE IMAGE (SPLIT THIS)</span>` : `<span>Images</span>`;
+          }
+          
           const socials = order.socialPermission 
               ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
               : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
@@ -207,7 +229,6 @@
           html += `<div class="field-label">Status</div><div class="field-value"><span class="status-pill ${order.status}">${order.status}</span></div>`;
           html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           
-          // Added Social Badge here
           html += `<div class="field-label">Customer ${socials}</div><div class="field-value">${order.email}<br>${order.phone || "No phone"}</div>`;
           
           if (order.customer?.address) {
@@ -216,8 +237,24 @@
              html += `<div class="field-label">Address</div><div class="field-value" style="background:#111827;padding:10px;border-radius:8px;">${addr}</div>`;
           }
 
-          html += `<div class="field-label">Pack</div><div class="field-value">${order.packSize} magnets — ${packLabel}</div>`;
-          html += `<div class="field-label">${imageLabel} <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
+          // Show generated voucher if they bought one
+          if (order.generatedVoucher) {
+              html += `<div class="field-label">🎁 Voucher Code Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e; font-family:monospace;">${order.generatedVoucher}</div>`;
+          }
+
+          // Show USED voucher if they redeemed one
+          if (order.usedVoucher) {
+              html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
+          }
+
+          html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
+          
+          if (!isVoucher) {
+             html += `<div class="field-label">${imageLabel} <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
+          } else {
+             html += `<div class="field-label" style="opacity:0.5;">${imageLabel}</div>`;
+          }
+          
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
 
           detailsContainer.innerHTML = html;
@@ -235,10 +272,11 @@
              }
           };
           
-          const dlBtn = document.getElementById("download-all-btn");
-          if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId);
-          
-          loadOrderImages(orderId);
+          if (!isVoucher) {
+              const dlBtn = document.getElementById("download-all-btn");
+              if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId);
+              loadOrderImages(orderId);
+          }
 
         } catch (e) { detailsContainer.innerHTML = "Error loading details."; }
       }
