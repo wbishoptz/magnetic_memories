@@ -13,8 +13,14 @@
       header h1 { font-size: 20px; margin: 0 0 2px; }
       header p { margin: 0; font-size: 12px; color: #9ca3af; }
       .key-badge { font-size: 11px; background: #111827; padding: 6px 10px; border-radius: 999px; border: 1px solid #374151; color: #d1d5db; }
-      .layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; height: 100%; min-height: 420px; }
-      .panel { padding: 18px 18px 20px; overflow: auto; }
+      
+      /* New Nav Toggle */
+      .nav-toggle { display: flex; gap: 8px; background: #020617; padding: 4px; border-radius: 999px; border: 1px solid #1f2933; margin-left: 20px; }
+      .nav-btn { background: transparent; border: none; color: #9ca3af; padding: 6px 16px; font-size: 12px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+      .nav-btn.active { background: #1f2937; color: #fff; font-weight: 600; shadow: 0 2px 4px rgba(0,0,0,0.2); }
+      
+      .layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; height: 100%; min-height: 500px; }
+      .panel { padding: 18px 18px 20px; overflow: auto; display: flex; flex-direction: column; }
       .panel + .panel { border-left: 1px solid #1f2933; }
       .panel h2 { font-size: 14px; margin: 0 0 8px; }
       .panel small { color: #9ca3af; font-size: 12px; }
@@ -24,7 +30,7 @@
       .toolbar button:hover { background: #1f2937; }
       button.btn-danger { background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); margin-top: 24px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
       button.btn-danger:hover { background: rgba(220, 38, 38, 0.25); border-color: #f87171; color: #fff; }
-      .table-wrapper { margin-top: 6px; border-radius: 10px; border: 1px solid #1f2933; overflow: hidden; }
+      .table-wrapper { margin-top: 6px; border-radius: 10px; border: 1px solid #1f2933; overflow: hidden; flex: 1; }
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
       thead { background: #111827; }
       th, td { padding: 8px 10px; white-space: nowrap; text-align: left; }
@@ -38,13 +44,11 @@
       .status-pill.error { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
       .status-pill.unknown { background: rgba(148, 163, 184, 0.2); color: #e5e7eb; }
       .empty-state { padding: 40px 16px; text-align: center; color: #9ca3af; font-size: 13px; }
-      .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-      .field-value { font-size: 13px; margin-bottom: 12px; word-break: break-all; }
-      pre.json { background: #020617; border-radius: 10px; padding: 10px 12px; border: 1px solid #1f2937; font-size: 12px; overflow: auto; max-height: 260px; }
+      .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 16px; }
+      .field-value { font-size: 13px; margin-bottom: 4px; word-break: break-all; }
       .input-inline { display: inline-flex; align-items: center; gap: 6px; }
-      .input-inline input, .input-inline select { background: #020617; border-radius: 999px; border: 1px solid #374151; padding: 6px 10px; font-size: 12px; color: #e5e7eb; min-width: 160px; }
+      .input-inline input { background: #020617; border-radius: 999px; border: 1px solid #374151; padding: 6px 10px; font-size: 12px; color: #e5e7eb; min-width: 120px; }
       .input-inline button { border-radius: 999px; border: none; padding: 6px 10px; font-size: 12px; cursor: pointer; background: #16a34a; color: #f9fafb; }
-      .input-inline button:disabled { opacity: 0.5; cursor: default; }
       .tag { display: inline-flex; align-items: center; font-size: 11px; border-radius: 999px; padding: 2px 8px; background: #111827; border: 1px solid #1f2933; color: #9ca3af; }
       .tag.purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.3); font-weight: 600; }
       .small-flex { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -59,50 +63,195 @@
   <body>
     <div class="admin-shell">
       <header>
-        <div><h1>Magnetic Memories – Admin</h1><p id="header-subtitle">Enter your admin key to load orders.</p></div>
+        <div style="display:flex; align-items:center;">
+          <div><h1>Magnetic Memories</h1><p id="header-subtitle">Enter admin key.</p></div>
+          <div class="nav-toggle">
+            <button class="nav-btn active" id="nav-orders">Orders</button>
+            <button class="nav-btn" id="nav-vouchers">Vouchers</button>
+          </div>
+        </div>
         <div class="input-inline" id="key-form"><input id="admin-key-input" type="password" placeholder="Admin key" autocomplete="off" /><button id="save-key-btn">Unlock</button></div>
-        <div class="key-badge" id="key-badge" style="display: none">Admin mode</div>
+        <div class="key-badge" id="key-badge" style="display: none">Admin</div>
       </header>
+      
       <div class="layout">
         <section class="panel">
-          <div class="small-flex"><div><h2>Orders</h2><small id="orders-subtitle">Locked</small></div><span class="tag" id="orders-count">0 orders</span></div>
-          <div class="toolbar">
-            <input id="search-input" type="text" placeholder="Search..." />
-            <select id="date-filter"><option value="all">All time</option><option value="today">Today</option><option value="last_week" selected>Last 7 days</option><option value="last_month">Last 30 days</option></select>
-            <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option><option value="checkout_created">checkout_created</option><option value="draft">draft</option></select>
-            <button id="download-csv-btn">Download CSV</button>
+          <div class="small-flex">
+            <div><h2 id="list-title">Orders</h2><small id="list-subtitle">Locked</small></div>
+            <span class="tag" id="list-count">0</span>
           </div>
+          
+          <div class="toolbar" id="order-toolbar">
+            <input id="search-input" type="text" placeholder="Search orders..." />
+            <select id="date-filter"><option value="all">All time</option><option value="today">Today</option><option value="last_week" selected>Last 7 days</option><option value="last_month">Last 30 days</option></select>
+            <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option><option value="draft">draft</option></select>
+            <button id="download-csv-btn">Export CSV</button>
+          </div>
+
+          <div class="toolbar" id="voucher-toolbar" style="display:none;">
+            <input id="voucher-search" type="text" placeholder="Search code..." />
+            <span class="tag" style="margin-left:auto; color:#f0c36a;">💰 Vouchers</span>
+          </div>
+
           <div class="toolbar" style="margin-top: 0"><span class="tag" id="pack-summary">Pack summary: –</span></div>
-          <div id="orders-container" class="table-wrapper"><div class="empty-state">Enter the admin key above to load orders.</div></div>
+          
+          <div id="list-container" class="table-wrapper">
+            <div class="empty-state">Enter key above to load.</div>
+          </div>
         </section>
+
         <section class="panel">
-          <h2>Order details</h2><small id="details-subtitle">Select an order from the left.</small>
-          <div id="details-container" class="empty-state">No order selected.</div>
+          <h2>Details</h2><small id="details-subtitle">Select an item.</small>
+          <div id="details-container" class="empty-state">No item selected.</div>
         </section>
       </div>
     </div>
-    <script>
-      const keyInput = document.getElementById("admin-key-input"), saveKeyBtn = document.getElementById("save-key-btn"), keyForm = document.getElementById("key-form"), keyBadge = document.getElementById("key-badge");
-      const headerSubtitle = document.getElementById("header-subtitle"), ordersSubtitle = document.getElementById("orders-subtitle"), ordersContainer = document.getElementById("orders-container"), ordersCountEl = document.getElementById("orders-count");
-      const detailsContainer = document.getElementById("details-container"), detailsSubtitle = document.getElementById("details-subtitle"), searchInput = document.getElementById("search-input");
-      const statusFilter = document.getElementById("status-filter"), dateFilter = document.getElementById("date-filter"), downloadCsvBtn = document.getElementById("download-csv-btn"), packSummaryEl = document.getElementById("pack-summary");
-      let adminKey = null, orders = [], filteredOrders = [], selectedOrderId = null, lastImagesForOrder = {};
 
+    <script>
+      const keyInput = document.getElementById("admin-key-input");
+      const saveKeyBtn = document.getElementById("save-key-btn");
+      const keyForm = document.getElementById("key-form");
+      const keyBadge = document.getElementById("key-badge");
+      const headerSubtitle = document.getElementById("header-subtitle");
+      
+      const listContainer = document.getElementById("list-container");
+      const detailsContainer = document.getElementById("details-container");
+      
+      // Navigation
+      const navOrders = document.getElementById("nav-orders");
+      const navVouchers = document.getElementById("nav-vouchers");
+      let currentMode = 'orders'; // 'orders' or 'vouchers'
+
+      // Orders logic
+      let adminKey = null;
+      let orders = [], filteredOrders = [], selectedOrderId = null, lastImagesForOrder = {};
+      
+      // Vouchers logic
+      let vouchers = [], filteredVouchers = [], selectedVoucher = null;
+
+      // Init
       (function initKey() {
-        const urlParams = new URLSearchParams(window.location.search), fromUrl = urlParams.get("key"), fromStorage = localStorage.getItem("mm_admin_key");
-        if (fromUrl) { adminKey = fromUrl; localStorage.setItem("mm_admin_key", adminKey); window.history.replaceState({}, document.title, window.location.pathname); }
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromUrl = urlParams.get("key");
+        const fromStorage = localStorage.getItem("mm_admin_key");
+        if (fromUrl) { adminKey = fromUrl; localStorage.setItem("mm_admin_key", adminKey); }
         else if (fromStorage) { adminKey = fromStorage; }
-        if (adminKey) { keyInput.value = "••••••••"; keyInput.type = "password"; keyBadge.style.display = "inline-flex"; keyForm.style.opacity = "0.3"; keyForm.style.pointerEvents = "none"; headerSubtitle.textContent = "Loading latest orders…"; loadOrders(); }
+        
+        if (adminKey) { 
+          keyInput.value = "••••••••"; keyInput.type = "password"; 
+          keyBadge.style.display = "inline-flex"; 
+          keyForm.style.opacity = "0.3"; keyForm.style.pointerEvents = "none"; 
+          headerSubtitle.textContent = "Loading..."; 
+          loadOrders(); 
+        }
       })();
 
       saveKeyBtn.addEventListener("click", () => {
         const value = keyInput.value.trim(); if (!value) return;
-        adminKey = value; localStorage.setItem("mm_admin_key", adminKey); headerSubtitle.textContent = "Loading latest orders…"; keyBadge.style.display = "inline-flex"; loadOrders();
+        adminKey = value; localStorage.setItem("mm_admin_key", adminKey);
+        keyBadge.style.display = "inline-flex"; 
+        loadOrders();
       });
 
-      searchInput.addEventListener("input", applyFilters); statusFilter.addEventListener("change", applyFilters); dateFilter.addEventListener("change", applyFilters);
+      // --- NAVIGATION SWITCHING ---
+      navOrders.onclick = () => switchMode('orders');
+      navVouchers.onclick = () => switchMode('vouchers');
 
-      downloadCsvBtn.addEventListener("click", () => {
+      function switchMode(mode) {
+        currentMode = mode;
+        if (mode === 'orders') {
+            navOrders.classList.add('active');
+            navVouchers.classList.remove('active');
+            document.getElementById('order-toolbar').style.display = 'flex';
+            document.getElementById('voucher-toolbar').style.display = 'none';
+            document.getElementById('pack-summary').style.display = 'inline-flex';
+            document.getElementById('list-title').textContent = "Orders";
+            loadOrders();
+        } else {
+            navOrders.classList.remove('active');
+            navVouchers.classList.add('active');
+            document.getElementById('order-toolbar').style.display = 'none';
+            document.getElementById('voucher-toolbar').style.display = 'flex';
+            document.getElementById('pack-summary').style.display = 'none';
+            document.getElementById('list-title').textContent = "Vouchers";
+            loadVouchers();
+        }
+      }
+
+      // --- VOUCHER LOGIC ---
+      async function loadVouchers() {
+        if (!adminKey) return;
+        listContainer.innerHTML = '<div class="empty-state">Loading vouchers...</div>';
+        try {
+            const res = await fetch(`/api/admin-vouchers?key=${encodeURIComponent(adminKey)}`);
+            if (!res.ok) throw new Error("Auth failed");
+            const data = await res.json();
+            vouchers = data.vouchers || [];
+            filterVouchers();
+        } catch(e) {
+            listContainer.innerHTML = '<div class="empty-state">Error loading vouchers. Check key.</div>';
+        }
+      }
+
+      document.getElementById('voucher-search').addEventListener('input', filterVouchers);
+
+      function filterVouchers() {
+        const q = document.getElementById('voucher-search').value.trim().toUpperCase();
+        filteredVouchers = vouchers.filter(v => !q || v.code.includes(q));
+        renderVouchers();
+      }
+
+      function renderVouchers() {
+        document.getElementById('list-count').textContent = `${filteredVouchers.length} codes`;
+        let html = '<div class="table-wrapper"><table><thead><tr><th>Code</th><th>Balance</th><th>Created</th><th>Status</th></tr></thead><tbody>';
+        
+        for (const v of filteredVouchers) {
+            const date = new Date(v.createdAt).toLocaleDateString();
+            const isSelected = selectedVoucher === v.code ? 'selected' : '';
+            
+            // Calc status
+            let status = `<span class="status-pill paid">Active</span>`;
+            if (v.balance <= 0) status = `<span class="status-pill completed">Used</span>`;
+            else if (v.balance < v.value) status = `<span class="status-pill checkout_created">Partial</span>`;
+
+            html += `<tr class="${isSelected}" onclick="selectVoucher('${v.code}')">
+                <td style="font-family:monospace; font-weight:bold; color:#66d19e;">${v.code}</td>
+                <td>£${v.balance.toFixed(2)} <span style="color:#555; font-size:0.9em;">/ £${v.value}</span></td>
+                <td>${date}</td>
+                <td>${status}</td>
+            </tr>`;
+        }
+        html += '</tbody></table></div>';
+        listContainer.innerHTML = html;
+      }
+
+      window.selectVoucher = function(code) {
+          selectedVoucher = code;
+          const v = vouchers.find(x => x.code === code);
+          renderVouchers(); // update selected state
+          
+          if (!v) return;
+          
+          let html = `<div class="field-label">Voucher Code</div><div class="field-value" style="font-size:1.5em; font-family:monospace; color:#66d19e;">${v.code}</div>`;
+          html += `<div class="field-label">Balance Available</div><div class="field-value" style="font-size:1.2em;">£${v.balance.toFixed(2)}</div>`;
+          html += `<div class="field-label">Original Value</div><div class="field-value">£${v.value.toFixed(2)}</div>`;
+          html += `<div class="field-label">Purchased By</div><div class="field-value">${v.purchasedBy || "Unknown"}</div>`;
+          
+          if (v.orderId) {
+             html += `<div class="field-label">Original Order</div><div class="field-value"><a href="#" onclick="switchMode('orders'); setTimeout(() => loadOrderDetails('${v.orderId}'), 500); return false;">${v.orderId}</a></div>`;
+          }
+          
+          html += `<div class="field-label">Created</div><div class="field-value">${new Date(v.createdAt).toLocaleString()}</div>`;
+          
+          detailsContainer.innerHTML = html;
+      }
+
+      // --- ORDER LOGIC (Existing) ---
+      document.getElementById("search-input").addEventListener("input", applyFilters); 
+      document.getElementById("status-filter").addEventListener("change", applyFilters); 
+      document.getElementById("date-filter").addEventListener("change", applyFilters);
+
+      document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
         const rows = [["orderId", "email", "phone", "packSize", "price", "status", "createdAt"]];
         for (const o of filteredOrders) rows.push([o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.createdAt || ""]);
@@ -113,18 +262,20 @@
 
       async function loadOrders() {
         if (!adminKey) return;
-        ordersContainer.innerHTML = '<div class="empty-state">Loading orders…</div>';
+        listContainer.innerHTML = '<div class="empty-state">Loading orders…</div>';
         try {
-          const res = await fetch(`/api/admin-orders?key=${encodeURIComponent(adminKey)}`, { cache: "no-store" });
-          if (res.status === 401) { headerSubtitle.textContent = "Invalid admin key."; ordersContainer.innerHTML = '<div class="empty-state">Invalid key. Try again.</div>'; keyForm.style.opacity = "1"; keyForm.style.pointerEvents = "auto"; keyBadge.style.display = "none"; localStorage.removeItem("mm_admin_key"); return; }
-          if (!res.ok) throw new Error("HTTP " + res.status);
+          const res = await fetch(`/api/admin-orders?key=${encodeURIComponent(adminKey)}`);
+          if (res.status === 401) { headerSubtitle.textContent = "Invalid admin key."; listContainer.innerHTML = '<div class="empty-state">Invalid key.</div>'; return; }
           const data = await res.json();
           orders = data.orders || []; applyFilters();
-        } catch (err) { ordersContainer.innerHTML = '<div class="empty-state">Error loading orders.</div>'; }
+        } catch (err) { listContainer.innerHTML = '<div class="empty-state">Error loading orders.</div>'; }
       }
 
       function applyFilters() {
-        const q = searchInput.value.trim().toLowerCase(), statusVal = statusFilter.value, dateVal = dateFilter.value;
+        if (currentMode !== 'orders') return;
+        const q = document.getElementById("search-input").value.trim().toLowerCase();
+        const statusVal = document.getElementById("status-filter").value;
+        const dateVal = document.getElementById("date-filter").value;
         const now = new Date();
         let cutoff = 0;
         if (dateVal === 'today') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -141,7 +292,7 @@
       }
 
       function updatePackSummary() {
-        if (!orders.length) { packSummaryEl.textContent = "Pack summary: –"; return; }
+        if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
           if (!o.packSize) continue;
@@ -154,16 +305,14 @@
           }
           counts.set(k, (counts.get(k) || 0) + 1);
         }
-        if (!counts.size) { packSummaryEl.textContent = "Pack summary: –"; return; }
+        if (!counts.size) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const parts = Array.from(counts.entries()).sort().map(([k, v]) => `${v}x ${k}`);
-        packSummaryEl.textContent = "Pack summary: " + parts.join(" · ");
+        document.getElementById("pack-summary").textContent = "Pack summary: " + parts.join(" · ");
       }
 
       function renderOrders() {
-        if (!filteredOrders.length) { ordersContainer.innerHTML = '<div class="empty-state">No orders match your filters.</div>'; ordersCountEl.textContent = "0 orders"; return; }
-        ordersCountEl.textContent = `${filteredOrders.length} orders`;
+        document.getElementById('list-count').textContent = `${filteredOrders.length} orders`;
         let html = '<div class="table-wrapper"><table><thead><tr><th>Created</th><th>Status</th><th>Email</th><th>Pack</th><th>£</th></tr></thead><tbody>';
-        
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
           const statusClass = "status-pill " + (o.status ? o.status.replace(/\s+/g, "_") : "unknown");
@@ -171,7 +320,6 @@
           
           let packDisplay = o.packSize || "?";
           let style = "";
-          
           if (String(packDisplay).startsWith('voucher_')) {
               const val = packDisplay.split('_')[1];
               packDisplay = `🎁 £${val} Voucher`;
@@ -181,26 +329,18 @@
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
 
-          const recoveryBadge = o.wasRecovered 
-              ? `<span title="Recovered via email" style="margin-left:6px; cursor:help;">♻️</span>` 
-              : ``;
-
-          // NEW: Voucher badge in price column
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
-          if (o.usedVoucher) {
-              priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a; border-color:rgba(240,195,106,0.3);">VOUCHER</span>`;
-          }
+          if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
 
-          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"} ${recoveryBadge}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
-        ordersContainer.innerHTML = html;
-        ordersContainer.querySelectorAll("tbody tr").forEach(row => {
+        listContainer.innerHTML = html;
+        listContainer.querySelectorAll("tbody tr").forEach(row => {
           row.addEventListener("click", () => {
-            const id = row.getAttribute("data-order-id");
-            selectedOrderId = id;
+            selectedOrderId = row.getAttribute("data-order-id");
             renderOrders(); 
-            loadOrderDetails(id);
+            loadOrderDetails(selectedOrderId);
           });
         });
       }
@@ -215,58 +355,34 @@
           if (!order) { detailsContainer.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
 
           const isVoucher = String(order.packSize).startsWith('voucher_');
-          let packLabel = "";
-          let imageLabel = "Images";
-          
-          if (isVoucher) {
-              const val = String(order.packSize).split('_')[1];
-              packLabel = `<span class="tag" style="background:rgba(102,209,158,0.15); color:#6ee7b7; border-color:rgba(102,209,158,0.3);">🎁 £${val} GIFT VOUCHER</span>`;
-              imageLabel = `Digital Product (No Images)`;
-          } else {
-              const isJigsaw = order.packType === 'big_picture';
-              packLabel = isJigsaw ? `<span class="tag purple">🧩 JIGSAW PICTURE</span>` : `<span class="tag">Standard</span>`;
-              imageLabel = isJigsaw ? `<span style="color:#d8b4fe; font-weight:bold;">SOURCE IMAGE (SPLIT THIS)</span>` : `<span>Images</span>`;
-          }
-          
-          const socials = order.socialPermission 
-              ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
-              : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
+          let packLabel = isVoucher ? `<span class="tag">🎁 GIFT VOUCHER</span>` : `<span class="tag">Standard</span>`;
+          if (order.packType === 'big_picture') packLabel = `<span class="tag purple">🧩 JIGSAW PICTURE</span>`;
 
           let html = `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
           html += `<div class="field-label">Status</div><div class="field-value"><span class="status-pill ${order.status}">${order.status}</span></div>`;
           html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           
-          html += `<div class="field-label">Customer ${socials}</div><div class="field-value">${order.email}<br>${order.phone || "No phone"}</div>`;
-          
+          html += `<div class="field-label">Customer</div><div class="field-value">${order.email}<br>${order.phone || "No phone"}</div>`;
           if (order.customer?.address) {
              const a = order.customer.address;
              const addr = [order.customer.name, a.line1, a.line2, a.city, a.postal_code, a.country].filter(Boolean).join("<br>");
              html += `<div class="field-label">Address</div><div class="field-value" style="background:#111827;padding:10px;border-radius:8px;">${addr}</div>`;
           }
 
-          if (order.generatedVoucher) {
-              html += `<div class="field-label">🎁 Voucher Code Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e; font-family:monospace;">${order.generatedVoucher}</div>`;
-          }
-
-          if (order.usedVoucher) {
-              html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
-          }
+          if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
+          if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
           html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           
           if (!isVoucher) {
-             html += `<div class="field-label">${imageLabel} <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
-          } else {
-             html += `<div class="field-label" style="opacity:0.5;">${imageLabel}</div>`;
+             html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
-
           detailsContainer.innerHTML = html;
 
           document.getElementById("status-update-btn").onclick = async () => {
-             const s = document.getElementById("status-select").value;
-             await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: s }) });
+             await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
              loadOrderDetails(orderId); loadOrders(); 
           };
           document.getElementById("delete-order-btn").onclick = async () => {
@@ -275,13 +391,11 @@
                  orders = orders.filter(o => o.orderId !== orderId); applyFilters(); detailsContainer.innerHTML="Deleted.";
              }
           };
-          
           if (!isVoucher) {
               const dlBtn = document.getElementById("download-all-btn");
               if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId);
               loadOrderImages(orderId);
           }
-
         } catch (e) { detailsContainer.innerHTML = "Error loading details."; }
       }
 
@@ -303,21 +417,16 @@
         if (!window.JSZip) { alert("JSZip not loaded."); return; }
         const zip = new JSZip();
         const folder = zip.folder(orderId) || zip;
-        try {
-          for (const img of images) {
+        for (const img of images) {
             const keyEnc = encodeURIComponent(img.key);
             const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(orderId)}&objectKey=${keyEnc}&key=${encodeURIComponent(adminKey)}`;
             const res = await fetch(imgUrl);
             if (!res.ok) continue;
-            const blob = await res.blob();
-            folder.file(img.filename || "image.jpg", await blob.arrayBuffer());
-          }
-          const content = await zip.generateAsync({ type: "blob" });
-          const url = URL.createObjectURL(content);
-          const a = document.createElement("a");
-          a.href = url; a.download = `${orderId}-images.zip`;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-        } catch (err) { alert("Failed to build zip."); }
+            folder.file(img.filename || "image.jpg", await res.blob());
+        }
+        const content = await zip.generateAsync({ type: "blob" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = `${orderId}-images.zip`;
+        document.body.appendChild(a); a.click();
       }
     </script>
   </body>
