@@ -20,11 +20,10 @@ export async function onRequestPost({ request, env }) {
     const phoneRaw = body?.phone ?? ""; 
     const packSizeRaw = body?.packSize;
     const packType = body?.packType || "standard";
-    const socialPermission = body?.socialPermission || false; // <--- GET PERMISSION
+    const socialPermission = body?.socialPermission || false;
 
     const email = String(emailRaw).trim();
     const phone = String(phoneRaw).trim();
-    const packSize = Number(packSizeRaw);
 
     if (!/\S+@\S+\.\S+/.test(email)) {
       return jsonResponse({ error: "Please provide a valid email address." }, 400);
@@ -34,11 +33,27 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: "Please provide a valid phone number." }, 400);
     }
 
-    if (!PACKS.includes(packSize)) {
-      return jsonResponse({ error: "Invalid pack size." }, 400);
-    }
+    // --- FIX START: Better validation that accepts Vouchers ---
+    let packSize = packSizeRaw;
+    let price = 0;
+    const isVoucher = String(packSizeRaw).startsWith("voucher_");
 
-    const price = PRICES[packSize];
+    if (isVoucher) {
+        // If it's a voucher (e.g. "voucher_14"), we allow it.
+        // We set price to 0 here because the real price is calculated 
+        // in checkout.js later.
+        price = 0; 
+    } else {
+        // If it's magnets, we must ensure it matches a valid pack size (3, 6, etc)
+        const numericSize = Number(packSizeRaw);
+        if (!PACKS.includes(numericSize)) {
+            return jsonResponse({ error: "Invalid pack size." }, 400);
+        }
+        packSize = numericSize;
+        price = PRICES[numericSize];
+    }
+    // --- FIX END ---
+
     const orderId = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -46,9 +61,9 @@ export async function onRequestPost({ request, env }) {
       orderId,
       email,
       phone, 
-      packSize,
+      packSize, // This now stores either the number 6 OR the string "voucher_14"
       packType,
-      socialPermission, // <--- SAVE PERMISSION
+      socialPermission,
       price,
       status: "draft",         
       createdAt: now,
@@ -82,7 +97,9 @@ export async function onRequestGet({ request, env }) {
     }
 
     const order = JSON.parse(raw);
-    if (!order.price && order.packSize && PRICES[order.packSize]) {
+    
+    // Fallback price calculation for display
+    if (!order.price && order.packSize && !String(order.packSize).startsWith("voucher_")) {
       order.price = PRICES[order.packSize];
     }
 
