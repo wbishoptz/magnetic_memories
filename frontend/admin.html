@@ -147,7 +147,6 @@
           if (!o.packSize) continue;
           let k = String(o.packSize);
           if (k.startsWith("voucher_")) {
-             // Clean up voucher summary
              k = "Voucher £" + k.split("_")[1];
           } else {
              k = k + "-pack";
@@ -173,7 +172,6 @@
           let packDisplay = o.packSize || "?";
           let style = "";
           
-          // --- UPDATED: Handling Vouchers in List ---
           if (String(packDisplay).startsWith('voucher_')) {
               const val = packDisplay.split('_')[1];
               packDisplay = `🎁 £${val} Voucher`;
@@ -183,7 +181,12 @@
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
 
-          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${typeof o.price === "number" ? o.price.toFixed(2) : "–"}</td></tr>`;
+          // NEW: Check for recovery flag
+          const recoveryBadge = o.wasRecovered 
+              ? `<span title="Recovered via email" style="margin-left:6px; cursor:help;">♻️</span>` 
+              : ``;
+
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td><span class="${statusClass}">${o.status}</span></td><td>${o.email || "–"} ${recoveryBadge}</td><td ${style}>${packDisplay}</td><td>${typeof o.price === "number" ? o.price.toFixed(2) : "–"}</td></tr>`;
         }
         html += "</tbody></table></div>";
         ordersContainer.innerHTML = html;
@@ -210,7 +213,6 @@
           let packLabel = "";
           let imageLabel = "Images";
           
-          // --- UPDATED: Detail View Logic ---
           if (isVoucher) {
               const val = String(order.packSize).split('_')[1];
               packLabel = `<span class="tag" style="background:rgba(102,209,158,0.15); color:#6ee7b7; border-color:rgba(102,209,158,0.3);">🎁 £${val} GIFT VOUCHER</span>`;
@@ -237,12 +239,10 @@
              html += `<div class="field-label">Address</div><div class="field-value" style="background:#111827;padding:10px;border-radius:8px;">${addr}</div>`;
           }
 
-          // Show generated voucher if they bought one
           if (order.generatedVoucher) {
               html += `<div class="field-label">🎁 Voucher Code Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e; font-family:monospace;">${order.generatedVoucher}</div>`;
           }
 
-          // Show USED voucher if they redeemed one
           if (order.usedVoucher) {
               html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
           }
@@ -259,7 +259,6 @@
 
           detailsContainer.innerHTML = html;
 
-          // Wire up buttons logic ...
           document.getElementById("status-update-btn").onclick = async () => {
              const s = document.getElementById("status-select").value;
              await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: s }) });

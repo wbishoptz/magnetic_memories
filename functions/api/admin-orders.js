@@ -36,8 +36,9 @@ export async function onRequest({ request, env }) {
             status: o.status,
             createdAt: o.createdAt,
             packSize: o.packSize,
-            packType: o.packType || 'standard', // <--- CRITICAL: Send the type!
-            price: o.price
+            packType: o.packType || 'standard',
+            price: o.price,
+            wasRecovered: o.wasRecovered // <--- NEW: Send this to frontend
           };
         } catch { return null; }
       })

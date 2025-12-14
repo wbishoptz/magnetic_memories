@@ -3,7 +3,8 @@
 // ==========================
 
 // ---- State ----
-let currentOrderId = null; // New: track the ID for saving drafts
+let currentOrderId = null; 
+let isRecovery = false; // <--- NEW: Track recovery status
 let selectedPackSize = 3;
 let selectedPackType = 'standard'; 
 let requiredCount = 3;
@@ -55,6 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (resumeId) {
         currentOrderId = resumeId;
+        isRecovery = true; // <--- NEW: Mark as recovery session
         showToast("Restoring your cart...", "ok");
         try {
             const res = await fetch(`/api/order?orderId=${resumeId}`);
@@ -117,7 +119,8 @@ async function saveCart() {
                 email: customerEmail,
                 phone: customerPhone,
                 packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
-                packType: selectedPackType
+                packType: selectedPackType,
+                isRecovery: isRecovery // <--- NEW: Send flag to backend
             })
         });
     } catch(e) {
