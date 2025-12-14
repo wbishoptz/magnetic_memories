@@ -3,8 +3,9 @@
 // ==========================
 
 // ---- State ----
+let currentOrderId = null; // New: track the ID for saving drafts
 let selectedPackSize = 3;
-let selectedPackType = 'standard'; // 'standard', 'big_picture', or 'voucher'
+let selectedPackType = 'standard'; 
 let requiredCount = 3;
 let previousRadioValue = "standard_3";
 let customerEmail = "";
@@ -34,8 +35,6 @@ const uploadMetaEl     = document.querySelector(".upload-meta");
 const orientationWrapper = document.getElementById("orientation-wrapper");
 const uploadSection    = document.getElementById("upload-section");
 const socialCheckbox   = document.getElementById("social-permission");
-
-// Promo Code Elements
 const promoInput = document.getElementById("promo-code");
 const promoBtn = document.getElementById("apply-promo");
 const promoMsg = document.getElementById("promo-msg");
@@ -48,6 +47,83 @@ const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep    = document.getElementById("upgrade-keep");
 
 let pendingTargetValue = null;
+
+// --- Initialize Resume Logic ---
+document.addEventListener("DOMContentLoaded", async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const resumeId = urlParams.get('resumeOrder');
+    
+    if (resumeId) {
+        currentOrderId = resumeId;
+        showToast("Restoring your cart...", "ok");
+        try {
+            const res = await fetch(`/api/order?orderId=${resumeId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'draft' || data.status === 'abandoned') {
+                    // Restore Fields
+                    if (data.email) {
+                        emailInput.value = data.email;
+                        customerEmail = data.email;
+                        emailTouched = true;
+                        setEmailValidityUI(true);
+                    }
+                    if (data.phone) {
+                        phoneInput.value = data.phone;
+                        customerPhone = data.phone;
+                        phoneTouched = true;
+                        setPhoneValidityUI(true);
+                    }
+                    
+                    // Restore Pack Selection
+                    let radioVal = "";
+                    if (data.packSize && String(data.packSize).startsWith("voucher_")) {
+                        radioVal = data.packSize;
+                    } else if (data.packType === 'big_picture') {
+                        radioVal = `big_${data.packSize}`;
+                    } else {
+                        radioVal = `standard_${data.packSize}`;
+                    }
+                    
+                    const radio = document.querySelector(`input[name="pack"][value="${radioVal}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                        // Trigger change event to update UI/Counts
+                        radio.dispatchEvent(new Event("change")); 
+                    }
+                    showToast("Cart restored!", "ok");
+                }
+            }
+        } catch (e) {
+            console.error("Failed to restore", e);
+        }
+    } else {
+        // Generate a new ID if not resuming
+        if (!currentOrderId) currentOrderId = crypto.randomUUID();
+    }
+});
+
+// --- ABANDONED CART SAVER ---
+async function saveCart() {
+    if (!currentOrderId || !customerEmail) return;
+    
+    // We only save if we have at least an email
+    try {
+        await fetch("/api/save-cart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                orderId: currentOrderId,
+                email: customerEmail,
+                phone: customerPhone,
+                packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
+                packType: selectedPackType
+            })
+        });
+    } catch(e) {
+        // Fail silently, it's just a draft
+    }
+}
 
 // --- Safety Net ---
 window.addEventListener("beforeunload", (e) => {
@@ -76,7 +152,7 @@ function isPhoneValid() {
   return customerPhone.length >= 6;
 }
 function isCountValid() {
-  if (selectedPackType === 'voucher') return true; // Vouchers need 0 photos
+  if (selectedPackType === 'voucher') return true; 
   return myDropzone.files.length === requiredCount;
 }
 function isAllCropped() {
@@ -128,17 +204,14 @@ function updatePayButtonAppearance() {
 
 // ---- Helper: Show/Hide Elements ----
 function updateVisibility() {
-    // 1. Orientation Toggle
     if (selectedPackType === 'big_picture' && (selectedPackSize === 6 || selectedPackSize === 15)) {
         orientationWrapper.style.display = "block";
     } else {
         orientationWrapper.style.display = "none";
     }
 
-    // 2. Upload Section (Hidden for Vouchers)
     if (selectedPackType === 'voucher') {
         uploadSection.style.display = "none";
-        // Also hide crop helper text logic by force
     } else {
         uploadSection.style.display = "block";
     }
@@ -164,12 +237,10 @@ const myDropzone = new Dropzone(dzElement, {
 });
 
 function parsePackValue(val) {
-  const parts = val.split('_'); // "standard_3" or "voucher_20"
-  
+  const parts = val.split('_'); 
   if (parts[0] === 'voucher') {
       return { type: 'voucher', size: parseInt(parts[1], 10) };
   }
-  
   return {
     type: parts[0] === 'big' ? 'big_picture' : 'standard',
     size: parseInt(parts[1], 10)
@@ -277,15 +348,12 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     const newVal = radio.value;
     const { type, size } = parsePackValue(newVal);
     
-    // Determine new Required Count
     let newRequired = size;
     if (type === 'big_picture') newRequired = 1;
     if (type === 'voucher') newRequired = 0;
 
     const currentCount = myDropzone.files.length;
 
-    // Guard: Only run "Too many photos" check if NOT buying a voucher
-    // If buying voucher, we just ignore any uploaded photos (or let them sit there)
     if (type !== 'voucher' && newRequired < currentCount) {
       const prevRadio = document.querySelector(`input[name="pack"][value="${previousRadioValue}"]`);
       if (prevRadio) prevRadio.checked = true;
@@ -306,7 +374,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     }
 
     previousRadioValue = newVal;
-    selectedPackSize = size; // For vouchers this is the price (10, 20, 30)
+    selectedPackSize = size; 
     selectedPackType = type;
     requiredCount = newRequired;
     
@@ -314,8 +382,8 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     
     updateVisibility(); 
     updatePhotoCount();
-    
-    // Toast Logic
+    saveCart(); // Auto-save on change
+
     let label = `${size} magnets`;
     if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
     if (type === 'voucher') label = `£${size} Gift Voucher`;
@@ -325,26 +393,18 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
 });
 
 // ---- Inputs ----
-emailInput.addEventListener("input", () => {
+emailInput.addEventListener("blur", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
   setEmailValidityUI(isEmailValid());
-  updatePayButtonAppearance();
-});
-emailInput.addEventListener("blur", () => {
-  emailTouched  = true;
-  setEmailValidityUI(isEmailValid());
+  saveCart(); // Auto-save on blur
 });
 
-phoneInput.addEventListener("input", () => {
+phoneInput.addEventListener("blur", () => {
   phoneTouched = true;
   customerPhone = phoneInput.value.trim();
   setPhoneValidityUI(isPhoneValid());
-  updatePayButtonAppearance();
-});
-phoneInput.addEventListener("blur", () => {
-  phoneTouched = true;
-  setPhoneValidityUI(isPhoneValid());
+  saveCart(); // Auto-save on blur
 });
 
 setEmailValidityUI(false);
@@ -382,7 +442,7 @@ myDropzone.on("addedfile", (file) => {
   enqueueForCrop(file);
 
   const total = myDropzone.files.length;
-  // Only enforce count limits for magnet packs, ignore for vouchers
+  
   if (selectedPackType !== 'voucher' && total > requiredCount) {
     if (selectedPackType === 'standard') {
         const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
@@ -447,12 +507,11 @@ modalConfirm.addEventListener("click", () => {
   pendingTargetValue = null;
   updateVisibility();
   updatePhotoCount();
+  saveCart(); // Save new selection
   
-  // Dynamic Label Logic
   let label = `${size} magnets`;
   if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
   if (type === 'voucher') label = `£${size} Gift Voucher`;
-  
   showToast(`Switched to ${label}`, "ok");
 });
 
@@ -492,14 +551,12 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Count check (skip for vouchers)
   if (!isCountValid()) {
     shakeElement(uploadMetaEl);
     showToast(`You need exactly ${requiredCount} photo${requiredCount>1?'s':''}`, "error");
     return;
   }
 
-  // Crop check (skip for vouchers)
   if (!isAllCropped()) {
     shakeElement(cropHelp);
     showToast("Please crop all photos", "error");
@@ -513,22 +570,20 @@ payBtn.addEventListener("click", async () => {
     const country = document.getElementById("shipping-country").value;
     const socialPermission = socialCheckbox ? socialCheckbox.checked : false;
     
-    // For Vouchers, packSize is the voucher value identifier (e.g. "voucher_10")
-    // We send this as the string "voucher_10" so backend knows what product it is.
-    // If it's a magnet, we send the number.
     const packSizePayload = (selectedPackType === 'voucher') 
         ? `voucher_${selectedPackSize}` 
         : selectedPackSize;
 
     statusEl.textContent = "Creating order…";
 
+    // Reuse currentOrderId if it exists (from the draft), otherwise standard flow
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
           email: customerEmail, 
           phone: customerPhone,
-          packSize: packSizePayload, // Handles "3" or "voucher_10"
+          packSize: packSizePayload, 
           packType: selectedPackType,
           socialPermission: socialPermission
       }),
@@ -537,7 +592,6 @@ payBtn.addEventListener("click", async () => {
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
 
-    // Only upload photos if NOT a voucher
     if (selectedPackType !== 'voucher') {
         statusEl.textContent = "Uploading photos…";
         progressWrap.style.display = "block";
@@ -570,7 +624,7 @@ payBtn.addEventListener("click", async () => {
         packSize: packSizePayload, 
         packType: selectedPackType,
         country: country,
-        voucherCode: voucherCode // Send code if applied
+        voucherCode: voucherCode
       }),
     });
     if (!ckRes.ok) throw new Error((await ckRes.text().catch(() => "")) || "Checkout creation failed");
@@ -636,11 +690,9 @@ function openCropModal(file, done) {
   currentCropFile = file;
 
   let ratio = 1; 
-  
   if (selectedPackType === 'big_picture') {
       if (selectedPackSize === 6)  ratio = 2 / 3; 
       if (selectedPackSize === 15) ratio = 3 / 5; 
-      
       if (selectedOrientation === 'landscape') {
           if (selectedPackSize === 6)  ratio = 3 / 2; 
           if (selectedPackSize === 15) ratio = 5 / 3; 
@@ -714,6 +766,5 @@ function openCropModal(file, done) {
   reader.readAsDataURL(file);
 }
 
-// Initial UI Setup
 updatePayButtonAppearance();
 updateVisibility();

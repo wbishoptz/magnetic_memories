@@ -143,18 +143,26 @@
 
       function startPolling(orderId) {
         let attempts = 0;
-        const maxAttempts = 60; 
+        const maxAttempts = 100; // Increased attempts (approx 6 mins)
+        
         const poll = async () => {
           attempts++;
           try {
-            const res = await fetch(`/api/order?orderId=${encodeURIComponent(orderId)}`);
+            // UPDATED: Added timestamp to URL and cache: no-store to force fresh data
+            const timestamp = new Date().getTime();
+            const res = await fetch(`/api/order?orderId=${encodeURIComponent(orderId)}&_t=${timestamp}`, {
+                cache: "no-store",
+                headers: { "Pragma": "no-cache", "Cache-Control": "no-cache" }
+            });
+
             if (!res.ok) throw new Error("Order lookup failed");
             const order = await res.json();
+            
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
             orderBlock.classList.remove("hidden");
 
-            // FIXED LOGIC: Check children.length instead of innerHTML so whitespace doesn't break it
+            // Check children.length to prevent duplicate images
             if (order.images && order.images.length > 0 && imgContainer.children.length === 0) {
               order.images.forEach(img => {
                 const el = document.createElement("img");
@@ -176,8 +184,12 @@
             priceMeta.textContent = (typeof order.price === "number") ? "£" + order.price.toFixed(2) : "—";
             createdMeta.textContent = order.createdAt || "—";
             updateProgress(status);
-            if (status === "complete" || attempts >= maxAttempts) clearInterval(intervalId);
+
+            if (status === "complete" || status === "shipped" || attempts >= maxAttempts) {
+                clearInterval(intervalId);
+            }
           } catch (err) {
+            console.error(err);
             if (attempts === 1) {
               loadingBlock.classList.add("hidden");
               errorBlock.classList.remove("hidden");
@@ -186,7 +198,7 @@
           }
         };
         poll();
-        var intervalId = setInterval(poll, 4000);
+        var intervalId = setInterval(poll, 3000); 
       }
     </script>
   </body>
