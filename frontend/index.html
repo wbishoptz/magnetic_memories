@@ -126,6 +126,10 @@
     </section>
 
     <section class="card actions actions-centered">
+      <button id="previewBtn" class="btn-ghost" type="button" style="display:none; width:100%; margin-bottom:12px; border-color:#59c9a5; color:#59c9a5;">
+        👀 Preview on Fridge
+      </button>
+      
       <button id="payBtn" class="cta" type="button">Pay securely</button>
       <div id="status" class="status"></div>
     </section>
@@ -161,6 +165,23 @@
       <div class="modal-actions">
         <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
         <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fridge-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="fridge-title">
+    <div class="modal-card" style="width: min(450px, 95vw); background:#f0f2f5; color:#333; padding:0;">
+      <div style="padding:16px; background:white; border-bottom:1px solid #ddd; border-radius:16px 16px 0 0; display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="fridge-title" style="margin:0; font-size:1.1rem; color:#111;">Your Fridge Preview</h3>
+        <button id="fridge-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#777;">&times;</button>
+      </div>
+      
+      <div id="fridge-surface" style="width:100%; height:450px; position:relative; overflow:hidden; background: url('./fridge.jpg') center center / cover no-repeat; box-shadow:inset 0 0 20px rgba(0,0,0,0.1);">
+        </div>
+
+      <div style="padding:16px; background:white; border-top:1px solid #ddd; text-align:center; border-radius: 0 0 16px 16px;">
+        <p style="margin:0 0 12px; font-size:0.9rem; color:#555;">Looks good? Ready to print!</p>
+        <button id="fridge-buy-btn" class="cta" style="width:100%; padding:12px;">Yes, I want these!</button>
       </div>
     </div>
   </div>

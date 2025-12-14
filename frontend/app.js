@@ -4,7 +4,7 @@
 
 // ---- State ----
 let currentOrderId = null; 
-let isRecovery = false; // <--- NEW: Track recovery status
+let isRecovery = false;
 let selectedPackSize = 3;
 let selectedPackType = 'standard'; 
 let requiredCount = 3;
@@ -40,6 +40,13 @@ const promoInput = document.getElementById("promo-code");
 const promoBtn = document.getElementById("apply-promo");
 const promoMsg = document.getElementById("promo-msg");
 
+// NEW: Preview Elements
+const previewBtn = document.getElementById("previewBtn");
+const fridgeModal = document.getElementById("fridge-modal");
+const fridgeSurface = document.getElementById("fridge-surface");
+const fridgeClose = document.getElementById("fridge-close");
+const fridgeBuy = document.getElementById("fridge-buy-btn");
+
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
 const modalTitle   = document.getElementById("upgrade-title");
@@ -56,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (resumeId) {
         currentOrderId = resumeId;
-        isRecovery = true; // <--- NEW: Mark as recovery session
+        isRecovery = true;
         showToast("Restoring your cart...", "ok");
         try {
             const res = await fetch(`/api/order?orderId=${resumeId}`);
@@ -90,7 +97,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const radio = document.querySelector(`input[name="pack"][value="${radioVal}"]`);
                     if (radio) {
                         radio.checked = true;
-                        // Trigger change event to update UI/Counts
                         radio.dispatchEvent(new Event("change")); 
                     }
                     showToast("Cart restored!", "ok");
@@ -100,7 +106,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Failed to restore", e);
         }
     } else {
-        // Generate a new ID if not resuming
         if (!currentOrderId) currentOrderId = crypto.randomUUID();
     }
 });
@@ -109,7 +114,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function saveCart() {
     if (!currentOrderId || !customerEmail) return;
     
-    // We only save if we have at least an email
     try {
         await fetch("/api/save-cart", {
             method: "POST",
@@ -120,12 +124,10 @@ async function saveCart() {
                 phone: customerPhone,
                 packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
                 packType: selectedPackType,
-                isRecovery: isRecovery // <--- NEW: Send flag to backend
+                isRecovery: isRecovery 
             })
         });
-    } catch(e) {
-        // Fail silently, it's just a draft
-    }
+    } catch(e) { }
 }
 
 // --- Safety Net ---
@@ -215,6 +217,7 @@ function updateVisibility() {
 
     if (selectedPackType === 'voucher') {
         uploadSection.style.display = "none";
+        previewBtn.style.display = "none";
     } else {
         uploadSection.style.display = "block";
     }
@@ -294,12 +297,104 @@ function updateCountHelp() {
   }
 }
 
+function updatePreviewButton() {
+    if (selectedPackType !== 'voucher' && myDropzone.files.length > 0) {
+        previewBtn.style.display = "block";
+    } else {
+        previewBtn.style.display = "none";
+    }
+}
+
 function updatePhotoCount() {
   photoCountEl.textContent = String(myDropzone.files.length);
   updateCountHelp();
   updateCropHelp();
   updatePayButtonAppearance();
+  updatePreviewButton(); // NEW
 }
+
+// ---- Fridge Preview Logic ----
+previewBtn.addEventListener("click", () => {
+    fridgeSurface.innerHTML = ""; // Clear old
+    fridgeModal.classList.remove("hidden");
+
+    const files = myDropzone.files;
+    const surfaceWidth = fridgeSurface.offsetWidth;
+    const surfaceHeight = fridgeSurface.offsetHeight;
+    
+    // Magnet size logic
+    const magSize = 80; 
+
+    if (selectedPackType === 'big_picture') {
+        const f = files[0];
+        if (!f) return;
+        
+        const src = (f._croppedBlob) ? URL.createObjectURL(f._croppedBlob) : f.dataURL;
+        const img = document.createElement("img");
+        img.src = src;
+        img.style.width = "200px"; 
+        img.style.boxShadow = "2px 4px 8px rgba(0,0,0,0.4)";
+        img.style.position = "absolute";
+        img.style.left = "50%";
+        img.style.top = "50%";
+        img.style.transform = "translate(-50%, -50%)";
+        img.style.border = "2px solid white";
+        fridgeSurface.appendChild(img);
+    } else {
+        files.forEach((f) => {
+            const el = document.createElement("div");
+            el.style.width = magSize + "px";
+            el.style.height = magSize + "px";
+            el.style.position = "absolute";
+            el.style.backgroundColor = "white";
+            el.style.border = "2px solid white";
+            el.style.boxShadow = "2px 4px 6px rgba(0,0,0,0.3)";
+            el.style.borderRadius = "2px";
+            el.style.overflow = "hidden";
+            el.style.transition = "transform 0.2s";
+            
+            const maxX = surfaceWidth - magSize - 40;
+            const maxY = surfaceHeight - magSize - 40;
+            const rX = 20 + Math.random() * maxX;
+            const rY = 20 + Math.random() * maxY;
+            const rRot = (Math.random() * 10) - 5; 
+
+            el.style.left = rX + "px";
+            el.style.top = rY + "px";
+            el.style.transform = `rotate(${rRot}deg)`;
+
+            const img = document.createElement("img");
+            img.src = (f._croppedBlob) ? URL.createObjectURL(f._croppedBlob) : f.dataURL;
+            img.style.width = "100%";
+            img.style.height = "100%";
+            img.style.objectFit = "cover";
+            
+            el.appendChild(img);
+            
+            el.addEventListener("mouseenter", () => {
+                el.style.zIndex = 100;
+                el.style.transform = `scale(1.1) rotate(0deg)`;
+            });
+            el.addEventListener("mouseleave", () => {
+                el.style.zIndex = 1;
+                el.style.transform = `scale(1) rotate(${rRot}deg)`;
+            });
+
+            fridgeSurface.appendChild(el);
+        });
+    }
+});
+
+fridgeClose.addEventListener("click", () => {
+    fridgeModal.classList.add("hidden");
+});
+
+fridgeBuy.addEventListener("click", () => {
+    fridgeModal.classList.add("hidden");
+    payBtn.scrollIntoView({ behavior: 'smooth' });
+    shakeElement(payBtn);
+});
+
 
 // ---- Promo Code Logic ----
 promoBtn.addEventListener("click", async () => {
@@ -385,7 +480,7 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     
     updateVisibility(); 
     updatePhotoCount();
-    saveCart(); // Auto-save on change
+    saveCart(); 
 
     let label = `${size} magnets`;
     if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
@@ -400,14 +495,14 @@ emailInput.addEventListener("blur", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
   setEmailValidityUI(isEmailValid());
-  saveCart(); // Auto-save on blur
+  saveCart(); 
 });
 
 phoneInput.addEventListener("blur", () => {
   phoneTouched = true;
   customerPhone = phoneInput.value.trim();
   setPhoneValidityUI(isPhoneValid());
-  saveCart(); // Auto-save on blur
+  saveCart(); 
 });
 
 setEmailValidityUI(false);
@@ -510,7 +605,7 @@ modalConfirm.addEventListener("click", () => {
   pendingTargetValue = null;
   updateVisibility();
   updatePhotoCount();
-  saveCart(); // Save new selection
+  saveCart();
   
   let label = `${size} magnets`;
   if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
@@ -579,7 +674,6 @@ payBtn.addEventListener("click", async () => {
 
     statusEl.textContent = "Creating order…";
 
-    // Reuse currentOrderId if it exists (from the draft), otherwise standard flow
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
