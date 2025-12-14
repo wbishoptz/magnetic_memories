@@ -8,6 +8,7 @@ export async function onRequest({ request, env }) {
   const search = url.searchParams.get("search"); // Optional: search specific code
 
   // 1. Auth Check
+  // We assume you have set ADMIN_KEY in your Cloudflare Env Variables.
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
@@ -24,8 +25,17 @@ export async function onRequest({ request, env }) {
       .map(v => {
         try {
           const d = JSON.parse(v);
-          // Normalize balance logic: if balance is undefined, it hasn't been used, so balance = value.
-          const currentBalance = (typeof d.balance === 'number') ? d.balance : d.value;
+          
+          // --- LOGIC FIX START ---
+          // 1. Calculate balance (default to value if missing)
+          let currentBalance = (typeof d.balance === 'number') ? d.balance : d.value;
+          
+          // 2. If the old 'redeemed' flag is true, force balance to 0
+          // This fixes the issue where legacy vouchers showed full balance.
+          if (d.redeemed) {
+            currentBalance = 0;
+          }
+          // --- LOGIC FIX END ---
           
           return {
             code: d.code,
