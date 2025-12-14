@@ -3,11 +3,13 @@
 
 const PACKS = [3, 6, 9, 12, 15];
 const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
-// New Voucher "Products"
+
+// NEW VOUCHER CONFIGURATION
 const VOUCHERS = { 
-    "voucher_10": { price: 10, label: "£10 Gift Voucher" },
-    "voucher_20": { price: 20, label: "£20 Gift Voucher" },
-    "voucher_30": { price: 30, label: "£30 Gift Voucher" }
+    "voucher_14": { price: 14, label: "£14 Gift Voucher (6 Magnets)" },
+    "voucher_20": { price: 20, label: "£20 Gift Voucher (9 Magnets)" },
+    "voucher_25": { price: 25, label: "£25 Gift Voucher (12 Magnets)" },
+    "voucher_30": { price: 30, label: "£30 Gift Voucher (15 Magnets)" }
 };
 
 function jsonResponse(body, status = 200) {
