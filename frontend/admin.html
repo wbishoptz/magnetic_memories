@@ -407,7 +407,12 @@
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
-          html += `<div class="field-label">Customer</div><div class="field-value">${order.email}<br>${order.phone || "No phone"}</div>`;
+          // --- ADDED: Social Permission Badge ---
+          const socials = order.socialPermission 
+              ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
+              : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
+
+          html += `<div class="field-label">Customer</div><div class="field-value">${order.email} ${socials}<br>${order.phone || "No phone"}</div>`;
           
           if (order.customer?.address) {
              const a = order.customer.address;
