@@ -1,7 +1,8 @@
 // functions/api/trigger-recovery.js
 // GET /api/trigger-recovery?key=ADMIN_KEY
-// Scans for 'draft' orders older than 1 hour.
-// SKIPS if the customer has already placed a paid order.
+// 1. waits 1 hour after cart was abandoned
+// 2. checks if customer has EVER paid for an order (if so, skips them)
+// 3. sends email ONCE and marks status as 'abandoned' to prevent loops
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
@@ -11,24 +12,17 @@ export async function onRequestGet({ request, env }) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // 1. Fetch ALL orders to build context
-  // Note: If you have >1000 orders, you'd need pagination here. 
-  // For now, listing the default batch is usually fine for checking recent activity.
+  // 1. Fetch ALL orders
   const { keys } = await env.ORDERS_KV.list({ prefix: "order:" });
-  
   const allOrders = [];
-  
-  // Fetch values in parallel
   const values = await Promise.all(keys.map(k => env.ORDERS_KV.get(k.name)));
   
-  // Parse and sort
   for (const v of values) {
       if (!v) continue;
       try { allOrders.push(JSON.parse(v)); } catch (e) {}
   }
 
-  // 2. Build a list of emails that have successfully PAID
-  // We include 'printing', 'shipped', 'complete' as they imply payment.
+  // 2. Build "Paid List" (Customers who have bought something)
   const paidEmails = new Set();
   const paidStatuses = ["paid", "printing", "shipped", "complete"];
 
@@ -43,29 +37,34 @@ export async function onRequestGet({ request, env }) {
   const now = new Date().getTime();
   const ONE_HOUR = 60 * 60 * 1000;
 
-  // 3. Process Drafts
+  // 3. Scan Drafts
   for (const order of allOrders) {
-    // Check criteria: Draft, Has Email, Not yet handled
+    // CRITERIA: 
+    // - Must be 'draft' (we change this to 'abandoned' after sending, preventing loops)
+    // - Must have Email
+    // - Must NOT have sent recovery before
     if (order.status === 'draft' && order.email && !order.recoverySent && !order.recoverySkipped) {
         
         const lastUpdate = new Date(order.updatedAt || order.createdAt).getTime();
         
+        // Wait at least 1 hour
         if (now - lastUpdate > ONE_HOUR) {
             const customerEmail = order.email.toLowerCase().trim();
 
-            // SAFETY CHECK: Has this person paid for ANY order?
+            // CHECK: Did they buy something else?
             if (paidEmails.has(customerEmail)) {
-                // They already bought something! Don't annoy them.
                 order.recoverySkipped = true;
-                order.status = 'abandoned'; // Archive it
+                order.status = 'abandoned'; // Archive it silently
                 await env.ORDERS_KV.put(`order:${order.orderId}`, JSON.stringify(order));
                 skippedCount++;
                 continue; 
             }
 
-            // If we get here, they haven't bought anything yet. Send email.
+            // SEND: They haven't bought anything.
             const didSend = await sendRecoveryEmail(order, env);
             if (didSend) {
+                // MARK AS SENT IMMEDIATELY
+                // This ensures it never runs again for this order
                 order.recoverySent = true;
                 order.status = 'abandoned'; 
                 await env.ORDERS_KV.put(`order:${order.orderId}`, JSON.stringify(order));
