@@ -230,7 +230,7 @@ const myDropzone = new Dropzone(dzElement, {
   autoProcessQueue: false,
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 10, 
+  maxFilesize: 95, // UPDATED: increased limit (in MB)
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
   addRemoveLinks: true,
