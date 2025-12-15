@@ -31,6 +31,12 @@
       .toolbar button:hover { background: #1f2937; }
       button.btn-danger { background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); margin-top: 24px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
       button.btn-danger:hover { background: rgba(220, 38, 38, 0.25); border-color: #f87171; color: #fff; }
+      
+      /* New Manual Action Button */
+      button.btn-action { background: rgba(102, 209, 158, 0.15); color: #66d19e; border: 1px solid rgba(102, 209, 158, 0.4); margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+      button.btn-action:hover { background: rgba(102, 209, 158, 0.25); color: #fff; border-color: #66d19e; }
+      button.btn-action:disabled { opacity: 0.5; cursor: default; }
+
       .table-wrapper { margin-top: 6px; border-radius: 10px; border: 1px solid #1f2933; overflow: hidden; flex: 1; }
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
       thead { background: #111827; }
@@ -119,20 +125,15 @@
       const listContainer = document.getElementById("list-container");
       const detailsContainer = document.getElementById("details-container");
       
-      // Navigation
       const navOrders = document.getElementById("nav-orders");
       const navDrafts = document.getElementById("nav-drafts");
       const navVouchers = document.getElementById("nav-vouchers");
-      let currentMode = 'orders'; // 'orders', 'drafts', 'vouchers'
+      let currentMode = 'orders';
 
-      // Orders logic
       let adminKey = null;
       let orders = [], filteredOrders = [], selectedOrderId = null, lastImagesForOrder = {};
-      
-      // Vouchers logic
       let vouchers = [], filteredVouchers = [], selectedVoucher = null;
 
-      // Init
       (function initKey() {
         const urlParams = new URLSearchParams(window.location.search);
         const fromUrl = urlParams.get("key");
@@ -156,7 +157,6 @@
         loadOrders();
       });
 
-      // --- NAVIGATION SWITCHING ---
       navOrders.onclick = () => switchMode('orders');
       navDrafts.onclick = () => switchMode('drafts');
       navVouchers.onclick = () => switchMode('vouchers');
@@ -171,14 +171,14 @@
         
         if (mode === 'orders') {
             document.getElementById('order-toolbar').style.display = 'flex';
-            document.getElementById('status-filter').parentElement.style.display = 'block'; // Show status filter
+            document.getElementById('status-filter').parentElement.style.display = 'block'; 
             document.getElementById('pack-summary').style.display = 'inline-flex';
             document.getElementById('list-title').textContent = "Orders";
             document.getElementById('list-subtitle').textContent = "Paid & Processing";
             applyFilters();
         } else if (mode === 'drafts') {
             document.getElementById('order-toolbar').style.display = 'flex';
-            document.getElementById('status-filter').parentElement.style.display = 'none'; // Hide status filter for drafts
+            document.getElementById('status-filter').parentElement.style.display = 'none'; 
             document.getElementById('pack-summary').style.display = 'none';
             document.getElementById('list-title').textContent = "Drafts";
             document.getElementById('list-subtitle').textContent = "Abandoned Carts";
@@ -192,7 +192,6 @@
         }
       }
 
-      // --- VOUCHER LOGIC ---
       async function loadVouchers() {
         if (!adminKey) return;
         listContainer.innerHTML = '<div class="empty-state">Loading vouchers...</div>';
@@ -218,7 +217,6 @@
       function renderVouchers() {
         document.getElementById('list-count').textContent = `${filteredVouchers.length} codes`;
         let html = '<div class="table-wrapper"><table><thead><tr><th>Code</th><th>Balance</th><th>Created</th><th>Status</th></tr></thead><tbody>';
-        
         for (const v of filteredVouchers) {
             const date = new Date(v.createdAt).toLocaleDateString();
             const isSelected = selectedVoucher === v.code ? 'selected' : '';
@@ -254,7 +252,6 @@
           detailsContainer.innerHTML = html;
       }
 
-      // --- ORDER LOGIC ---
       document.getElementById("search-input").addEventListener("input", applyFilters); 
       document.getElementById("status-filter").addEventListener("change", applyFilters); 
       document.getElementById("date-filter").addEventListener("change", applyFilters);
@@ -292,17 +289,12 @@
         else if (dateVal === 'last_month') cutoff = now.getTime() - (30 * 86400000);
 
         filteredOrders = orders.filter(o => {
-          // --- MODE FILTERING ---
           if (currentMode === 'orders') {
-             // Show everything EXCEPT draft and abandoned
              if (o.status === 'draft' || o.status === 'abandoned') return false;
              if (statusVal && o.status !== statusVal) return false;
           } else if (currentMode === 'drafts') {
-             // Show ONLY draft and abandoned
              if (o.status !== 'draft' && o.status !== 'abandoned') return false;
           }
-
-          // --- COMMON FILTERS ---
           if (cutoff > 0 && (new Date(o.createdAt).getTime() < cutoff)) return false;
           if (!q) return true;
           return `${o.orderId} ${o.email} ${o.phone}`.toLowerCase().includes(q);
@@ -332,17 +324,14 @@
 
       function renderOrders() {
         document.getElementById('list-count').textContent = `${filteredOrders.length}`;
-        
         let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
         let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack</th><th>£</th></tr></thead><tbody>`;
         
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
           const isSelected = o.orderId === selectedOrderId ? " selected" : "";
-          
           let statusDisplay = `<span class="status-pill ${o.status}">${o.status}</span>`;
           
-          // --- DRAFTS SPECIFIC UI ---
           if (currentMode === 'drafts') {
               if (o.recoverySent || o.status === 'abandoned') {
                   statusDisplay = `<span class="status-pill abandoned">Abandoned</span> <span class="email-sent-badge">✉️ Sent</span>`;
@@ -363,10 +352,8 @@
               packDisplay = '🧩 ' + packDisplay; 
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
-
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
-
           html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
@@ -395,19 +382,23 @@
 
           let html = `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
           
-          // Status Section
           html += `<div class="field-label">Status</div>`;
           if (order.status === 'draft' || order.status === 'abandoned') {
               let recoveryMsg = (order.recoverySent) 
                   ? `<span style="color:#66d19e;">Recovery Email Sent ✅</span>` 
                   : `<span style="color:#9ca3af;">Recovery Pending (Waiting 1hr) ⏳</span>`;
               html += `<div class="field-value">${recoveryMsg}</div>`;
+              
+              // NEW MANUAL BUTTON FOR DRAFTS
+              if (!order.recoverySent) {
+                  html += `<button class="btn-action" id="manual-recovery-btn">Send Recovery Email ✉️</button>`;
+              }
           } else {
              html += `<div class="field-value"><span class="status-pill ${order.status}">${order.status}</span></div>`;
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
-          // --- ADDED: Social Permission Badge ---
+          // Socials
           const socials = order.socialPermission 
               ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
               : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
@@ -432,12 +423,40 @@
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
           detailsContainer.innerHTML = html;
 
+          // Event Listeners for Buttons
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
              await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
              loadOrderDetails(orderId); loadOrders(); 
           };
           
+          // MANUAL RECOVERY BUTTON LISTENER
+          const manualRecBtn = document.getElementById("manual-recovery-btn");
+          if (manualRecBtn) {
+              manualRecBtn.onclick = async () => {
+                  manualRecBtn.textContent = "Sending...";
+                  manualRecBtn.disabled = true;
+                  try {
+                      const res = await fetch("/api/admin-send-recovery", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ key: adminKey, orderId })
+                      });
+                      if (res.ok) {
+                          alert("Email sent!");
+                          loadOrderDetails(orderId);
+                          loadOrders();
+                      } else {
+                          alert("Failed to send.");
+                          manualRecBtn.textContent = "Try Again";
+                          manualRecBtn.disabled = false;
+                      }
+                  } catch (e) {
+                      alert("Error: " + e.message);
+                  }
+              };
+          }
+
           document.getElementById("delete-order-btn").onclick = async () => {
              if(confirm("Delete forever?")) {
                  await fetch("/api/admin-order-delete", { method: "POST", body: JSON.stringify({ key: adminKey, orderId }) });
