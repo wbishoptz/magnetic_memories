@@ -47,6 +47,10 @@ const modalText    = document.getElementById("upgrade-text");
 const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep    = document.getElementById("upgrade-keep");
 
+// WhatsApp Modal Elements
+const waModal = document.getElementById("whatsapp-modal");
+const waClose = document.getElementById("wa-close");
+
 let pendingTargetValue = null;
 
 // --- Initialize Resume Logic ---
@@ -56,7 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     if (resumeId) {
         currentOrderId = resumeId;
-        isRecovery = true; // <--- NEW: Mark as recovery session
+        isRecovery = true; 
         showToast("Restoring your cart...", "ok");
         try {
             const res = await fetch(`/api/order?orderId=${resumeId}`);
@@ -90,7 +94,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const radio = document.querySelector(`input[name="pack"][value="${radioVal}"]`);
                     if (radio) {
                         radio.checked = true;
-                        // Trigger change event to update UI/Counts
                         radio.dispatchEvent(new Event("change")); 
                     }
                     showToast("Cart restored!", "ok");
@@ -100,16 +103,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Failed to restore", e);
         }
     } else {
-        // Generate a new ID if not resuming
         if (!currentOrderId) currentOrderId = crypto.randomUUID();
     }
 });
+
+// --- WhatsApp Modal Handler ---
+if (waClose) {
+    waClose.addEventListener("click", () => waModal.classList.add("hidden"));
+}
 
 // --- ABANDONED CART SAVER ---
 async function saveCart() {
     if (!currentOrderId || !customerEmail) return;
     
-    // We only save if we have at least an email
     try {
         await fetch("/api/save-cart", {
             method: "POST",
@@ -120,12 +126,10 @@ async function saveCart() {
                 phone: customerPhone,
                 packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
                 packType: selectedPackType,
-                isRecovery: isRecovery // <--- NEW: Send flag to backend
+                isRecovery: isRecovery 
             })
         });
-    } catch(e) {
-        // Fail silently, it's just a draft
-    }
+    } catch(e) {}
 }
 
 // --- Safety Net ---
@@ -230,13 +234,21 @@ const myDropzone = new Dropzone(dzElement, {
   autoProcessQueue: false,
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 95, // UPDATED: increased limit (in MB)
+  maxFilesize: 95, // Limit 95MB to be safe
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
   addRemoveLinks: true,
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
   dictRemoveFile: "Remove",
+});
+
+// NEW: Handle Files Too Big
+myDropzone.on("error", (file, message) => {
+  if (typeof message === "string" && message.includes("too big")) {
+    myDropzone.removeFile(file); // Remove the red error thumb
+    waModal.classList.remove("hidden"); // Show the WhatsApp popup
+  }
 });
 
 function parsePackValue(val) {

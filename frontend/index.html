@@ -115,7 +115,7 @@
         </div>
         <ul class="hint">
           <li>Accepted: JPG, PNG, HEIC</li>
-          <li>Max file size: 100 MB each</li>
+          <li>Max file size: 95 MB each</li>
           <li>Click “Crop” or “Remove” on a thumbnail to adjust</li>
         </ul>
       </div>
@@ -162,6 +162,23 @@
         <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
         <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
       </div>
+    </div>
+  </div>
+
+  <div id="whatsapp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="wa-title">
+    <div class="modal-card" style="text-align: center;">
+      <h3 id="wa-title" style="color: #59c9a5; margin-bottom: 12px;">File Too Large</h3>
+      <p class="modal-text" style="margin-bottom: 24px;">
+        This photo is very large (over 95MB)!<br>
+        Please send this file directly to us on WhatsApp:
+      </p>
+      
+      <a href="https://wa.me/35054007718" target="_blank" style="display:block; background:#25D366; color:white; padding:16px; border-radius:12px; text-decoration:none; font-weight:bold; font-size:1.2rem; margin-bottom:16px;">
+        <span style="font-size:1.4rem; vertical-align:middle; margin-right:8px;">📱</span> 
+        +350 54007718
+      </a>
+
+      <button id="wa-close" class="btn-ghost" type="button">Close</button>
     </div>
   </div>
 
