@@ -4,7 +4,7 @@
 
 // ---- State ----
 let currentOrderId = null; 
-let isRecovery = false; // <--- NEW: Track recovery status
+let isRecovery = false;
 let selectedPackSize = 3;
 let selectedPackType = 'standard'; 
 let requiredCount = 3;
@@ -13,7 +13,6 @@ let customerEmail = "";
 let customerPhone = "";
 let emailTouched = false;
 let phoneTouched = false;
-let selectedOrientation = 'portrait'; 
 let voucherApplied = 0;
 let voucherCode = "";
 
@@ -33,7 +32,6 @@ const countHelp        = document.getElementById("count-help");
 const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 const uploadMetaEl     = document.querySelector(".upload-meta"); 
-const orientationWrapper = document.getElementById("orientation-wrapper");
 const uploadSection    = document.getElementById("upload-section");
 const socialCheckbox   = document.getElementById("social-permission");
 const promoInput = document.getElementById("promo-code");
@@ -85,9 +83,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     let radioVal = "";
                     if (data.packSize && String(data.packSize).startsWith("voucher_")) {
                         radioVal = data.packSize;
-                    } else if (data.packType === 'big_picture') {
-                        radioVal = `big_${data.packSize}`;
                     } else {
+                        // Standard packs (fallback even if it was 'big_picture')
                         radioVal = `standard_${data.packSize}`;
                     }
                     
@@ -211,12 +208,6 @@ function updatePayButtonAppearance() {
 
 // ---- Helper: Show/Hide Elements ----
 function updateVisibility() {
-    if (selectedPackType === 'big_picture' && (selectedPackSize === 6 || selectedPackSize === 15)) {
-        orientationWrapper.style.display = "block";
-    } else {
-        orientationWrapper.style.display = "none";
-    }
-
     if (selectedPackType === 'voucher') {
         uploadSection.style.display = "none";
     } else {
@@ -234,7 +225,7 @@ const myDropzone = new Dropzone(dzElement, {
   autoProcessQueue: false,
   uploadMultiple: false,
   parallelUploads: 2,
-  maxFilesize: 95, // Limit 95MB to be safe
+  maxFilesize: 95, 
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
   addRemoveLinks: true,
@@ -243,11 +234,11 @@ const myDropzone = new Dropzone(dzElement, {
   dictRemoveFile: "Remove",
 });
 
-// NEW: Handle Files Too Big
+// Handle Files Too Big
 myDropzone.on("error", (file, message) => {
   if (typeof message === "string" && message.includes("too big")) {
-    myDropzone.removeFile(file); // Remove the red error thumb
-    waModal.classList.remove("hidden"); // Show the WhatsApp popup
+    myDropzone.removeFile(file); 
+    waModal.classList.remove("hidden");
   }
 });
 
@@ -256,10 +247,7 @@ function parsePackValue(val) {
   if (parts[0] === 'voucher') {
       return { type: 'voucher', size: parseInt(parts[1], 10) };
   }
-  return {
-    type: parts[0] === 'big' ? 'big_picture' : 'standard',
-    size: parseInt(parts[1], 10)
-  };
+  return { type: 'standard', size: parseInt(parts[1], 10) };
 }
 
 function getUncroppedFiles() {
@@ -349,14 +337,6 @@ promoBtn.addEventListener("click", async () => {
     }
 });
 
-// ---- Orientation Radio Listeners ----
-document.querySelectorAll('input[name="orientation"]').forEach((radio) => {
-    radio.addEventListener("change", () => {
-        selectedOrientation = radio.value; 
-        showToast(`Orientation set to ${selectedOrientation}`, "ok");
-    });
-});
-
 // ---- Pack selector ----
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
@@ -364,7 +344,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     const { type, size } = parsePackValue(newVal);
     
     let newRequired = size;
-    if (type === 'big_picture') newRequired = 1;
     if (type === 'voucher') newRequired = 0;
 
     const currentCount = myDropzone.files.length;
@@ -397,10 +376,9 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
     
     updateVisibility(); 
     updatePhotoCount();
-    saveCart(); // Auto-save on change
+    saveCart(); 
 
     let label = `${size} magnets`;
-    if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
     if (type === 'voucher') label = `£${size} Gift Voucher`;
     
     showToast(`Selected: ${label}`, "ok");
@@ -412,14 +390,14 @@ emailInput.addEventListener("blur", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
   setEmailValidityUI(isEmailValid());
-  saveCart(); // Auto-save on blur
+  saveCart(); 
 });
 
 phoneInput.addEventListener("blur", () => {
   phoneTouched = true;
   customerPhone = phoneInput.value.trim();
   setPhoneValidityUI(isPhoneValid());
-  saveCart(); // Auto-save on blur
+  saveCart();
 });
 
 setEmailValidityUI(false);
@@ -459,26 +437,18 @@ myDropzone.on("addedfile", (file) => {
   const total = myDropzone.files.length;
   
   if (selectedPackType !== 'voucher' && total > requiredCount) {
-    if (selectedPackType === 'standard') {
-        const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
-        pendingTargetValue = `standard_${suggested}`;
-        
-        modalTitle.textContent = "Add more magnets?";
-        modalText.textContent =
-          `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
-          `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
+    // Only Standard type exists now
+    const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
+    pendingTargetValue = `standard_${suggested}`;
+    
+    modalTitle.textContent = "Add more magnets?";
+    modalText.textContent =
+      `You selected a pack of ${requiredCount}, but added ${total} photos. ` +
+      `Upgrade to ${suggested} magnets for £${prices[suggested]}?`;
 
-        modalConfirm.textContent = `Upgrade to ${suggested}`;
-        modalKeep.textContent    = "Keep current & remove extras";
-        modal.classList.remove("hidden");
-    } else {
-        modalTitle.textContent = "Limit Reached";
-        modalText.textContent = `This Jigsaw Picture pack only uses 1 photo. We will remove the extra photo you just added.`;
-        modalConfirm.textContent = "OK";
-        modalKeep.style.display = "none";
-        pendingTargetValue = "KEEP_CURRENT"; 
-        modal.classList.remove("hidden");
-    }
+    modalConfirm.textContent = `Upgrade to ${suggested}`;
+    modalKeep.textContent    = "Keep current & remove extras";
+    modal.classList.remove("hidden");
   } else {
     updatePhotoCount();
   }
@@ -492,19 +462,13 @@ myDropzone.on("removedfile", () => {
 // ---- Upgrade/Downgrade ----
 modalConfirm.addEventListener("click", () => {
   modalKeep.style.display = "inline-block";
-  if (pendingTargetValue === "KEEP_CURRENT") {
-      while (myDropzone.files.length > requiredCount) {
-        myDropzone.removeFile(myDropzone.files[myDropzone.files.length - 1]);
-      }
-      modal.classList.add("hidden");
-      return;
-  }
+  
   if (!pendingTargetValue) return;
 
   const { type, size } = parsePackValue(pendingTargetValue);
   selectedPackType = type;
   selectedPackSize = size;
-  requiredCount = (type === 'big_picture') ? 1 : size;
+  requiredCount = size;
   if (type === 'voucher') requiredCount = 0;
   
   previousRadioValue = pendingTargetValue;
@@ -522,10 +486,9 @@ modalConfirm.addEventListener("click", () => {
   pendingTargetValue = null;
   updateVisibility();
   updatePhotoCount();
-  saveCart(); // Save new selection
+  saveCart(); 
   
   let label = `${size} magnets`;
-  if (type === 'big_picture') label = `Jigsaw Picture (${size} magnets)`;
   if (type === 'voucher') label = `£${size} Gift Voucher`;
   showToast(`Switched to ${label}`, "ok");
 });
@@ -591,7 +554,6 @@ payBtn.addEventListener("click", async () => {
 
     statusEl.textContent = "Creating order…";
 
-    // Reuse currentOrderId if it exists (from the draft), otherwise standard flow
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -704,15 +666,8 @@ function openCropModalAndAwait(file) {
 function openCropModal(file, done) {
   currentCropFile = file;
 
+  // Always square aspect ratio (1:1) now
   let ratio = 1; 
-  if (selectedPackType === 'big_picture') {
-      if (selectedPackSize === 6)  ratio = 2 / 3; 
-      if (selectedPackSize === 15) ratio = 3 / 5; 
-      if (selectedOrientation === 'landscape') {
-          if (selectedPackSize === 6)  ratio = 3 / 2; 
-          if (selectedPackSize === 15) ratio = 5 / 3; 
-      }
-  }
 
   const reader = new FileReader();
   reader.onload = (e) => {
