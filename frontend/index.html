@@ -16,40 +16,35 @@
 </head>
 <body>
   <main class="container">
-    
-    <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 12px; border-radius: 8px; margin-bottom: 24px; text-align: center; font-size: 0.95rem; line-height: 1.5;">
-      <strong>🎄 Holiday Notice:</strong> Any orders placed now will be processed starting <strong>3rd January</strong>.
-    </div>
-
     <h1>Magnetic Memories</h1>
     <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
     <section class="card">
       <h2>Your details</h2>
       
-      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Email address</label>
+      <label for="email">Email address</label>
       <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 16px;" />
       <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
 
-      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Phone number</label>
+      <label for="phone">Phone number</label>
       <input id="phone" type="tel" autocomplete="tel" placeholder="+44 7700 900000" required style="margin-bottom: 16px;" />
       <p id="phoneError" class="error-text" style="display:none;">Please enter a valid phone number.</p>
 
-      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-bottom:6px;">Shipping destination</label>
-      <select id="shipping-country" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #e8e8e8; outline: none;">
+      <label for="shipping-country">Shipping destination</label>
+      <select id="shipping-country" style="margin-bottom: 16px;">
         <option value="GI">Gibraltar (Free Delivery)</option>
         <option value="GB">United Kingdom (+£5.00)</option>
       </select>
 
-      <label style="font-size: 0.9rem; color: #9ca3af; display:block; margin-top:16px; margin-bottom:6px;">Promo Code / Voucher</label>
+      <label for="promo-code">Promo Code / Voucher</label>
       <div style="display:flex; gap:8px;">
         <input id="promo-code" type="text" placeholder="Enter code" style="flex:1; text-transform:uppercase;" />
-        <button id="apply-promo" type="button" class="btn-ghost" style="padding:10px 16px; border:1px solid rgba(255,255,255,0.2); color:white;">Apply</button>
+        <button id="apply-promo" type="button" class="btn-ghost">Apply</button>
       </div>
       <p id="promo-msg" style="font-size:0.85rem; margin-top:6px; display:none;"></p>
 
-      <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; margin-top:16px; font-size:0.95rem; color:#e8e8e8; line-height: 1.4;">
-        <input type="checkbox" id="social-permission" style="width:20px; height:20px; accent-color:#59c9a5; margin-top:2px; flex-shrink: 0;">
+      <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; margin-top:16px; line-height: 1.4;">
+        <input type="checkbox" id="social-permission" style="margin-top:2px; flex-shrink: 0;">
         <span>I am happy for you to share my order on social media 📸</span>
       </label>
 
@@ -59,7 +54,7 @@
     <section class="card">
       <h2>Choose your magnet pack</h2>
       
-      <h3 style="font-size: 1rem; color: #e8e8e8; margin: 16px 0 8px;">Standard Packs (1 magnet per photo)</h3>
+      <h3>Standard Packs (1 magnet per photo)</h3>
       <div class="packs">
         <label><input type="radio" name="pack" value="standard_3" checked> 3 magnets — £7</label>
         <label><input type="radio" name="pack" value="standard_6"> 6 magnets — £14</label>
@@ -68,7 +63,7 @@
         <label><input type="radio" name="pack" value="standard_15"> 15 magnets — £30</label>
       </div>
 
-      <h3 style="font-size: 1rem; color: #e8e8e8; margin: 24px 0 8px;">Gift Vouchers (Digital Code)</h3>
+      <h3>Gift Vouchers (Digital Code)</h3>
       <div class="packs">
         <label><input type="radio" name="pack" value="voucher_14"> £14 Voucher (6 magnets)</label>
         <label><input type="radio" name="pack" value="voucher_20"> £20 Voucher (9 magnets)</label>
