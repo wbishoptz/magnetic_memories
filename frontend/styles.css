@@ -23,7 +23,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 500px;
+  max-width: 600px; /* Slightly wider to fit 3 photos in a row comfortably */
 }
 
 h1 {
@@ -50,7 +50,7 @@ h1 {
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Soft Shadow */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 h2 {
@@ -76,7 +76,7 @@ select {
   width: 100%;
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #d1d5db; /* Gray border */
+  border: 1px solid #d1d5db; 
   background: #fff;
   color: var(--text-main);
   font-size: 1rem;
@@ -139,12 +139,16 @@ label {
   border-radius: 12px;
   background: #f9fafb;
   min-height: 120px;
+  /* FIX: Use flex-wrap so items drop to next line instead of overflowing */
   display: flex;
+  flex-wrap: wrap; 
   align-items: center;
   justify-content: center;
+  gap: 12px; /* Nice spacing between items */
   cursor: pointer;
   margin-bottom: 16px;
   color: var(--text-muted);
+  padding: 16px;
 }
 
 .dropzone:hover {
@@ -237,7 +241,7 @@ label {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: #1f2937; /* Dark toast looks good on light mode */
+  background: #1f2937;
   color: white;
   padding: 12px 24px;
   border-radius: 999px;
@@ -256,7 +260,7 @@ label {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5); /* Dark overlay */
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -291,7 +295,6 @@ label {
 .cropper-modal { background-color: #fff; opacity: 0.8; }
 .cropper-bg { background-image: none; background: #f3f4f6; }
 
-/* Animations */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-5px); }
@@ -299,7 +302,6 @@ label {
 }
 .shake { animation: shake 0.3s ease-in-out; }
 
-/* Mobile Tweaks */
 @media (max-width: 480px) {
   body { padding: 12px; }
   .card { padding: 16px; }
@@ -311,21 +313,25 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
 
 /* --- DROPZONE OVERRIDES (Light Mode Fixes) --- */
 
-/* 1. The Thumbnail Container (The "Card") */
+/* 1. The Thumbnail Container */
 .dropzone .dz-preview {
   background: white;
   border-radius: 12px;
   border: 1px solid var(--border-light);
   padding: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin: 8px; /* Spacing between thumbs */
-  min-height: auto; /* Fix zoomed look */
+  /* FIX: Allow them to shrink/grow and NOT have huge margins */
+  margin: 0; 
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* 2. The Image framing */
 .dropzone .dz-image {
   border-radius: 8px;
-  width: 100px; /* Enforce standard size */
+  width: 100px;
   height: 100px;
 }
 .dropzone .dz-image img {
@@ -334,9 +340,9 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
    height: 100%;
 }
 
-/* 3. The "Remove" Link - Make it Red */
+/* 3. The "Remove" Link - Make it Red Text */
 .dropzone .dz-remove {
-  color: var(--error); /* Red */
+  color: var(--error);
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
@@ -349,53 +355,56 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   cursor: pointer;
 }
 .dropzone .dz-remove:hover {
-  color: #dc2626; /* Darker red */
+  color: #dc2626;
   text-decoration: underline;
 }
 
-/* 4. The Custom "Crop" Button - Make it look like a button */
+/* 4. The Custom "Crop" Button */
 .dz-crop-btn {
   background: white;
   border: 1px solid var(--border-light);
   color: var(--text-main);
   font-size: 0.75rem;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
   cursor: pointer;
   margin-top: 6px;
   width: 100%;
   transition: all 0.2s;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .dz-crop-btn:hover {
-  background: #f3f4f6;
-  border-color: var(--text-muted);
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
-/* 5. The "White Bar" (Progress Bar) - Beautify it */
+/* 5. FIX: The "White Loading Bar" */
+/* We want it completely hidden when the upload is done */
+.dropzone .dz-preview.dz-complete .dz-progress {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Beautify it while it IS loading */
 .dropzone .dz-preview .dz-progress {
-  height: 6px;
-  border-radius: 3px;
-  left: 50%;
-  top: 50%;
-  margin-left: -40px;
-  margin-top: -3px;
-  width: 80px;
-  /* Make background subtle gray instead of stark white */
+  height: 4px; /* Much thinner */
+  border-radius: 2px;
+  left: 10%; 
+  top: auto; 
+  bottom: 60px; /* Position it below image, above buttons */
+  width: 80%;
+  margin: 0;
   background: rgba(229, 231, 235, 0.8); 
   border: none;
-}
-/* The filling part of the bar */
-.dropzone .dz-preview .dz-progress .dz-upload {
-  background: var(--primary); /* Use brand teal */
-}
-/* Hide it completely when done */
-.dropzone .dz-preview.dz-complete .dz-progress {
-  opacity: 0;
-  transition: opacity 0.4s ease-in;
+  z-index: 10;
 }
 
-/* Hide ugly default success/error markers */
+.dropzone .dz-preview .dz-progress .dz-upload {
+  background: var(--primary);
+}
+
+/* Hide default markers */
 .dropzone .dz-preview .dz-success-mark,
 .dropzone .dz-preview .dz-error-mark {
   display: none;
