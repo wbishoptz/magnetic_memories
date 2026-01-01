@@ -23,7 +23,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 600px; /* Slightly wider to fit 3 photos in a row comfortably */
+  max-width: 600px;
 }
 
 h1 {
@@ -139,12 +139,11 @@ label {
   border-radius: 12px;
   background: #f9fafb;
   min-height: 120px;
-  /* FIX: Use flex-wrap so items drop to next line instead of overflowing */
   display: flex;
   flex-wrap: wrap; 
   align-items: center;
   justify-content: center;
-  gap: 12px; /* Nice spacing between items */
+  gap: 12px;
   cursor: pointer;
   margin-bottom: 16px;
   color: var(--text-muted);
@@ -320,7 +319,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   border: 1px solid var(--border-light);
   padding: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  /* FIX: Allow them to shrink/grow and NOT have huge margins */
   margin: 0; 
   min-height: auto;
   display: flex;
@@ -379,29 +377,10 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   border-color: #9ca3af;
 }
 
-/* 5. FIX: The "White Loading Bar" */
-/* We want it completely hidden when the upload is done */
-.dropzone .dz-preview.dz-complete .dz-progress {
-  display: none !important;
-  opacity: 0 !important;
-}
-
-/* Beautify it while it IS loading */
+/* 5. FIX: REMOVE LOADING BAR */
+/* We have a global progress bar at the bottom, so we don't need individual ones. */
 .dropzone .dz-preview .dz-progress {
-  height: 4px; /* Much thinner */
-  border-radius: 2px;
-  left: 10%; 
-  top: auto; 
-  bottom: 60px; /* Position it below image, above buttons */
-  width: 80%;
-  margin: 0;
-  background: rgba(229, 231, 235, 0.8); 
-  border: none;
-  z-index: 10;
-}
-
-.dropzone .dz-preview .dz-progress .dz-upload {
-  background: var(--primary);
+  display: none !important;
 }
 
 /* Hide default markers */
