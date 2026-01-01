@@ -15,7 +15,7 @@ body {
   color: var(--text-main);
   font-family: system-ui, -apple-system, sans-serif;
   margin: 0;
-  padding: 20px 12px; /* Slightly tighter side padding */
+  padding: 20px 12px;
   line-height: 1.5;
   display: flex;
   justify-content: center;
@@ -23,14 +23,14 @@ body {
 
 .container {
   width: 100%;
-  max-width: 550px; /* Slightly narrower for a tighter "app-like" feel */
+  max-width: 550px; 
 }
 
 /* --- LOGO UPDATES --- */
 .main-logo {
   display: block;
-  margin: 0 auto 4px; /* Tiny margin below logo */
-  width: 100%;        /* Force full width to match cards */
+  margin: 0 auto 4px;
+  width: 100%;        
   max-width: 100%;
   height: auto;
   object-fit: contain;
@@ -40,7 +40,7 @@ body {
   text-align: center;
   color: var(--text-muted);
   margin-top: 0;
-  margin-bottom: 24px; /* Reduced gap between subtitle and first card */
+  margin-bottom: 24px;
   font-size: 0.95rem;
 }
 
@@ -50,7 +50,7 @@ body {
   border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 24px;
-  margin-bottom: 16px; /* Reduced gap between cards */
+  margin-bottom: 16px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
@@ -115,7 +115,7 @@ label {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px; /* Slightly larger touch target */
+  padding: 12px;
   border: 1px solid var(--border-light);
   border-radius: 8px;
   margin-bottom: 8px;
@@ -132,6 +132,41 @@ label {
   accent-color: var(--primary);
   width: 18px;
   height: 18px;
+}
+
+/* --- SOCIAL MEDIA BUTTONS --- */
+.social-options {
+  display: flex;
+  gap: 12px;
+}
+.social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  background: #f9fafb;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.social-btn:hover {
+  background: #f3f4f6;
+}
+/* When selected */
+.social-btn:has(input:checked) {
+  background: rgba(89, 201, 165, 0.1);
+  border-color: var(--primary);
+  color: #064e3b;
+  font-weight: 600;
+}
+.social-btn input {
+  accent-color: var(--primary);
+  width: 16px; height: 16px;
 }
 
 /* UPLOAD AREA MAIN CONTAINER */
@@ -312,8 +347,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
 
 
 /* --- DROPZONE OVERRIDES (Light Mode Fixes) --- */
-
-/* 1. The Thumbnail Container */
 .dropzone .dz-preview {
   background: white;
   border-radius: 12px;
@@ -327,7 +360,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   align-items: center;
 }
 
-/* 2. The Image framing */
 .dropzone .dz-image {
   border-radius: 8px;
   width: 100px;
@@ -339,7 +371,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
    height: 100%;
 }
 
-/* 3. The "Remove" Link - Make it Red Text */
 .dropzone .dz-remove {
   color: var(--error);
   font-size: 0.8rem;
@@ -358,7 +389,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   text-decoration: underline;
 }
 
-/* 4. The Custom "Crop" Button */
 .dz-crop-btn {
   background: white;
   border: 1px solid var(--border-light);
@@ -378,12 +408,10 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
   border-color: #9ca3af;
 }
 
-/* 5. FIX: REMOVE LOADING BAR */
 .dropzone .dz-preview .dz-progress {
   display: none !important;
 }
 
-/* Hide default markers */
 .dropzone .dz-preview .dz-success-mark,
 .dropzone .dz-preview .dz-error-mark {
   display: none;

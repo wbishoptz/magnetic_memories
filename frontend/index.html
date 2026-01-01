@@ -23,17 +23,20 @@
       <h2>Your details</h2>
       
       <label for="email">Email address</label>
-      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 16px;" />
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 4px;" />
+      <p class="hint" style="margin-bottom: 16px; margin-top: 0;">We’ll send your order confirmation here.</p>
+      
       <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
 
       <label for="phone">Phone number</label>
       <input id="phone" type="tel" autocomplete="tel" placeholder="+44 7700 900000" required style="margin-bottom: 16px;" />
       <p id="phoneError" class="error-text" style="display:none;">Please enter a valid phone number.</p>
 
-      <label for="shipping-country">Shipping destination</label>
+      <label for="shipping-country">Shipping / Collection</label>
       <select id="shipping-country" style="margin-bottom: 16px;">
-        <option value="GI">Gibraltar (Free Delivery)</option>
-        <option value="GB">United Kingdom (+£5.00)</option>
+        <option value="GI_COLLECT">Gibraltar - Collection (Free)</option>
+        <option value="GI_DELIVER">Gibraltar - Delivery (+£3.00)</option>
+        <option value="GB">United Kingdom - Delivery (+£5.00)</option>
       </select>
 
       <label for="promo-code">Promo Code / Voucher</label>
@@ -43,12 +46,21 @@
       </div>
       <p id="promo-msg" style="font-size:0.85rem; margin-top:6px; display:none;"></p>
 
-      <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; margin-top:16px; line-height: 1.4;">
-        <input type="checkbox" id="social-permission" style="margin-top:2px; flex-shrink: 0;">
-        <span>I am happy for you to share my order on social media 📸</span>
-      </label>
+      <div style="margin-top: 24px; border-top: 1px solid var(--border-light); padding-top: 20px;">
+        <label style="margin-bottom: 8px;">Are you happy for us to share your order on social media? 📸</label>
+        <div class="social-options" id="social-wrapper">
+          <label class="social-btn">
+            <input type="radio" name="socials" value="yes">
+            <span>Yes, please!</span>
+          </label>
+          <label class="social-btn">
+            <input type="radio" name="socials" value="no">
+            <span>No, keep it private</span>
+          </label>
+        </div>
+        <p id="socialError" class="error-text" style="display:none;">Please select an option.</p>
+      </div>
 
-      <p class="hint" style="margin-top:8px;">We’ll send your order confirmation here.</p>
     </section>
 
     <section class="card">

@@ -15,6 +15,7 @@ let emailTouched = false;
 let phoneTouched = false;
 let voucherApplied = 0;
 let voucherCode = "";
+let socialPermission = null; // null, true, or false
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -33,7 +34,9 @@ const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 const uploadMetaEl     = document.querySelector(".upload-meta"); 
 const uploadSection    = document.getElementById("upload-section");
-const socialCheckbox   = document.getElementById("social-permission");
+// Socials are now radio buttons
+const socialRadios     = document.querySelectorAll('input[name="socials"]');
+const socialWrapper    = document.getElementById("social-wrapper");
 const promoInput = document.getElementById("promo-code");
 const promoBtn = document.getElementById("apply-promo");
 const promoMsg = document.getElementById("promo-msg");
@@ -84,7 +87,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     if (data.packSize && String(data.packSize).startsWith("voucher_")) {
                         radioVal = data.packSize;
                     } else {
-                        // Standard packs (fallback even if it was 'big_picture')
                         radioVal = `standard_${data.packSize}`;
                     }
                     
@@ -93,6 +95,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                         radio.checked = true;
                         radio.dispatchEvent(new Event("change")); 
                     }
+
+                    // Restore Social Selection (if exists)
+                    if (typeof data.socialPermission === 'boolean') {
+                        const val = data.socialPermission ? 'yes' : 'no';
+                        const socRadio = document.querySelector(`input[name="socials"][value="${val}"]`);
+                        if (socRadio) {
+                           socRadio.checked = true;
+                           socialPermission = data.socialPermission;
+                        }
+                    }
+
                     showToast("Cart restored!", "ok");
                 }
             }
@@ -123,7 +136,8 @@ async function saveCart() {
                 phone: customerPhone,
                 packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
                 packType: selectedPackType,
-                isRecovery: isRecovery 
+                isRecovery: isRecovery,
+                socialPermission: socialPermission
             })
         });
     } catch(e) {}
@@ -163,6 +177,9 @@ function isAllCropped() {
   if (selectedPackType === 'voucher') return true;
   return getUncroppedFiles().length === 0 && myDropzone.files.length > 0;
 }
+function isSocialSelected() {
+    return socialPermission !== null;
+}
 
 // ---- UI Feedback (Jiggle) ----
 function shakeElement(el) {
@@ -197,7 +214,7 @@ function setPhoneValidityUI(isValid) {
 }
 
 function updatePayButtonAppearance() {
-  const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped();
+  const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped() && isSocialSelected();
   if (ready) {
     payBtn.classList.remove("disabled-look");
     payBtn.textContent = "Pay securely";
@@ -385,6 +402,18 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   });
 });
 
+// ---- Social Media Listeners ----
+socialRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+        if (radio.checked) {
+            socialPermission = (radio.value === 'yes');
+            document.getElementById('socialError').style.display = 'none';
+            updatePayButtonAppearance();
+            saveCart();
+        }
+    });
+});
+
 // ---- Inputs ----
 emailInput.addEventListener("blur", () => {
   emailTouched  = true;
@@ -529,6 +558,14 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
+  // New Social Validation
+  if (!isSocialSelected()) {
+      shakeElement(socialWrapper);
+      document.getElementById('socialError').style.display = 'block';
+      showToast("Please select a social media option", "error");
+      return;
+  }
+
   if (!isCountValid()) {
     shakeElement(uploadMetaEl);
     showToast(`You need exactly ${requiredCount} photo${requiredCount>1?'s':''}`, "error");
@@ -545,8 +582,8 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
+    // Updated Shipping Logic
     const country = document.getElementById("shipping-country").value;
-    const socialPermission = socialCheckbox ? socialCheckbox.checked : false;
     
     const packSizePayload = (selectedPackType === 'voucher') 
         ? `voucher_${selectedPackSize}` 
@@ -600,7 +637,7 @@ payBtn.addEventListener("click", async () => {
         email: customerEmail,
         packSize: packSizePayload, 
         packType: selectedPackType,
-        country: country,
+        country: country, // This now sends 'GI_COLLECT', 'GI_DELIVER' or 'GB'
         voucherCode: voucherCode
       }),
     });
