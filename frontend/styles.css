@@ -133,7 +133,7 @@ label {
   height: 18px;
 }
 
-/* UPLOAD AREA */
+/* UPLOAD AREA MAIN CONTAINER */
 .dropzone {
   border: 2px dashed #d1d5db;
   border-radius: 12px;
@@ -307,3 +307,96 @@ label {
 
 footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
 .tiny { font-size: 0.75rem; color: #9ca3af; }
+
+
+/* --- DROPZONE OVERRIDES (Light Mode Fixes) --- */
+
+/* 1. The Thumbnail Container (The "Card") */
+.dropzone .dz-preview {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  padding: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin: 8px; /* Spacing between thumbs */
+  min-height: auto; /* Fix zoomed look */
+}
+
+/* 2. The Image framing */
+.dropzone .dz-image {
+  border-radius: 8px;
+  width: 100px; /* Enforce standard size */
+  height: 100px;
+}
+.dropzone .dz-image img {
+   object-fit: cover;
+   width: 100%;
+   height: 100%;
+}
+
+/* 3. The "Remove" Link - Make it Red */
+.dropzone .dz-remove {
+  color: var(--error); /* Red */
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  margin-top: 8px;
+  display: block;
+  text-align: center;
+  transition: color 0.2s;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.dropzone .dz-remove:hover {
+  color: #dc2626; /* Darker red */
+  text-decoration: underline;
+}
+
+/* 4. The Custom "Crop" Button - Make it look like a button */
+.dz-crop-btn {
+  background: white;
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 6px;
+  width: 100%;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+.dz-crop-btn:hover {
+  background: #f3f4f6;
+  border-color: var(--text-muted);
+}
+
+/* 5. The "White Bar" (Progress Bar) - Beautify it */
+.dropzone .dz-preview .dz-progress {
+  height: 6px;
+  border-radius: 3px;
+  left: 50%;
+  top: 50%;
+  margin-left: -40px;
+  margin-top: -3px;
+  width: 80px;
+  /* Make background subtle gray instead of stark white */
+  background: rgba(229, 231, 235, 0.8); 
+  border: none;
+}
+/* The filling part of the bar */
+.dropzone .dz-preview .dz-progress .dz-upload {
+  background: var(--primary); /* Use brand teal */
+}
+/* Hide it completely when done */
+.dropzone .dz-preview.dz-complete .dz-progress {
+  opacity: 0;
+  transition: opacity 0.4s ease-in;
+}
+
+/* Hide ugly default success/error markers */
+.dropzone .dz-preview .dz-success-mark,
+.dropzone .dz-preview .dz-error-mark {
+  display: none;
+}
