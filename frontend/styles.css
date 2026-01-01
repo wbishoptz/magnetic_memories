@@ -15,7 +15,7 @@ body {
   color: var(--text-main);
   font-family: system-ui, -apple-system, sans-serif;
   margin: 0;
-  padding: 20px;
+  padding: 20px 12px; /* Slightly tighter side padding */
   line-height: 1.5;
   display: flex;
   justify-content: center;
@@ -23,23 +23,24 @@ body {
 
 .container {
   width: 100%;
-  max-width: 600px;
+  max-width: 550px; /* Slightly narrower for a tighter "app-like" feel */
 }
 
-/* New Main Logo Style */
+/* --- LOGO UPDATES --- */
 .main-logo {
   display: block;
-  margin: 0 auto 1.5rem; /* Center and add margin below */
-  max-width: 320px;      /* Limit width */
-  height: auto;          /* Keep aspect ratio */
-  width: 100%;
+  margin: 0 auto 4px; /* Tiny margin below logo */
+  width: 100%;        /* Force full width to match cards */
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .subtitle {
   text-align: center;
   color: var(--text-muted);
   margin-top: 0;
-  margin-bottom: 2rem;
+  margin-bottom: 24px; /* Reduced gap between subtitle and first card */
   font-size: 0.95rem;
 }
 
@@ -49,7 +50,7 @@ body {
   border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 16px; /* Reduced gap between cards */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
@@ -114,7 +115,7 @@ label {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 12px; /* Slightly larger touch target */
   border: 1px solid var(--border-light);
   border-radius: 8px;
   margin-bottom: 8px;
@@ -378,7 +379,6 @@ footer { text-align: center; margin-top: 40px; padding-bottom: 40px; }
 }
 
 /* 5. FIX: REMOVE LOADING BAR */
-/* We have a global progress bar at the bottom, so we don't need individual ones. */
 .dropzone .dz-preview .dz-progress {
   display: none !important;
 }
