@@ -26,13 +26,13 @@ body {
   max-width: 600px;
 }
 
-h1 {
-  text-align: center;
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
-  color: var(--text-main);
-  font-weight: 800;
-  letter-spacing: -0.025em;
+/* New Main Logo Style */
+.main-logo {
+  display: block;
+  margin: 0 auto 1.5rem; /* Center and add margin below */
+  max-width: 320px;      /* Limit width */
+  height: auto;          /* Keep aspect ratio */
+  width: 100%;
 }
 
 .subtitle {
