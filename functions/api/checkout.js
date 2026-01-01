@@ -23,7 +23,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
-    const targetCountry = body?.country || "GI"; 
+    const targetCountry = body?.country || "GI_COLLECT"; // Default to collection if missing
     const voucherCode = body?.voucherCode; 
 
     if (!orderId) {
@@ -61,6 +61,8 @@ export async function onRequestPost({ request, env }) {
         let type = kvOrder?.packType || body?.packType || "standard";
         productName = `${size} custom photo magnets`;
         productDesc = "50×50mm fridge magnets";
+        // Logic for Jigsaw (Big Picture) removed as per previous request, 
+        // but kept code-safe incase old orders exist.
         if (type === 'big_picture') {
             productName = `Jigsaw Picture (${size} magnets)`;
             productDesc = "One large photo split across magnets.";
@@ -90,7 +92,7 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- STRIPE SESSION ---
+    // --- STRIPE SESSION SETUP ---
     const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
@@ -116,11 +118,9 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][product_data][description]", productDesc);
     params.append("line_items[0][price_data][unit_amount]", String(price * 100)); 
 
-    
+    // --- 100% DISCOUNT HANDLING ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
-            // --- 100% DISCOUNT FLOW ---
-            
             // 1. Update Voucher Balance
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
             const newBalance = currentBalance - discountAmount;
@@ -141,7 +141,6 @@ export async function onRequestPost({ request, env }) {
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
             // 3. SEND NOTIFICATIONS (Since we skip Stripe Webhook)
-            // We replicate the notification logic here because Stripe won't fire for £0 orders.
             const notifs = [
                 sendAdminEmail(kvOrder, env),
                 sendPaidTelegram(kvOrder, env),
@@ -157,23 +156,35 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // Shipping Logic
+    // --- SHIPPING LOGIC (UPDATED) ---
+    // This is the specific fix for the delivery charge
     if (!isVoucherPurchase) {
         if (targetCountry === "GB") {
+            // UK Delivery: £5.00
             params.append("shipping_address_collection[allowed_countries][0]", "GB");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "500");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "UK Postage");
+        } else if (targetCountry === "GI_DELIVER") {
+            // Gibraltar Delivery: £3.00
+            params.append("shipping_address_collection[allowed_countries][0]", "GI");
+            params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "300"); // 300 pennies = £3.00
+            params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
+            params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
+            // Gibraltar Collection: Free (Default)
+            // Matches 'GI_COLLECT' or legacy 'GI'
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
-            params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
+            params.append("shipping_options[0][shipping_rate_data][display_name]", "Collection (Glacis Estate)");
         }
     }
 
+    // --- EXECUTE STRIPE REQUEST ---
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
@@ -203,7 +214,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// --- HELPER FUNCTIONS FOR NOTIFICATIONS (Copied/Shared Logic) ---
+// --- HELPER FUNCTIONS FOR NOTIFICATIONS ---
 
 function buildTotalText(order) {
   if (typeof order.price === "number") {

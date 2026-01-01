@@ -1,5 +1,5 @@
 // functions/api/order.js
-// POST   /api/order   -> create a new order in KV
+// POST   /api/order   -> create or update an order in KV
 // GET    /api/order   -> fetch a single order by ?orderId=
 
 const PACKS = [3, 6, 9, 12, 15];
@@ -12,19 +12,27 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-// ---------- CREATE ORDER ----------
+// ---------- CREATE / UPDATE ORDER ----------
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
+    
+    // Incoming fields
     const emailRaw = body?.email ?? "";
     const phoneRaw = body?.phone ?? ""; 
     const packSizeRaw = body?.packSize;
     const packType = body?.packType || "standard";
     const socialPermission = body?.socialPermission || false;
+    const shippingMethod = body?.shippingMethod || "GI_COLLECT"; // NEW: Capture shipping selection
+    
+    // Check if updating an existing draft
+    let orderId = body?.orderId;
+    const isUpdate = !!orderId;
 
     const email = String(emailRaw).trim();
     const phone = String(phoneRaw).trim();
 
+    // Validation
     if (!/\S+@\S+\.\S+/.test(email)) {
       return jsonResponse({ error: "Please provide a valid email address." }, 400);
     }
@@ -33,18 +41,17 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ error: "Please provide a valid phone number." }, 400);
     }
 
-    // --- FIX START: Better validation that accepts Vouchers ---
+    // --- YOUR CUSTOM VALIDATION (Vouchers vs Magnets) ---
     let packSize = packSizeRaw;
     let price = 0;
     const isVoucher = String(packSizeRaw).startsWith("voucher_");
 
     if (isVoucher) {
         // If it's a voucher (e.g. "voucher_14"), we allow it.
-        // We set price to 0 here because the real price is calculated 
-        // in checkout.js later.
+        // Price is set to 0 here because real price is calculated in checkout.js
         price = 0; 
     } else {
-        // If it's magnets, we must ensure it matches a valid pack size (3, 6, etc)
+        // If it's magnets, ensure it matches a valid pack size
         const numericSize = Number(packSizeRaw);
         if (!PACKS.includes(numericSize)) {
             return jsonResponse({ error: "Invalid pack size." }, 400);
@@ -52,24 +59,38 @@ export async function onRequestPost({ request, env }) {
         packSize = numericSize;
         price = PRICES[numericSize];
     }
-    // --- FIX END ---
+    // ----------------------------------------------------
 
-    const orderId = crypto.randomUUID();
+    // Generate ID if this is a new order
+    if (!orderId) {
+        orderId = crypto.randomUUID();
+    }
+
+    // Retrieve existing data to preserve history (like images or original creation date)
+    let existingOrder = {};
+    if (isUpdate) {
+        const rawKv = await env.ORDERS_KV.get(`order:${orderId}`);
+        if (rawKv) existingOrder = JSON.parse(rawKv);
+    }
+
     const now = new Date().toISOString();
 
     const order = {
       orderId,
       email,
       phone, 
-      packSize, // This now stores either the number 6 OR the string "voucher_14"
+      packSize, 
       packType,
       socialPermission,
+      shippingMethod, // NEW: Save this to KV
       price,
-      status: "draft",         
-      createdAt: now,
-      images: [],
-      stripeSessionId: null,
-      stripePaymentIntentId: null,
+      status: existingOrder.status || "draft",         
+      createdAt: existingOrder.createdAt || now, // Keep original date if updating
+      updatedAt: now,
+      images: existingOrder.images || [],        // Keep existing images
+      stripeSessionId: existingOrder.stripeSessionId || null,
+      recoverySent: existingOrder.recoverySent || false,
+      recoverySkipped: existingOrder.recoverySkipped || false
     };
 
     await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));

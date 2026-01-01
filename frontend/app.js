@@ -21,7 +21,7 @@ const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
 
 // ---- Elements ----
-const requiredCountEl = document.getElementById("required-count");
+const requiredCountEl  = document.getElementById("required-count");
 const emailInput       = document.getElementById("email");
 const phoneInput       = document.getElementById("phone");
 const payBtn           = document.getElementById("payBtn");
@@ -37,9 +37,9 @@ const uploadSection    = document.getElementById("upload-section");
 // Socials are now radio buttons
 const socialRadios     = document.querySelectorAll('input[name="socials"]');
 const socialWrapper    = document.getElementById("social-wrapper");
-const promoInput = document.getElementById("promo-code");
-const promoBtn = document.getElementById("apply-promo");
-const promoMsg = document.getElementById("promo-msg");
+const promoInput       = document.getElementById("promo-code");
+const promoBtn         = document.getElementById("apply-promo");
+const promoMsg         = document.getElementById("promo-msg");
 
 // Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
@@ -126,6 +126,10 @@ if (waClose) {
 async function saveCart() {
     if (!currentOrderId || !customerEmail) return;
     
+    // Attempt to get shipping method if available, strictly for saving state
+    const shipEl = document.getElementById("shipping-country");
+    const shippingMethod = shipEl ? shipEl.value : null;
+
     try {
         await fetch("/api/save-cart", {
             method: "POST",
@@ -137,7 +141,8 @@ async function saveCart() {
                 packSize: (selectedPackType === 'voucher') ? `voucher_${selectedPackSize}` : selectedPackSize,
                 packType: selectedPackType,
                 isRecovery: isRecovery,
-                socialPermission: socialPermission
+                socialPermission: socialPermission,
+                shippingMethod: shippingMethod
             })
         });
     } catch(e) {}
@@ -558,7 +563,6 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
-  // New Social Validation
   if (!isSocialSelected()) {
       shakeElement(socialWrapper);
       document.getElementById('socialError').style.display = 'block';
@@ -582,7 +586,7 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
-    // Updated Shipping Logic
+    // GET SHIPPING SELECTION
     const country = document.getElementById("shipping-country").value;
     
     const packSizePayload = (selectedPackType === 'voucher') 
@@ -591,21 +595,26 @@ payBtn.addEventListener("click", async () => {
 
     statusEl.textContent = "Creating order…";
 
+    // 1. SAVE ORDER (Includes shippingMethod for Admin)
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
+          orderId: currentOrderId, 
           email: customerEmail, 
           phone: customerPhone,
           packSize: packSizePayload, 
           packType: selectedPackType,
-          socialPermission: socialPermission
+          socialPermission: socialPermission,
+          shippingMethod: country 
       }),
     });
     
     if (!orderRes.ok) throw new Error((await orderRes.text().catch(() => "")) || "Order creation failed");
     const { orderId } = await orderRes.json();
+    currentOrderId = orderId; 
 
+    // 2. UPLOAD PHOTOS (Only if not voucher)
     if (selectedPackType !== 'voucher') {
         statusEl.textContent = "Uploading photos…";
         progressWrap.style.display = "block";
@@ -628,6 +637,7 @@ payBtn.addEventListener("click", async () => {
         progressBar.style.width = "100%";
     }
 
+    // 3. CREATE CHECKOUT (Passes country for Stripe Logic)
     statusEl.textContent = `Creating checkout…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
@@ -637,7 +647,7 @@ payBtn.addEventListener("click", async () => {
         email: customerEmail,
         packSize: packSizePayload, 
         packType: selectedPackType,
-        country: country, // This now sends 'GI_COLLECT', 'GI_DELIVER' or 'GB'
+        country: country, 
         voucherCode: voucherCode
       }),
     });

@@ -14,7 +14,6 @@
       header p { margin: 0; font-size: 12px; color: #9ca3af; }
       .key-badge { font-size: 11px; background: #111827; padding: 6px 10px; border-radius: 999px; border: 1px solid #374151; color: #d1d5db; }
       
-      /* Nav Toggle */
       .nav-toggle { display: flex; gap: 4px; background: #020617; padding: 4px; border-radius: 999px; border: 1px solid #1f2933; margin-left: 20px; }
       .nav-btn { background: transparent; border: none; color: #9ca3af; padding: 6px 14px; font-size: 12px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
       .nav-btn:hover { color: #e5e7eb; }
@@ -31,12 +30,9 @@
       .toolbar button:hover { background: #1f2937; }
       button.btn-danger { background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); margin-top: 24px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
       button.btn-danger:hover { background: rgba(220, 38, 38, 0.25); border-color: #f87171; color: #fff; }
-      
-      /* New Manual Action Button */
       button.btn-action { background: rgba(102, 209, 158, 0.15); color: #66d19e; border: 1px solid rgba(102, 209, 158, 0.4); margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
       button.btn-action:hover { background: rgba(102, 209, 158, 0.25); color: #fff; border-color: #66d19e; }
       button.btn-action:disabled { opacity: 0.5; cursor: default; }
-
       .table-wrapper { margin-top: 6px; border-radius: 10px; border: 1px solid #1f2933; overflow: hidden; flex: 1; }
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
       thead { background: #111827; }
@@ -258,8 +254,10 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "createdAt"]];
-        for (const o of filteredOrders) rows.push([o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.createdAt || ""]);
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "createdAt"]];
+        for (const o of filteredOrders) rows.push([
+            o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.createdAt || ""
+        ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -294,6 +292,7 @@
              if (statusVal && o.status !== statusVal) return false;
           } else if (currentMode === 'drafts') {
              if (o.status !== 'draft' && o.status !== 'abandoned') return false;
+             if (o.recoverySkipped) return false; 
           }
           if (cutoff > 0 && (new Date(o.createdAt).getTime() < cutoff)) return false;
           if (!q) return true;
@@ -389,7 +388,6 @@
                   : `<span style="color:#9ca3af;">Recovery Pending (Waiting 1hr) ⏳</span>`;
               html += `<div class="field-value">${recoveryMsg}</div>`;
               
-              // NEW MANUAL BUTTON FOR DRAFTS
               if (!order.recoverySent) {
                   html += `<button class="btn-action" id="manual-recovery-btn">Send Recovery Email ✉️</button>`;
               }
@@ -398,7 +396,16 @@
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
-          // Socials
+          // --- NEW: Shipping Display ---
+          let shipLabel = "Unknown";
+          if (order.shippingMethod === 'GB') shipLabel = "🇬🇧 UK Delivery";
+          else if (order.shippingMethod === 'GI_DELIVER') shipLabel = "🚚 Gibraltar Delivery";
+          else if (order.shippingMethod === 'GI_COLLECT') shipLabel = "📍 Gibraltar Collection";
+          else if (order.customer?.address?.country === 'GB') shipLabel = "🇬🇧 UK Delivery (Legacy)";
+          else shipLabel = "📍 Gibraltar Collection (Legacy)";
+          
+          html += `<div class="field-label">Shipping Method</div><div class="field-value" style="font-weight:bold; color:#e5e7eb;">${shipLabel}</div>`;
+
           const socials = order.socialPermission 
               ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
               : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
@@ -423,14 +430,12 @@
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
           detailsContainer.innerHTML = html;
 
-          // Event Listeners for Buttons
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
              await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
              loadOrderDetails(orderId); loadOrders(); 
           };
           
-          // MANUAL RECOVERY BUTTON LISTENER
           const manualRecBtn = document.getElementById("manual-recovery-btn");
           if (manualRecBtn) {
               manualRecBtn.onclick = async () => {
