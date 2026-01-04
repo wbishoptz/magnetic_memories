@@ -17,193 +17,124 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: ["class"],
       theme: {
-        container: {
-          center: true,
-          padding: "2rem",
-          screens: { "2xl": "1400px" },
-        },
         extend: {
           fontFamily: {
             sans: ['Nunito', 'sans-serif'],
             display: ['Fredoka', 'sans-serif'],
           },
           colors: {
-            border: "hsl(var(--border))",
-            input: "hsl(var(--input))",
-            ring: "hsl(var(--ring))",
-            background: "hsl(var(--background))",
-            foreground: "hsl(var(--foreground))",
-            primary: {
-              DEFAULT: "hsl(var(--primary))",
-              foreground: "hsl(var(--primary-foreground))",
-            },
-            secondary: {
-              DEFAULT: "hsl(var(--secondary))",
-              foreground: "hsl(var(--secondary-foreground))",
-            },
-            muted: {
-              DEFAULT: "hsl(var(--muted))",
-              foreground: "hsl(var(--muted-foreground))",
-            },
-            card: {
-              DEFAULT: "hsl(var(--card))",
-              foreground: "hsl(var(--card-foreground))",
-            },
-            bingo: {
-              teal: "hsl(var(--bingo-teal))",
-              pink: "hsl(var(--bingo-pink))",
-              yellow: "hsl(var(--bingo-yellow))",
-              purple: "hsl(var(--bingo-purple))",
-              orange: "hsl(var(--bingo-orange))",
-            },
-          },
-          borderRadius: {
-            lg: "var(--radius)",
-            md: "calc(var(--radius) - 2px)",
-            sm: "calc(var(--radius) - 4px)",
-            xl: "calc(var(--radius) + 4px)",
-            "2xl": "calc(var(--radius) + 8px)",
-            "3xl": "calc(var(--radius) + 16px)",
-          },
-          keyframes: {
-            "bounce-gentle": {
-              "0%, 100%": { transform: "translateY(0)" },
-              "50%": { transform: "translateY(-8px)" },
-            },
-            wiggle: {
-              "0%, 100%": { transform: "rotate(-3deg)" },
-              "50%": { transform: "rotate(3deg)" },
-            },
-            "pulse-glow": {
-              "0%, 100%": { boxShadow: "0 0 20px hsl(var(--bingo-pink) / 0.4)" },
-              "50%": { boxShadow: "0 0 40px hsl(var(--bingo-pink) / 0.6)" },
-            },
-            float: {
-              "0%, 100%": { transform: "translateY(0)" },
-              "50%": { transform: "translateY(-10px)" },
-            }
+            border: "hsl(214.3 31.8% 91.4%)",
+            input: "hsl(214.3 31.8% 91.4%)",
+            background: "hsl(180 25% 97%)",
+            foreground: "hsl(200 30% 15%)",
+            primary: "hsl(175 60% 35%)", // Teal
+            secondary: "hsl(330 80% 55%)", // Pink
+            muted: "hsl(270 20% 94%)",
+            "muted-foreground": "hsl(200 15% 45%)",
+            card: "hsl(0 0% 100%)",
+            // Custom Bingo Colors
+            "bingo-teal": "#1a9a8a",
+            "bingo-pink": "#eb2f96",
+            "bingo-yellow": "#f59e0b",
+            "bingo-purple": "#8b5cf6",
+            "bingo-orange": "#f97316",
           },
           animation: {
-            "bounce-gentle": "bounce-gentle 2s infinite",
-            wiggle: "wiggle 1s ease-in-out infinite",
-            "pulse-glow": "pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-            float: "float 3s ease-in-out infinite",
+            'bounce-gentle': 'bounce-gentle 2s infinite',
+            'wiggle': 'wiggle 1s ease-in-out infinite',
+            'pulse-glow': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 3s ease-in-out infinite',
           },
-        },
-      },
+          keyframes: {
+            'bounce-gentle': {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-8px)' },
+            },
+            'wiggle': {
+              '0%, 100%': { transform: 'rotate(-3deg)' },
+              '50%': { transform: 'rotate(3deg)' },
+            },
+            'pulse-glow': {
+              '0%, 100%': { boxShadow: '0 0 20px rgba(235, 47, 150, 0.4)' },
+              '50%': { boxShadow: '0 0 40px rgba(235, 47, 150, 0.6)' },
+            },
+            'float': {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
     }
   </script>
 
   <style>
-    /* DIRECTLY FROM YOUR index.css FILE */
-    :root {
-      --background: 180 25% 97%;
-      --foreground: 200 30% 15%;
-      --card: 0 0% 100%;
-      --card-foreground: 200 30% 15%;
-      --popover: 0 0% 100%;
-      --popover-foreground: 200 30% 15%;
-      --primary: 175 60% 35%;
-      --primary-foreground: 0 0% 100%;
-      --secondary: 330 80% 55%;
-      --secondary-foreground: 0 0% 100%;
-      --muted: 270 20% 94%;
-      --muted-foreground: 200 15% 45%;
-      --accent: 45 95% 55%;
-      --accent-foreground: 200 30% 15%;
-      --destructive: 0 84.2% 60.2%;
-      --destructive-foreground: 210 40% 98%;
-      --border: 214.3 31.8% 91.4%;
-      --input: 214.3 31.8% 91.4%;
-      --ring: 175 60% 35%;
-      --radius: 0.75rem;
-      
-      /* Custom Bingo Colors */
-      --bingo-teal: 175 60% 35%;
-      --bingo-pink: 330 80% 55%;
-      --bingo-yellow: 45 95% 55%;
-      --bingo-purple: 265 89% 66%;
-      --bingo-orange: 24 95% 53%;
-    }
-
-    body {
-      font-family: 'Nunito', sans-serif;
-      background-color: hsl(var(--background));
-      color: hsl(var(--foreground));
-    }
-
-    h1, h2, h3, .font-display {
-      font-family: 'Fredoka', sans-serif;
-    }
-
-    /* Gradients from index.css */
-    .bg-gradient-party {
-      background: linear-gradient(135deg, hsl(var(--bingo-teal)), hsl(var(--bingo-purple)));
-    }
-    .bg-gradient-hot {
-      background: linear-gradient(135deg, hsl(var(--bingo-pink)), hsl(var(--bingo-orange)));
-    }
+    body { font-family: 'Nunito', sans-serif; background-color: #f0fdfa; color: #1e293b; }
+    h1, h2, h3, .font-display { font-family: 'Fredoka', sans-serif; }
+    
+    .bg-gradient-party { background: linear-gradient(135deg, #1a9a8a, #8b5cf6); }
+    .bg-gradient-hot { background: linear-gradient(135deg, #eb2f96, #f97316); }
     .text-gradient-party {
-      background: linear-gradient(135deg, hsl(var(--bingo-teal)), hsl(var(--bingo-purple)));
+      background: linear-gradient(135deg, #1a9a8a, #8b5cf6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
     }
-    .shadow-bingo {
-      box-shadow: 0 8px 30px -8px hsl(var(--bingo-teal) / 0.4);
-    }
-    .shadow-pink {
-      box-shadow: 0 8px 30px -8px hsl(var(--bingo-pink) / 0.4);
-    }
+    
+    .shadow-pink { box-shadow: 0 8px 30px -8px rgba(235, 47, 150, 0.4); }
+    .shadow-bingo { box-shadow: 0 8px 30px -8px rgba(26, 154, 138, 0.4); }
 
-    /* Cropper Modal Fixes */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7); z-index: 100;
-      display: none; align-items: center; justify-content: center;
+    /* Cropper Modal - Fixed White Background */
+    .modal-overlay { 
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
+      z-index: 50; display: none; align-items: center; justify-content: center; 
     }
-    .modal-content {
-      background: white; padding: 20px; border-radius: 20px;
-      width: 90%; max-width: 400px;
+    .modal-content { 
+      background: white; padding: 24px; border-radius: 24px; 
+      width: 95%; max-width: 450px; display: flex; flex-direction: column; 
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
-    .cropper-container {
-      height: 300px; width: 100%; background: #000; overflow: hidden;
-      border-radius: 12px; margin-top: 10px;
+    .cropper-container { 
+      height: 350px; width: 100%; 
+      background: #f3f4f6; /* Light gray instead of black */
+      margin-bottom: 16px; border-radius: 12px; overflow: hidden; 
+      position: relative;
+    }
+    /* Ensure image fits */
+    .cropper-container img {
+        display: block;
+        max-width: 100%;
     }
   </style>
 </head>
-<body class="bg-background min-h-screen pb-20 selection:bg-bingo-pink selection:text-white">
+<body class="min-h-screen pb-20 px-4 pt-6 max-w-md mx-auto selection:bg-pink-500 selection:text-white">
 
-  <main class="container mx-auto px-4 pt-8 max-w-md relative">
-    
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
       <div class="absolute -top-6 -left-6 animate-float" style="animation-duration: 4s;">
-        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-bingo-teal shadow-bingo flex items-center justify-center text-white font-display font-bold text-lg opacity-80">B</div>
+        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 shadow-bingo flex items-center justify-center text-white font-bold text-lg opacity-80">B</div>
       </div>
       <div class="absolute top-20 -right-4 animate-float" style="animation-delay: 1s;">
-        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-secondary to-bingo-pink shadow-pink flex items-center justify-center text-white font-display font-bold text-sm opacity-80">I</div>
-      </div>
-      <div class="absolute top-40 left-8 animate-float" style="animation-delay: 2s;">
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-bingo-yellow to-bingo-orange flex items-center justify-center text-white font-display font-bold text-xs opacity-60">N</div>
+        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-pink-700 shadow-pink flex items-center justify-center text-white font-bold text-sm opacity-80">I</div>
       </div>
     </div>
 
-    <div class="text-center mb-8 relative z-10">
-      <div class="inline-block relative">
-        <h1 class="text-4xl font-bold text-primary mb-1 tracking-tight">Magnetic<br/>Memories</h1>
-        <div class="absolute -right-6 -top-2 animate-wiggle">
-          <i data-lucide="sparkles" class="w-6 h-6 text-bingo-yellow fill-bingo-yellow"></i>
+    <header class="text-center mb-8 relative z-10">
+      <div class="relative inline-block">
+        <img src="./logo.png" alt="Magnetic Memories" class="w-64 mx-auto mb-2 object-contain" />
+        
+        <div class="absolute -right-2 -top-2 animate-wiggle">
+          <i data-lucide="sparkles" class="w-6 h-6 text-yellow-400 fill-yellow-400"></i>
         </div>
       </div>
-      <p class="text-muted-foreground font-medium mt-2 bg-white/50 backdrop-blur-sm py-1 px-3 rounded-full inline-block border border-white/50">Bonkers Bingo Special Edition 🎱</p>
-    </div>
+      <p class="text-gray-500 font-medium mt-1 bg-white/80 backdrop-blur-sm py-1 px-4 rounded-full inline-block border border-gray-200 shadow-sm">
+        Bonkers Bingo Special Edition 🎱
+      </p>
+    </header>
 
     <section class="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        <div class="bg-secondary/10 p-2 rounded-lg">
-          <i data-lucide="ticket" class="w-5 h-5 text-secondary"></i>
+      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <div class="bg-pink-100 p-2 rounded-lg">
+          <i data-lucide="ticket" class="w-5 h-5 text-pink-600"></i>
         </div>
         1. Choose your pack
       </h2>
@@ -212,77 +143,80 @@
     </section>
 
     <section class="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        <div class="bg-bingo-purple/10 p-2 rounded-lg">
-          <i data-lucide="camera" class="w-5 h-5 text-bingo-purple"></i>
+      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <div class="bg-purple-100 p-2 rounded-lg">
+          <i data-lucide="camera" class="w-5 h-5 text-purple-600"></i>
         </div>
         2. Add your photos
       </h2>
       
-      <div class="bg-card rounded-3xl p-4 shadow-sm border border-border">
+      <div class="bg-white rounded-3xl p-4 shadow-sm border border-gray-200">
         <div class="grid grid-cols-3 gap-3" id="image-grid">
           </div>
         
         <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
         
         <div class="flex items-center justify-center gap-2 py-4">
-          <span class="font-display text-2xl font-bold text-muted-foreground transition-colors" id="counter-text">0/0</span>
-          <span class="text-muted-foreground">photos selected</span>
+          <span class="font-display text-2xl font-bold text-gray-400" id="counter-text">0/0</span>
+          <span class="text-gray-400 text-sm">photos selected</span>
         </div>
       </div>
     </section>
 
     <section id="details-section" class="mb-8 hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        <div class="bg-bingo-orange/10 p-2 rounded-lg">
-          <i data-lucide="user" class="w-5 h-5 text-bingo-orange"></i>
+      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <div class="bg-orange-100 p-2 rounded-lg">
+          <i data-lucide="user" class="w-5 h-5 text-orange-600"></i>
         </div>
         3. Your details
       </h2>
       <div class="space-y-3">
         <div class="relative">
-          <i data-lucide="phone" class="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground"></i>
-          <input type="tel" id="phone" placeholder="Mobile number" class="w-full pl-10 h-12 rounded-xl border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all" />
+          <i data-lucide="phone" class="absolute left-3 top-3.5 w-5 h-5 text-gray-400"></i>
+          <input type="tel" id="phone" placeholder="Mobile number" class="w-full pl-10 h-12 rounded-xl border border-gray-200 bg-white px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all shadow-sm" />
         </div>
         <div class="relative">
-          <i data-lucide="mail" class="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground"></i>
-          <input type="email" id="email" placeholder="Email address" class="w-full pl-10 h-12 rounded-xl border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all" />
+          <i data-lucide="mail" class="absolute left-3 top-3.5 w-5 h-5 text-gray-400"></i>
+          <input type="email" id="email" placeholder="Email address" class="w-full pl-10 h-12 rounded-xl border border-gray-200 bg-white px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all shadow-sm" />
         </div>
       </div>
     </section>
 
-    <button id="submit-btn" disabled class="w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-muted text-muted-foreground cursor-not-allowed shadow-lg relative overflow-hidden group">
+    <button id="submit-btn" disabled class="w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-gray-200 text-gray-400 cursor-not-allowed shadow-lg relative overflow-hidden group mb-8">
       <span class="relative z-10 flex items-center justify-center gap-2" id="submit-text">
         Select photos to start
       </span>
     </button>
 
-    <footer class="text-center text-sm text-muted-foreground pt-8 pb-8">
+    <footer class="text-center text-sm text-gray-400 pb-8">
       <p>Small magnets, big memories ❤️</p>
       <p class="mt-1">Collect from the stall tonight!</p>
     </footer>
 
-  </main>
-
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-in zoom-in-95 duration-200">
-      <h3 class="text-lg font-bold mb-2 font-display text-foreground">Crop your photo</h3>
-      <p class="text-sm text-muted-foreground mb-2">Adjust to fit the square magnet.</p>
-      <div class="cropper-container">
-        <img id="crop-image" src="" style="max-width:100%;">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold font-display text-gray-800">Crop your photo</h3>
       </div>
-      <div class="flex gap-2 justify-end mt-4">
-        <button id="crop-cancel" class="px-4 py-2 text-muted-foreground font-medium hover:bg-muted rounded-lg transition-colors">Cancel</button>
-        <button id="crop-confirm" class="px-4 py-2 bg-primary text-white rounded-lg font-bold shadow-bingo hover:opacity-90 transition-opacity">Save Crop</button>
+      
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
+      
+      <p class="text-xs text-gray-500 text-center mt-2 mb-4">Drag to move • Pinch to zoom</p>
+
+      <div class="flex gap-3 justify-end">
+        <button id="crop-cancel" class="px-5 py-3 text-gray-600 font-bold bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors w-1/2">Cancel</button>
+        <button id="crop-confirm" class="px-5 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-bold shadow-bingo hover:opacity-90 transition-opacity w-1/2">Save</button>
       </div>
     </div>
   </div>
 
   <script>
-    // Initialize Icons
+    // Icons
     lucide.createIcons();
 
-    // Configuration from Index.tsx
+    // Config
     const packs = [
       { id: "1", count: 1, price: 3 },
       { id: "3", count: 3, price: 7 },
@@ -292,10 +226,9 @@
       { id: "15", count: 15, price: 30 },
     ];
 
-    // State
     let state = {
       selectedPack: "6",
-      files: [] // { id, file, preview, blob }
+      files: []
     };
 
     // Elements
@@ -306,28 +239,27 @@
     const detailsSection = document.getElementById('details-section');
     const fileInput = document.getElementById('fileInput');
 
-    // --- RENDERING ---
+    // --- RENDER FUNCTIONS ---
 
     function renderPacks() {
       packGrid.innerHTML = packs.map(pack => {
         const isSelected = state.selectedPack === pack.id;
         const activeClass = isSelected 
-          ? "border-secondary bg-secondary/10 shadow-pink ring-2 ring-secondary" 
-          : "border-border bg-card hover:border-primary/50 hover:bg-muted/30";
+          ? "border-pink-500 bg-pink-50 shadow-pink ring-2 ring-pink-500" 
+          : "border-gray-200 bg-white hover:border-teal-300 hover:bg-teal-50";
         
         return `
           <div class="relative ${pack.popular ? 'col-span-2' : ''}" onclick="selectPack('${pack.id}')">
             ${pack.popular ? `
               <span class="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-gradient-hot text-white text-[10px] font-bold px-3 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                MOST POPULAR
+                🔥 MOST POPULAR
               </span>
             ` : ''}
             <button class="w-full p-3 sm:p-4 rounded-2xl border-2 transition-all duration-200 active:scale-95 text-left ${activeClass}">
               <div class="flex items-center justify-between gap-2">
                 <div>
-                  <p class="font-display text-lg sm:text-2xl font-bold text-foreground">${pack.count} ${pack.count===1?'magnet':'magnets'}</p>
-                  <p class="text-muted-foreground text-xs font-semibold">£${(pack.price/pack.count).toFixed(2)} each</p>
+                  <p class="font-display text-lg sm:text-2xl font-bold text-gray-800">${pack.count} ${pack.count==1?'magnet':'magnets'}</p>
+                  <p class="text-gray-500 text-xs font-semibold">£${(pack.price/pack.count).toFixed(2)} each</p>
                 </div>
                 <p class="font-display text-2xl sm:text-3xl font-bold text-gradient-party">£${pack.price}</p>
               </div>
@@ -341,25 +273,23 @@
       const required = getRequiredCount();
       let html = '';
 
-      // Uploaded Images
       state.files.forEach(img => {
         html += `
-          <div class="relative aspect-square rounded-xl overflow-hidden shadow-sm border border-border group animate-in zoom-in duration-300">
+          <div class="relative aspect-square rounded-xl overflow-hidden shadow-sm border border-gray-200 group animate-in zoom-in duration-300">
             <img src="${img.preview}" class="w-full h-full object-cover">
-            <button onclick="removeImage('${img.id}')" class="absolute top-1 right-1 w-7 h-7 bg-destructive rounded-full flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform hover:bg-red-600">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            <button onclick="removeImage('${img.id}')" class="absolute top-1 right-1 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
           </div>
         `;
       });
 
-      // Empty Slots
       const remaining = required - state.files.length;
       for (let i = 0; i < remaining; i++) {
         html += `
-          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center bg-muted/30 cursor-pointer hover:border-secondary hover:bg-secondary/5 transition-all active:scale-95 group">
-            <div class="w-8 h-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-white transition-colors">
-              <svg class="w-4 h-4 text-muted-foreground group-hover:text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-gray-50 cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-all active:scale-95 group">
+            <div class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg class="w-5 h-5 text-gray-400 group-hover:text-teal-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
             </div>
           </div>
         `;
@@ -367,7 +297,7 @@
 
       imageGrid.innerHTML = html;
       counterText.textContent = `${state.files.length}/${required}`;
-      counterText.className = `font-display text-2xl font-bold transition-colors ${state.files.length === required ? 'text-primary' : 'text-muted-foreground'}`;
+      counterText.className = `font-display text-2xl font-bold transition-colors ${state.files.length === required ? 'text-teal-600' : 'text-gray-300'}`;
       
       updateUIState();
     }
@@ -382,19 +312,18 @@
         submitBtn.disabled = false;
         submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-gradient-hot text-white shadow-pink animate-pulse-glow active:scale-95 hover:opacity-90";
         document.getElementById('submit-text').innerHTML = `
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
-          Order ${pack.count} Magnets — £${pack.price}
+          PAY £${pack.price} NOW
         `;
       } else {
         detailsSection.classList.add('hidden');
         submitBtn.disabled = true;
-        submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-muted text-muted-foreground cursor-not-allowed opacity-70";
+        submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-gray-100 text-gray-400 cursor-not-allowed";
         const needed = required - state.files.length;
         document.getElementById('submit-text').textContent = `Add ${needed} more photo${needed>1?'s':''}`;
       }
     }
 
-    // --- LOGIC ---
+    // --- HELPER LOGIC ---
 
     function getRequiredCount() {
       return packs.find(p => p.id === state.selectedPack)?.count || 0;
@@ -403,7 +332,6 @@
     window.selectPack = (id) => {
       state.selectedPack = id;
       const required = getRequiredCount();
-      // Trim if too many
       if (state.files.length > required) {
         state.files = state.files.slice(0, required);
       }
@@ -416,66 +344,74 @@
       renderImages();
     };
 
-    // File Input
+    // --- CROPPER LOGIC (FIXED) ---
+    
+    let cropQueue = [];
+    let currentTask = null; 
+    let cropper = null;
+    const modal = document.getElementById('crop-modal');
+    const cropImg = document.getElementById('crop-image');
+
     fileInput.addEventListener('change', (e) => {
       if (!e.target.files.length) return;
       const required = getRequiredCount();
       const slotsLeft = required - state.files.length;
       if (slotsLeft <= 0) return;
 
-      const newFiles = Array.from(e.target.files).slice(0, slotsLeft).map(file => ({
-        id: crypto.randomUUID(),
-        file: file,
-        preview: URL.createObjectURL(file),
-        blob: null // Will be filled by cropper
-      }));
-
-      // Start cropping chain
+      const newFiles = Array.from(e.target.files).slice(0, slotsLeft);
       processCropQueue(newFiles);
-      fileInput.value = ""; // Reset
+      fileInput.value = ""; 
     });
 
-    // --- CROPPER ---
-    let cropper = null;
-    let currentTask = null; // { fileObj, resolve }
-    const modal = document.getElementById('crop-modal');
-    const cropImg = document.getElementById('crop-image');
-
     async function processCropQueue(files) {
-      for (const f of files) {
+      for (const file of files) {
         await new Promise(resolve => {
-          openCropper(f, resolve);
+          startCropper(file, resolve);
         });
       }
       renderImages();
     }
 
-    function openCropper(fileObj, resolve) {
-      currentTask = { fileObj, resolve };
-      cropImg.src = fileObj.preview;
-      modal.style.display = "flex";
+    function startCropper(file, resolve) {
+      currentTask = { file, resolve };
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        cropImg.src = e.target.result;
+        modal.style.display = "flex";
+        
+        // Destroy old cropper if exists
+        if (cropper) { cropper.destroy(); }
 
-      if (cropper) cropper.destroy();
-      cropper = new Cropper(cropImg, {
-        aspectRatio: 1,
-        viewMode: 1,
-        guides: false,
-        autoCropArea: 1,
-        background: false,
-        dragMode: 'move'
-      });
+        // Initialize new cropper
+        cropper = new Cropper(cropImg, {
+          aspectRatio: 1,
+          viewMode: 1,
+          dragMode: 'move',
+          autoCropArea: 1,
+          background: false, // Transparent background
+          guides: false,
+          center: false,
+          highlight: false,
+          toggleDragModeOnDblclick: false,
+        });
+      };
+      reader.readAsDataURL(file);
     }
 
     document.getElementById('crop-confirm').onclick = () => {
       if (!cropper || !currentTask) return;
       
-      cropper.getCroppedCanvas({ width: 1200, height: 1200, fillColor: '#fff' }).toBlob((blob) => {
-        const finalUrl = URL.createObjectURL(blob);
+      cropper.getCroppedCanvas({
+        width: 1200, height: 1200, 
+        imageSmoothingQuality: 'high'
+      }).toBlob((blob) => {
+        const previewUrl = URL.createObjectURL(blob);
         
         state.files.push({
-          id: currentTask.fileObj.id,
-          file: currentTask.fileObj.file,
-          preview: finalUrl,
+          id: crypto.randomUUID(),
+          file: currentTask.file,
+          preview: previewUrl,
           blob: blob
         });
 
@@ -486,7 +422,7 @@
 
     document.getElementById('crop-cancel').onclick = () => {
       closeModal();
-      if (currentTask) currentTask.resolve(); // Skip this one
+      if (currentTask) currentTask.resolve(); 
     };
 
     function closeModal() {
@@ -497,54 +433,55 @@
       }
     }
 
-    // --- SUBMISSION ---
+    // --- PAYMENT SUBMISSION ---
+
     submitBtn.onclick = async () => {
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
 
       if (!email || !phone) {
-        alert("Please enter your contact details!");
+        // Highlight inputs
+        if(!email) document.getElementById('email').classList.add('ring-2', 'ring-red-500');
+        if(!phone) document.getElementById('phone').classList.add('ring-2', 'ring-red-500');
+        alert("Please enter your email and phone so we can send your receipt!");
         return;
       }
 
       submitBtn.disabled = true;
-      submitBtn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+      submitBtn.innerHTML = `Processing...`;
 
       try {
-        // 1. Create Order with BINGO tag
-        const orderPayload = {
-          email, phone,
-          packSize: state.selectedPack,
-          packType: 'standard',
-          socialPermission: true,
-          shippingMethod: "GI_COLLECT", // Forced for event
-          event: "BINGO" // <--- Important
-        };
-
+        // 1. Create Order
         const res = await fetch("/api/order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(orderPayload)
+          body: JSON.stringify({
+            email, phone,
+            packSize: state.selectedPack,
+            packType: 'standard',
+            socialPermission: true,
+            shippingMethod: "GI_COLLECT",
+            event: "BINGO"
+          })
         });
 
-        if (!res.ok) throw new Error("Order failed");
+        if (!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
         // 2. Upload Images
-        document.getElementById('submit-text').innerText = "Uploading...";
+        submitBtn.innerHTML = `Uploading...`;
         for (const item of state.files) {
-          const formData = new FormData();
+          const form = new FormData();
           const fname = (item.file.name || "photo.jpg").replace(/\.[^/.]+$/, "") + ".jpg";
-          formData.append("file", item.blob, fname);
+          form.append("file", item.blob, fname);
           
           await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-            method: "POST",
-            body: formData
+            method: "POST", body: form
           });
         }
 
         // 3. Checkout
-        document.getElementById('submit-text').innerText = "Redirecting...";
+        submitBtn.innerHTML = `Redirecting...`;
         const ckRes = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -552,7 +489,7 @@
             orderId, email,
             packSize: state.selectedPack,
             packType: 'standard',
-            country: "GI_COLLECT" // Free shipping
+            country: "GI_COLLECT"
           })
         });
 
@@ -561,13 +498,20 @@
 
       } catch (err) {
         console.error(err);
-        alert("Something went wrong. Please check your connection.");
+        alert("Connection error. Please try again!");
         submitBtn.disabled = false;
         updateUIState();
       }
     };
 
-    // Init
+    // Remove red rings on input
+    ['email', 'phone'].forEach(id => {
+      document.getElementById(id).addEventListener('input', (e) => {
+        e.target.classList.remove('ring-2', 'ring-red-500');
+      });
+    });
+
+    // Start
     renderPacks();
     renderImages();
   </script>
