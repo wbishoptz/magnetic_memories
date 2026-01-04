@@ -30,9 +30,6 @@
             foreground: "hsl(200 30% 15%)",
             primary: "hsl(175 60% 35%)", // Teal
             secondary: "hsl(330 80% 55%)", // Pink
-            muted: "hsl(270 20% 94%)",
-            "muted-foreground": "hsl(200 15% 45%)",
-            card: "hsl(0 0% 100%)",
             // Custom Bingo Colors
             "bingo-teal": "#1a9a8a",
             "bingo-pink": "#eb2f96",
@@ -47,22 +44,10 @@
             'float': 'float 3s ease-in-out infinite',
           },
           keyframes: {
-            'bounce-gentle': {
-              '0%, 100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(-8px)' },
-            },
-            'wiggle': {
-              '0%, 100%': { transform: 'rotate(-3deg)' },
-              '50%': { transform: 'rotate(3deg)' },
-            },
-            'pulse-glow': {
-              '0%, 100%': { boxShadow: '0 0 20px rgba(235, 47, 150, 0.4)' },
-              '50%': { boxShadow: '0 0 40px rgba(235, 47, 150, 0.6)' },
-            },
-            'float': {
-              '0%, 100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(-10px)' },
-            }
+            'bounce-gentle': { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
+            'wiggle': { '0%, 100%': { transform: 'rotate(-3deg)' }, '50%': { transform: 'rotate(3deg)' } },
+            'pulse-glow': { '0%, 100%': { boxShadow: '0 0 20px rgba(235, 47, 150, 0.4)' }, '50%': { boxShadow: '0 0 40px rgba(235, 47, 150, 0.6)' } },
+            'float': { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } }
           }
         }
       }
@@ -80,11 +65,10 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    
     .shadow-pink { box-shadow: 0 8px 30px -8px rgba(235, 47, 150, 0.4); }
     .shadow-bingo { box-shadow: 0 8px 30px -8px rgba(26, 154, 138, 0.4); }
 
-    /* Cropper Modal - Fixed White Background */
+    /* Modals */
     .modal-overlay { 
       position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
       z-index: 50; display: none; align-items: center; justify-content: center; 
@@ -92,36 +76,29 @@
     .modal-content { 
       background: white; padding: 24px; border-radius: 24px; 
       width: 95%; max-width: 450px; display: flex; flex-direction: column; 
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     }
     .cropper-container { 
       height: 350px; width: 100%; 
-      background: #f3f4f6; /* Light gray instead of black */
-      margin-bottom: 16px; border-radius: 12px; overflow: hidden; 
-      position: relative;
+      background: #f3f4f6; margin-bottom: 16px; border-radius: 12px; overflow: hidden; 
     }
-    /* Ensure image fits */
-    .cropper-container img {
-        display: block;
-        max-width: 100%;
-    }
+    .cropper-container img { display: block; max-width: 100%; }
   </style>
 </head>
 <body class="min-h-screen pb-20 px-4 pt-6 max-w-md mx-auto selection:bg-pink-500 selection:text-white">
 
     <div class="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-      <div class="absolute -top-6 -left-6 animate-float" style="animation-duration: 4s;">
-        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 shadow-bingo flex items-center justify-center text-white font-bold text-lg opacity-80">B</div>
+      <div class="absolute top-4 left-2 animate-float" style="animation-duration: 4s;">
+        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 shadow-bingo flex items-center justify-center text-white font-bold text-2xl border-4 border-white/20 transform rotate-12">88</div>
       </div>
-      <div class="absolute top-20 -right-4 animate-float" style="animation-delay: 1s;">
-        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-pink-700 shadow-pink flex items-center justify-center text-white font-bold text-sm opacity-80">I</div>
+      <div class="absolute top-20 right-2 animate-float" style="animation-delay: 1s;">
+        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-pink-700 shadow-pink flex items-center justify-center text-white font-bold text-xl border-4 border-white/20 transform -rotate-12">22</div>
       </div>
     </div>
 
-    <header class="text-center mb-8 relative z-10">
+    <header class="text-center mb-8 relative z-10 mt-4">
       <div class="relative inline-block">
         <img src="./logo.png" alt="Magnetic Memories" class="w-64 mx-auto mb-2 object-contain" />
-        
         <div class="absolute -right-2 -top-2 animate-wiggle">
           <i data-lucide="sparkles" class="w-6 h-6 text-yellow-400 fill-yellow-400"></i>
         </div>
@@ -198,16 +175,26 @@
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-bold font-display text-gray-800">Crop your photo</h3>
       </div>
-      
       <div class="cropper-container">
         <img id="crop-image" src="" alt="Crop preview" />
       </div>
-      
-      <p class="text-xs text-gray-500 text-center mt-2 mb-4">Drag to move • Pinch to zoom</p>
-
       <div class="flex gap-3 justify-end">
         <button id="crop-cancel" class="px-5 py-3 text-gray-600 font-bold bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors w-1/2">Cancel</button>
         <button id="crop-confirm" class="px-5 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-bold shadow-bingo hover:opacity-90 transition-opacity w-1/2">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="upgrade-modal" class="modal-overlay">
+    <div class="modal-content animate-in zoom-in-95 duration-200 text-center">
+      <div class="mx-auto w-12 h-12 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center mb-4">
+        <i data-lucide="sparkles" class="w-6 h-6"></i>
+      </div>
+      <h3 id="upgrade-title" class="text-xl font-bold font-display text-gray-800 mb-2">Upgrade Pack?</h3>
+      <p id="upgrade-text" class="text-gray-500 mb-6">You've selected more photos than your current pack allows.</p>
+      <div class="flex gap-3">
+        <button id="upgrade-cancel" class="flex-1 px-4 py-3 text-gray-600 font-bold bg-gray-100 rounded-xl hover:bg-gray-200">No, remove extras</button>
+        <button id="upgrade-confirm" class="flex-1 px-4 py-3 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl font-bold shadow-pink hover:opacity-90">Yes, Upgrade!</button>
       </div>
     </div>
   </div>
@@ -238,8 +225,15 @@
     const submitBtn = document.getElementById('submit-btn');
     const detailsSection = document.getElementById('details-section');
     const fileInput = document.getElementById('fileInput');
+    
+    // Modal Elements
+    const upgradeModal = document.getElementById('upgrade-modal');
+    const upgradeTitle = document.getElementById('upgrade-title');
+    const upgradeText = document.getElementById('upgrade-text');
+    const upgradeConfirm = document.getElementById('upgrade-confirm');
+    const upgradeCancel = document.getElementById('upgrade-cancel');
 
-    // --- RENDER FUNCTIONS ---
+    // --- RENDER ---
 
     function renderPacks() {
       packGrid.innerHTML = packs.map(pack => {
@@ -249,7 +243,7 @@
           : "border-gray-200 bg-white hover:border-teal-300 hover:bg-teal-50";
         
         return `
-          <div class="relative ${pack.popular ? 'col-span-2' : ''}" onclick="selectPack('${pack.id}')">
+          <div class="relative ${pack.popular ? 'col-span-2' : ''}" onclick="trySelectPack('${pack.id}')">
             ${pack.popular ? `
               <span class="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-gradient-hot text-white text-[10px] font-bold px-3 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1">
                 🔥 MOST POPULAR
@@ -323,45 +317,117 @@
       }
     }
 
-    // --- HELPER LOGIC ---
+    // --- LOGIC ---
 
     function getRequiredCount() {
       return packs.find(p => p.id === state.selectedPack)?.count || 0;
     }
 
-    window.selectPack = (id) => {
-      state.selectedPack = id;
-      const required = getRequiredCount();
-      if (state.files.length > required) {
-        state.files = state.files.slice(0, required);
+    // --- NEW: UPGRADE / DOWNGRADE LOGIC ---
+    let pendingPackId = null;
+
+    window.trySelectPack = (id) => {
+      const newPack = packs.find(p => p.id === id);
+      const currentCount = state.files.length;
+
+      // If downsizing and we have too many photos
+      if (currentCount > newPack.count) {
+        pendingPackId = id;
+        const diff = currentCount - newPack.count;
+        upgradeTitle.innerText = "Too many photos!";
+        upgradeText.innerText = `This pack only allows ${newPack.count} photos. You have ${currentCount}. Remove ${diff} photos?`;
+        upgradeConfirm.innerText = `Remove ${diff} Photos`;
+        upgradeCancel.innerText = "Cancel";
+        
+        // Re-purpose the modal for downgrading logic
+        upgradeConfirm.onclick = confirmDowngrade;
+        upgradeCancel.onclick = () => { upgradeModal.style.display = 'none'; };
+        upgradeModal.style.display = 'flex';
+        return;
       }
+
+      state.selectedPack = id;
       renderPacks();
       renderImages();
     };
+
+    function confirmDowngrade() {
+      const newPack = packs.find(p => p.id === pendingPackId);
+      state.files = state.files.slice(0, newPack.count); // Trim excess
+      state.selectedPack = pendingPackId;
+      upgradeModal.style.display = 'none';
+      renderPacks();
+      renderImages();
+    }
+
+    // --- NEW: FILE UPLOAD LOGIC WITH UPGRADE PROMPT ---
+    fileInput.addEventListener('change', (e) => {
+      if (!e.target.files.length) return;
+      
+      const required = getRequiredCount();
+      const current = state.files.length;
+      const adding = e.target.files.length;
+      const total = current + adding;
+
+      // Check if we are exceeding the current pack
+      if (total > required) {
+        // Find next biggest pack
+        const nextPack = packs.find(p => p.count >= total);
+        
+        if (nextPack && nextPack.id !== state.selectedPack) {
+          // PROMPT UPGRADE
+          pendingFiles = Array.from(e.target.files);
+          pendingPackId = nextPack.id;
+          
+          upgradeTitle.innerText = "Upgrade Pack?";
+          upgradeText.innerText = `You added ${total} photos total. Upgrade to the ${nextPack.count}-magnet pack for £${nextPack.price}?`;
+          upgradeConfirm.innerText = `Yes, Upgrade to £${nextPack.price}`;
+          upgradeCancel.innerText = "No, keep current pack";
+          
+          upgradeConfirm.onclick = confirmUpgrade;
+          upgradeCancel.onclick = () => {
+            // If they cancel, only add what fits
+            const slotsLeft = required - current;
+            if (slotsLeft > 0) {
+              const toAdd = Array.from(e.target.files).slice(0, slotsLeft);
+              processCropQueue(toAdd);
+            }
+            upgradeModal.style.display = 'none';
+            fileInput.value = "";
+          };
+          
+          upgradeModal.style.display = 'flex';
+          return;
+        }
+      }
+
+      // Standard behavior (fill up to limit)
+      const slotsLeft = required - current;
+      if (slotsLeft > 0) {
+        const newFiles = Array.from(e.target.files).slice(0, slotsLeft);
+        processCropQueue(newFiles);
+      }
+      fileInput.value = ""; 
+    });
+
+    let pendingFiles = [];
+    function confirmUpgrade() {
+      state.selectedPack = pendingPackId;
+      processCropQueue(pendingFiles);
+      upgradeModal.style.display = 'none';
+      renderPacks(); // Will update UI to show new pack selected
+    }
 
     window.removeImage = (id) => {
       state.files = state.files.filter(f => f.id !== id);
       renderImages();
     };
 
-    // --- CROPPER LOGIC (FIXED) ---
-    
-    let cropQueue = [];
-    let currentTask = null; 
+    // --- CROPPER ---
     let cropper = null;
+    let currentTask = null; 
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
-
-    fileInput.addEventListener('change', (e) => {
-      if (!e.target.files.length) return;
-      const required = getRequiredCount();
-      const slotsLeft = required - state.files.length;
-      if (slotsLeft <= 0) return;
-
-      const newFiles = Array.from(e.target.files).slice(0, slotsLeft);
-      processCropQueue(newFiles);
-      fileInput.value = ""; 
-    });
 
     async function processCropQueue(files) {
       for (const file of files) {
@@ -374,26 +440,13 @@
 
     function startCropper(file, resolve) {
       currentTask = { file, resolve };
-      
       const reader = new FileReader();
       reader.onload = (e) => {
         cropImg.src = e.target.result;
         modal.style.display = "flex";
-        
-        // Destroy old cropper if exists
-        if (cropper) { cropper.destroy(); }
-
-        // Initialize new cropper
+        if (cropper) cropper.destroy();
         cropper = new Cropper(cropImg, {
-          aspectRatio: 1,
-          viewMode: 1,
-          dragMode: 'move',
-          autoCropArea: 1,
-          background: false, // Transparent background
-          guides: false,
-          center: false,
-          highlight: false,
-          toggleDragModeOnDblclick: false,
+          aspectRatio: 1, viewMode: 1, dragMode: 'move', autoCropArea: 1, background: false, guides: false, center: false, highlight: false, toggleDragModeOnDblclick: false,
         });
       };
       reader.readAsDataURL(file);
@@ -401,20 +454,9 @@
 
     document.getElementById('crop-confirm').onclick = () => {
       if (!cropper || !currentTask) return;
-      
-      cropper.getCroppedCanvas({
-        width: 1200, height: 1200, 
-        imageSmoothingQuality: 'high'
-      }).toBlob((blob) => {
+      cropper.getCroppedCanvas({ width: 1200, height: 1200, imageSmoothingQuality: 'high' }).toBlob((blob) => {
         const previewUrl = URL.createObjectURL(blob);
-        
-        state.files.push({
-          id: crypto.randomUUID(),
-          file: currentTask.file,
-          preview: previewUrl,
-          blob: blob
-        });
-
+        state.files.push({ id: crypto.randomUUID(), file: currentTask.file, preview: previewUrl, blob: blob });
         closeModal();
         currentTask.resolve();
       }, 'image/jpeg', 0.95);
@@ -427,20 +469,15 @@
 
     function closeModal() {
       modal.style.display = "none";
-      if (cropper) {
-        cropper.destroy();
-        cropper = null;
-      }
+      if (cropper) { cropper.destroy(); cropper = null; }
     }
 
     // --- PAYMENT SUBMISSION ---
-
     submitBtn.onclick = async () => {
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
 
       if (!email || !phone) {
-        // Highlight inputs
         if(!email) document.getElementById('email').classList.add('ring-2', 'ring-red-500');
         if(!phone) document.getElementById('phone').classList.add('ring-2', 'ring-red-500');
         alert("Please enter your email and phone so we can send your receipt!");
@@ -451,45 +488,31 @@
       submitBtn.innerHTML = `Processing...`;
 
       try {
-        // 1. Create Order
         const res = await fetch("/api/order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email, phone,
-            packSize: state.selectedPack,
-            packType: 'standard',
-            socialPermission: true,
-            shippingMethod: "GI_COLLECT",
-            event: "BINGO"
+            email, phone, packSize: state.selectedPack, packType: 'standard', socialPermission: true, shippingMethod: "GI_COLLECT", event: "BINGO"
           })
         });
 
         if (!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
-        // 2. Upload Images
         submitBtn.innerHTML = `Uploading...`;
         for (const item of state.files) {
           const form = new FormData();
           const fname = (item.file.name || "photo.jpg").replace(/\.[^/.]+$/, "") + ".jpg";
           form.append("file", item.blob, fname);
-          
-          await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-            method: "POST", body: form
-          });
+          await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, { method: "POST", body: form });
         }
 
-        // 3. Checkout
         submitBtn.innerHTML = `Redirecting...`;
         const ckRes = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId, email,
-            packSize: state.selectedPack,
-            packType: 'standard',
-            country: "GI_COLLECT"
+            orderId, email, packSize: state.selectedPack, packType: 'standard', country: "GI_COLLECT"
           })
         });
 
@@ -504,14 +527,12 @@
       }
     };
 
-    // Remove red rings on input
     ['email', 'phone'].forEach(id => {
       document.getElementById(id).addEventListener('input', (e) => {
         e.target.classList.remove('ring-2', 'ring-red-500');
       });
     });
 
-    // Start
     renderPacks();
     renderImages();
   </script>
