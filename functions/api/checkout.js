@@ -2,7 +2,8 @@
 // POST /api/checkout
 
 const PACKS = [3, 6, 9, 12, 15];
-const PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+// FIX: Added '1: 3' so it knows the price for single magnets
+const PRICES = { 1: 3, 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 // NEW VOUCHER CONFIGURATION
 const VOUCHERS = { 
@@ -55,8 +56,10 @@ export async function onRequestPost({ request, env }) {
         isVoucherPurchase = true;
     } else {
         let size = Number(packSizeRaw) || 3;
-        if (!PACKS.includes(size)) size = 3;
-        price = PRICES[size];
+        // Check standard packs OR size 1
+        if (!PACKS.includes(size) && size !== 1) size = 3;
+        
+        price = PRICES[size]; // This will now correctly pick up '3' for size 1
         
         let type = kvOrder?.packType || body?.packType || "standard";
         productName = `${size} custom photo magnets`;
@@ -65,6 +68,12 @@ export async function onRequestPost({ request, env }) {
             productName = `Jigsaw Picture (${size} magnets)`;
             productDesc = "One large photo split across magnets.";
         }
+    }
+
+    // --- INJECT BINGO ORDER NUMBER ---
+    // If this is a bingo order, prefix the product name with "Order #X"
+    if (kvOrder && kvOrder.bingoNumber) {
+        productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
     // --- APPLY DISCOUNT CODE (PARTIAL BALANCE LOGIC) ---
@@ -117,7 +126,6 @@ export async function onRequestPost({ request, env }) {
     // --- 100% DISCOUNT HANDLING ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
-            // 1. Update Voucher Balance
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
             const newBalance = currentBalance - discountAmount;
             
@@ -129,14 +137,12 @@ export async function onRequestPost({ request, env }) {
             voucherData.usedByOrder = orderId; 
             await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
-            // 2. Update Order
             kvOrder.status = "paid";
             kvOrder.paidAt = new Date().toISOString();
             kvOrder.price = 0;
             kvOrder.usedVoucher = voucherCode;
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
-            // 3. SEND NOTIFICATIONS
             const notifs = [
                 sendAdminEmail(kvOrder, env),
                 sendPaidTelegram(kvOrder, env),
@@ -146,13 +152,12 @@ export async function onRequestPost({ request, env }) {
 
             return jsonResponse({ checkoutUrl: successUrl });
         } else {
-            // Partial payment
             params.set("line_items[0][price_data][unit_amount]", String(finalPrice * 100));
             params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
         }
     }
 
-    // --- SHIPPING LOGIC (UPDATED WITH ATLANTIC SUITES) ---
+    // --- SHIPPING LOGIC ---
     if (!isVoucherPurchase) {
         if (targetCountry === "GB") {
             params.append("shipping_address_collection[allowed_countries][0]", "GB");
@@ -167,12 +172,10 @@ export async function onRequestPost({ request, env }) {
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
-            // Gibraltar Collection (Free)
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
-            // UPDATED LABEL HERE
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Collection (Atlantic Suites)");
         }
     }
@@ -207,10 +210,7 @@ export async function onRequestPost({ request, env }) {
 }
 
 // --- NOTIFICATION HELPERS ---
-function esc(str) {
-  if (!str) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+function esc(str) { return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
 async function fetchWithRetry(url, options, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -234,11 +234,7 @@ async function sendPaidEmail(order, env) {
     <div style="font-family: system-ui, sans-serif;">
       <h2>Thanks for your order!</h2>
       <p>We’ve received your payment (via voucher) and will start preparing your magnets shortly.</p>
-      <p>
-        <strong>Order ID:</strong> ${order.orderId}<br/>
-        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
-        <strong>Total:</strong> £0.00 (Voucher Used)
-      </p>
+      <p><strong>Order ID:</strong> ${order.orderId}</p>
       <p><a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(order.orderId)}">Track Order</a></p>
     </div>
   `;
@@ -262,12 +258,7 @@ async function sendAdminEmail(order, env) {
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>New paid order (Voucher)</h2>
-      <p>
-        <strong>Order ID:</strong> ${order.orderId}<br/>
-        <strong>Customer:</strong> ${order.email}<br/>
-        <strong>Item:</strong> ${order.packSize} magnets<br/>
-        <strong>Total:</strong> £0.00 (Voucher Used)
-      </p>
+      <p><strong>Order ID:</strong> ${order.orderId}</p>
       <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
     </div>
   `;
@@ -287,7 +278,7 @@ async function sendPaidTelegram(order, env) {
   if (!token || !chatIdsRaw) return;
 
   const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
-  const text = `💳 <b>New paid order (Voucher)</b>\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nPack: ${order.packSize} magnets\nTotal: £0.00`;
+  const text = `💳 <b>New paid order (Voucher)</b>\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nTotal: £0.00`;
 
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
   await Promise.all(chatIds.map(chatId =>

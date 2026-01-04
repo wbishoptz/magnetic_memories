@@ -254,9 +254,10 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "createdAt"]];
+        // UPDATED: Added bingoNumber to CSV export
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt"]];
         for (const o of filteredOrders) rows.push([
-            o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.createdAt || ""
+            o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || ""
         ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
@@ -329,8 +330,8 @@
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
           const isSelected = o.orderId === selectedOrderId ? " selected" : "";
-          let statusDisplay = `<span class="status-pill ${o.status}">${o.status}</span>`;
           
+          let statusDisplay = `<span class="status-pill ${o.status}">${o.status}</span>`;
           if (currentMode === 'drafts') {
               if (o.recoverySent || o.status === 'abandoned') {
                   statusDisplay = `<span class="status-pill abandoned">Abandoned</span> <span class="email-sent-badge">✉️ Sent</span>`;
@@ -339,6 +340,12 @@
               }
           } else {
               statusDisplay = `<span class="status-pill ${(o.status||'').replace(/\s+/g, '_')}">${o.status}</span>`;
+          }
+
+          // --- UPDATED: Bingo Badge Logic ---
+          if (o.event === 'BINGO') {
+              let numDisplay = o.bingoNumber ? `#${o.bingoNumber}` : '';
+              statusDisplay += ` <span class="tag" style="background:#f59e0b; color:black; font-weight:800; font-size:11px; border:none; box-shadow:0 2px 5px rgba(245, 158, 11, 0.4);">🎱 ${numDisplay}</span>`;
           }
 
           let packDisplay = o.packSize || "?";
@@ -375,11 +382,19 @@
           const order = data.order;
           if (!order) { detailsContainer.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
 
+          // --- UPDATED: Bingo Banner Logic ---
+          let topBanner = "";
+          if (order.event === 'BINGO') {
+              let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
+              topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
+          }
+
           const isVoucher = String(order.packSize).startsWith('voucher_');
           let packLabel = isVoucher ? `<span class="tag">🎁 GIFT VOUCHER</span>` : `<span class="tag">Standard</span>`;
           if (order.packType === 'big_picture') packLabel = `<span class="tag purple">🧩 JIGSAW PICTURE</span>`;
 
-          let html = `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
+          let html = topBanner;
+          html += `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
           
           html += `<div class="field-label">Status</div>`;
           if (order.status === 'draft' || order.status === 'abandoned') {
@@ -396,7 +411,6 @@
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
-          // --- NEW: Shipping Display ---
           let shipLabel = "Unknown";
           if (order.shippingMethod === 'GB') shipLabel = "🇬🇧 UK Delivery";
           else if (order.shippingMethod === 'GI_DELIVER') shipLabel = "🚚 Gibraltar Delivery";

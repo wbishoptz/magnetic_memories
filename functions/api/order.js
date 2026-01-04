@@ -21,7 +21,7 @@ export async function onRequestPost({ request, env }) {
     const packType = body?.packType || "standard";
     const socialPermission = body?.socialPermission || false;
     const shippingMethod = body?.shippingMethod || "GI_COLLECT"; 
-    const eventTag = body?.event || null; // NEW: Capture event tag
+    const eventTag = body?.event || null; 
     
     let orderId = body?.orderId;
     const isUpdate = !!orderId;
@@ -56,12 +56,34 @@ export async function onRequestPost({ request, env }) {
         if (rawKv) existingOrder = JSON.parse(rawKv);
     }
 
+    // --- BINGO ORDER NUMBER GENERATION ---
+    let bingoNumber = existingOrder.bingoNumber || null;
+    
+    // Only generate a number if it's a BINGO event and doesn't have one yet
+    if (eventTag === 'BINGO' && !bingoNumber) {
+        try {
+            // Get current counter
+            const currentSeq = await env.ORDERS_KV.get('config:bingo_seq');
+            let nextSeq = 1;
+            if (currentSeq) {
+                nextSeq = parseInt(currentSeq, 10) + 1;
+            }
+            // Save new counter
+            await env.ORDERS_KV.put('config:bingo_seq', String(nextSeq));
+            bingoNumber = nextSeq;
+        } catch (e) {
+            console.error("Failed to generate bingo number", e);
+        }
+    }
+    // -------------------------------------
+
     const now = new Date().toISOString();
 
     const order = {
       orderId, email, phone, packSize, packType,
       socialPermission, shippingMethod, price,
-      event: eventTag, // Save event tag
+      event: eventTag, 
+      bingoNumber: bingoNumber, // Save the simple number
       status: existingOrder.status || "draft",         
       createdAt: existingOrder.createdAt || now, 
       updatedAt: now,
@@ -88,7 +110,6 @@ export async function onRequestGet({ request, env }) {
     if (!raw) return jsonResponse({ error: "Order not found." }, 404);
     const order = JSON.parse(raw);
     
-    // Fallback price logic for display
     if (!order.price && order.packSize && !String(order.packSize).startsWith("voucher_")) {
       order.price = PRICES[order.packSize];
     }
