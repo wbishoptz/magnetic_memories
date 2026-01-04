@@ -16,6 +16,7 @@ let phoneTouched = false;
 let voucherApplied = 0;
 let voucherCode = "";
 let socialPermission = null; // null, true, or false
+let selectedShipping = null; // NEW: null, 'GI_COLLECT', 'GI_DELIVER', 'GB'
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -34,9 +35,13 @@ const cropHelp         = document.getElementById("crop-help");
 const toastEl          = document.getElementById("toast");
 const uploadMetaEl     = document.querySelector(".upload-meta"); 
 const uploadSection    = document.getElementById("upload-section");
-// Socials are now radio buttons
+
+// Radio Groups
 const socialRadios     = document.querySelectorAll('input[name="socials"]');
+const shippingRadios   = document.querySelectorAll('input[name="shipping"]');
 const socialWrapper    = document.getElementById("social-wrapper");
+const shippingWrapper  = document.getElementById("shipping-wrapper");
+
 const promoInput       = document.getElementById("promo-code");
 const promoBtn         = document.getElementById("apply-promo");
 const promoMsg         = document.getElementById("promo-msg");
@@ -89,20 +94,28 @@ document.addEventListener("DOMContentLoaded", async () => {
                     } else {
                         radioVal = `standard_${data.packSize}`;
                     }
-                    
                     const radio = document.querySelector(`input[name="pack"][value="${radioVal}"]`);
                     if (radio) {
                         radio.checked = true;
                         radio.dispatchEvent(new Event("change")); 
                     }
 
-                    // Restore Social Selection (if exists)
+                    // Restore Social Selection
                     if (typeof data.socialPermission === 'boolean') {
                         const val = data.socialPermission ? 'yes' : 'no';
                         const socRadio = document.querySelector(`input[name="socials"][value="${val}"]`);
                         if (socRadio) {
                            socRadio.checked = true;
                            socialPermission = data.socialPermission;
+                        }
+                    }
+
+                    // Restore Shipping Selection
+                    if (data.shippingMethod) {
+                        const shipRadio = document.querySelector(`input[name="shipping"][value="${data.shippingMethod}"]`);
+                        if (shipRadio) {
+                            shipRadio.checked = true;
+                            selectedShipping = data.shippingMethod;
                         }
                     }
 
@@ -126,10 +139,6 @@ if (waClose) {
 async function saveCart() {
     if (!currentOrderId || !customerEmail) return;
     
-    // Attempt to get shipping method if available, strictly for saving state
-    const shipEl = document.getElementById("shipping-country");
-    const shippingMethod = shipEl ? shipEl.value : null;
-
     try {
         await fetch("/api/save-cart", {
             method: "POST",
@@ -142,7 +151,7 @@ async function saveCart() {
                 packType: selectedPackType,
                 isRecovery: isRecovery,
                 socialPermission: socialPermission,
-                shippingMethod: shippingMethod
+                shippingMethod: selectedShipping
             })
         });
     } catch(e) {}
@@ -185,6 +194,9 @@ function isAllCropped() {
 function isSocialSelected() {
     return socialPermission !== null;
 }
+function isShippingSelected() {
+    return selectedShipping !== null;
+}
 
 // ---- UI Feedback (Jiggle) ----
 function shakeElement(el) {
@@ -219,7 +231,7 @@ function setPhoneValidityUI(isValid) {
 }
 
 function updatePayButtonAppearance() {
-  const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped() && isSocialSelected();
+  const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped() && isSocialSelected() && isShippingSelected();
   if (ready) {
     payBtn.classList.remove("disabled-look");
     payBtn.textContent = "Pay securely";
@@ -419,6 +431,18 @@ socialRadios.forEach(radio => {
     });
 });
 
+// ---- Shipping Listeners ----
+shippingRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+        if (radio.checked) {
+            selectedShipping = radio.value;
+            document.getElementById('shippingError').style.display = 'none';
+            updatePayButtonAppearance();
+            saveCart();
+        }
+    });
+});
+
 // ---- Inputs ----
 emailInput.addEventListener("blur", () => {
   emailTouched  = true;
@@ -563,6 +587,15 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
+  // New Shipping Validation
+  if (!isShippingSelected()) {
+      shakeElement(shippingWrapper);
+      document.getElementById('shippingError').style.display = 'block';
+      showToast("Please select a shipping method", "error");
+      return;
+  }
+
+  // New Social Validation
   if (!isSocialSelected()) {
       shakeElement(socialWrapper);
       document.getElementById('socialError').style.display = 'block';
@@ -586,9 +619,6 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
-    // GET SHIPPING SELECTION
-    const country = document.getElementById("shipping-country").value;
-    
     const packSizePayload = (selectedPackType === 'voucher') 
         ? `voucher_${selectedPackSize}` 
         : selectedPackSize;
@@ -606,7 +636,7 @@ payBtn.addEventListener("click", async () => {
           packSize: packSizePayload, 
           packType: selectedPackType,
           socialPermission: socialPermission,
-          shippingMethod: country 
+          shippingMethod: selectedShipping // <--- UPDATED FROM RADIO
       }),
     });
     
@@ -647,7 +677,7 @@ payBtn.addEventListener("click", async () => {
         email: customerEmail,
         packSize: packSizePayload, 
         packType: selectedPackType,
-        country: country, 
+        country: selectedShipping, // <--- UPDATED FROM RADIO
         voucherCode: voucherCode
       }),
     });
