@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Your Order | Bonkers Bingo</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* BINGO THEME */
+    :root {
+      --bingo-teal: #1a9a8a;
+      --bingo-pink: #eb2f96;
+      --bingo-purple: #8b5cf6;
+      --bingo-orange: #f97316;
+    }
+    body { font-family: 'Nunito', sans-serif; background: #0f172a; color: white; }
+    h1, h2, .font-display { font-family: 'Fredoka', sans-serif; }
+    
+    .animate-pulse-glow { animation: pulse-glow 2s infinite; }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(235, 47, 150, 0.2); }
+      50% { box-shadow: 0 0 40px rgba(235, 47, 150, 0.6); }
+    }
+    .step-active { @apply border-pink-500 text-white bg-pink-500/20 shadow-[0_0_15px_rgba(235,47,150,0.5)]; }
+    .step-done { @apply border-teal-500 text-teal-400 bg-teal-500/10; }
+    .step-pending { @apply border-slate-700 text-slate-500 bg-slate-800/50; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+
+  <div class="fixed inset-0 pointer-events-none -z-10">
+    <div class="absolute top-0 left-0 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+    <div class="absolute bottom-0 right-0 w-80 h-80 bg-pink-600/20 rounded-full blur-3xl translate-x-1/3 translate-y-1/3"></div>
+  </div>
+
+  <div class="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-700 rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden">
+    
+    <p class="text-slate-400 font-bold tracking-widest text-xs uppercase mb-2">Your Order Number</p>
+    
+    <div class="relative py-4">
+      <h1 id="order-num" class="text-8xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-teal-500 animate-pulse">
+        ...
+      </h1>
+    </div>
+
+    <p class="text-sm text-slate-300 mb-8 bg-slate-800/50 inline-block px-4 py-1 rounded-full border border-slate-700">
+      Show this screen at the stall!
+    </p>
+
+    <div class="space-y-4 text-left">
+      
+      <div id="step-1" class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-pending">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current shrink-0">
+          <i data-lucide="check" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <p class="font-bold text-lg">Order Received</p>
+          <p class="text-xs opacity-70">We have your photos!</p>
+        </div>
+      </div>
+
+      <div id="step-2" class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-pending">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current shrink-0">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <p class="font-bold text-lg">Printing</p>
+          <p class="text-xs opacity-70">Making them magnetic...</p>
+        </div>
+      </div>
+
+      <div id="step-3" class="flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-pending">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 border-current shrink-0">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <p class="font-bold text-lg">Ready!</p>
+          <p class="text-xs opacity-70">Come and collect them</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="mt-8 text-slate-500 text-sm font-medium">
+    Updating live...
+  </footer>
+
+  <script>
+    lucide.createIcons();
+    
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('orderId');
+    const orderNumEl = document.getElementById('order-num');
+    
+    // Status Elements
+    const steps = {
+      1: document.getElementById('step-1'),
+      2: document.getElementById('step-2'),
+      3: document.getElementById('step-3')
+    };
+
+    async function checkStatus() {
+      if(!orderId) return;
+      try {
+        const res = await fetch(`/api/order?orderId=${orderId}`);
+        if(res.ok) {
+          const data = await res.json();
+          
+          // Set Big Number
+          if(data.bingoNumber) {
+            orderNumEl.textContent = `#${data.bingoNumber}`;
+          } else {
+            // Fallback if generic order
+            orderNumEl.textContent = "Paid"; 
+            orderNumEl.classList.remove('text-8xl');
+            orderNumEl.classList.add('text-4xl');
+          }
+
+          updateSteps(data.status);
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    function updateSteps(status) {
+      // Reset all
+      [1,2,3].forEach(i => {
+        steps[i].className = "flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-pending";
+      });
+
+      if (status === 'paid' || status === 'draft') {
+        // Step 1 Active
+        setActive(1);
+      } else if (status === 'printing') {
+        // Step 1 Done, Step 2 Active
+        setDone(1);
+        setActive(2);
+      } else if (status === 'completed' || status === 'shipped') {
+        // All Done
+        setDone(1);
+        setDone(2);
+        setActive(3); // Ready is active/glowing
+        // Add extra glow for final state
+        steps[3].classList.add('animate-pulse-glow');
+      }
+    }
+
+    function setActive(i) {
+      steps[i].className = "flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-active scale-105";
+    }
+    function setDone(i) {
+      steps[i].className = "flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-500 step-done opacity-60";
+    }
+
+    // Initial load
+    checkStatus();
+    // Poll every 5 seconds for updates
+    setInterval(checkStatus, 5000);
+
+  </script>
+</body>
+</html>

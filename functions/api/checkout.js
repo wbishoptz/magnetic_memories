@@ -1,11 +1,8 @@
 // functions/api/checkout.js
-// POST /api/checkout
 
 const PACKS = [3, 6, 9, 12, 15];
-// FIX: Added '1: 3' so it knows the price for single magnets
 const PRICES = { 1: 3, 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
-// NEW VOUCHER CONFIGURATION
 const VOUCHERS = { 
     "voucher_14": { price: 14, label: "£14 Gift Voucher (6 Magnets)" },
     "voucher_20": { price: 20, label: "£20 Gift Voucher (9 Magnets)" },
@@ -56,10 +53,8 @@ export async function onRequestPost({ request, env }) {
         isVoucherPurchase = true;
     } else {
         let size = Number(packSizeRaw) || 3;
-        // Check standard packs OR size 1
         if (!PACKS.includes(size) && size !== 1) size = 3;
-        
-        price = PRICES[size]; // This will now correctly pick up '3' for size 1
+        price = PRICES[size];
         
         let type = kvOrder?.packType || body?.packType || "standard";
         productName = `${size} custom photo magnets`;
@@ -70,13 +65,18 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- INJECT BINGO ORDER NUMBER ---
-    // If this is a bingo order, prefix the product name with "Order #X"
-    if (kvOrder && kvOrder.bingoNumber) {
+    // --- BINGO LOGIC ---
+    const isBingo = (kvOrder?.event === 'BINGO');
+    if (isBingo && kvOrder?.bingoNumber) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
-    // --- APPLY DISCOUNT CODE (PARTIAL BALANCE LOGIC) ---
+    // Determine Success URL based on event
+    const successPage = isBingo ? "bingo-return.html" : "return.html";
+    const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
+    const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
+
+    // --- DISCOUNT LOGIC ---
     let discountAmount = 0;
     let finalPrice = price;
     let voucherData = null;
@@ -88,7 +88,6 @@ export async function onRequestPost({ request, env }) {
         if (vRaw) {
             voucherData = JSON.parse(vRaw);
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-            
             if (!voucherData.redeemed && currentBalance > 0) {
                 const deduction = Math.min(price, currentBalance);
                 discountAmount = deduction;
@@ -97,16 +96,14 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- STRIPE SESSION SETUP ---
-    const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(orderId)}`;
-    const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
-
+    // --- STRIPE SESSION ---
     const params = new URLSearchParams();
     params.append("mode", "payment");
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
     if (kvOrder?.email) params.append("customer_email", kvOrder.email);
     params.append("metadata[orderId]", orderId);
+    if (isBingo) params.append("metadata[event]", "BINGO"); // Tag in Stripe dashboard too
     
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
@@ -126,27 +123,26 @@ export async function onRequestPost({ request, env }) {
     // --- 100% DISCOUNT HANDLING ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
+            // Update Voucher
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
             const newBalance = currentBalance - discountAmount;
-            
             voucherData.balance = newBalance;
-            if (newBalance <= 0) {
-                voucherData.redeemed = true;
-                voucherData.balance = 0;
-            }
+            if (newBalance <= 0) { voucherData.redeemed = true; voucherData.balance = 0; }
             voucherData.usedByOrder = orderId; 
             await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
+            // Update Order
             kvOrder.status = "paid";
             kvOrder.paidAt = new Date().toISOString();
             kvOrder.price = 0;
             kvOrder.usedVoucher = voucherCode;
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
+            // Notifications
             const notifs = [
                 sendAdminEmail(kvOrder, env),
                 sendPaidTelegram(kvOrder, env),
-                sendPaidEmail(kvOrder, env)
+                isBingo ? sendBingoEmail(kvOrder, env) : sendPaidEmail(kvOrder, env)
             ];
             await Promise.allSettled(notifs);
 
@@ -209,7 +205,8 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// --- NOTIFICATION HELPERS ---
+// --- HELPERS ---
+
 function esc(str) { return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
 async function fetchWithRetry(url, options, retries = 3) {
@@ -224,6 +221,7 @@ async function fetchWithRetry(url, options, retries = 3) {
   return null;
 }
 
+// STANDARD EMAIL
 async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -233,9 +231,37 @@ async function sendPaidEmail(order, env) {
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>Thanks for your order!</h2>
-      <p>We’ve received your payment (via voucher) and will start preparing your magnets shortly.</p>
+      <p>We’ve received your payment and will start preparing your magnets shortly.</p>
       <p><strong>Order ID:</strong> ${order.orderId}</p>
       <p><a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(order.orderId)}">Track Order</a></p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [order.email], subject, html }),
+  });
+}
+
+// BINGO SPECIFIC EMAIL
+async function sendBingoEmail(order, env) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from || !order.email) return;
+
+  const subject = `Your Bonkers Bingo Order #${order.bingoNumber}`;
+  const html = `
+    <div style="font-family: system-ui, sans-serif; background-color: #0f172a; color: white; padding: 20px; border-radius: 10px;">
+      <h2 style="color: #eb2f96;">ORDER #${order.bingoNumber} RECEIVED!</h2>
+      <p>Thanks for ordering at Bonkers Bingo! 🎱</p>
+      <p>We are printing your magnets right now. Keep an eye on the tracking page or listen for your number.</p>
+      <p>
+        <a href="https://magnetic-memories.pages.dev/bingo-return.html?orderId=${encodeURIComponent(order.orderId)}" 
+           style="background-color: #1a9a8a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+           VIEW LIVE STATUS
+        </a>
+      </p>
     </div>
   `;
 
@@ -254,11 +280,14 @@ async function sendAdminEmail(order, env) {
 
   if (!apiKey || !from || recipients.length === 0) return;
 
-  const subject = `New paid order (Voucher) – ${order.orderId}`;
+  const title = order.event === 'BINGO' ? `🎱 BINGO ORDER #${order.bingoNumber}` : `New Order ${order.orderId}`;
+  
+  const subject = `${title} - Paid`;
   const html = `
     <div style="font-family: system-ui, sans-serif;">
-      <h2>New paid order (Voucher)</h2>
-      <p><strong>Order ID:</strong> ${order.orderId}</p>
+      <h2>${title}</h2>
+      <p><strong>Customer:</strong> ${order.email}</p>
+      <p><strong>Pack:</strong> ${order.packSize} magnets</p>
       <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
     </div>
   `;
@@ -278,7 +307,17 @@ async function sendPaidTelegram(order, env) {
   if (!token || !chatIdsRaw) return;
 
   const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
-  const text = `💳 <b>New paid order (Voucher)</b>\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nTotal: £0.00`;
+  
+  // Custom Bingo Alert
+  let header = "💳 <b>New Order</b>";
+  let details = `ID: <code>${esc(order.orderId)}</code>`;
+  
+  if (order.event === 'BINGO') {
+      header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
+      details = `Pack: ${order.packSize} magnets`;
+  }
+
+  const text = `${header}\n${details}\nEmail: ${esc(order.email)}`;
 
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
   await Promise.all(chatIds.map(chatId =>
