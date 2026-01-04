@@ -1,7 +1,9 @@
 // functions/api/checkout.js
 
-const PACKS = [3, 6, 9, 12, 15];
-const PRICES = { 1: 3, 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+const STANDARD_PACKS = [3, 6, 9, 12, 15];
+const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+
+const BINGO_PRICES = { 1: 3.5, 3: 10, 6: 20, 12: 35 };
 
 const VOUCHERS = { 
     "voucher_14": { price: 14, label: "£14 Gift Voucher (6 Magnets)" },
@@ -37,7 +39,7 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
-    // --- DETERMINE PRODUCT ---
+    // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
     let productName = "";
@@ -52,9 +54,18 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
-        let size = Number(packSizeRaw) || 3;
-        if (!PACKS.includes(size) && size !== 1) size = 3;
-        price = PRICES[size];
+        let size = Number(packSizeRaw);
+        
+        // CHECK IF BINGO OR STANDARD
+        const isBingo = (kvOrder?.event === 'BINGO');
+        
+        if (isBingo) {
+            price = BINGO_PRICES[size] || 20; // Default fallback to 6 pack price if error
+        } else {
+            // Standard Validation
+            if (!STANDARD_PACKS.includes(size)) size = 3;
+            price = STANDARD_PRICES[size];
+        }
         
         let type = kvOrder?.packType || body?.packType || "standard";
         productName = `${size} custom photo magnets`;
@@ -65,7 +76,7 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- BINGO LOGIC ---
+    // --- INJECT BINGO ORDER NUMBER ---
     const isBingo = (kvOrder?.event === 'BINGO');
     if (isBingo && kvOrder?.bingoNumber) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
@@ -103,7 +114,7 @@ export async function onRequestPost({ request, env }) {
     params.append("cancel_url", cancelUrl);
     if (kvOrder?.email) params.append("customer_email", kvOrder.email);
     params.append("metadata[orderId]", orderId);
-    if (isBingo) params.append("metadata[event]", "BINGO"); // Tag in Stripe dashboard too
+    if (isBingo) params.append("metadata[event]", "BINGO"); 
     
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
@@ -123,7 +134,6 @@ export async function onRequestPost({ request, env }) {
     // --- 100% DISCOUNT HANDLING ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
-            // Update Voucher
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
             const newBalance = currentBalance - discountAmount;
             voucherData.balance = newBalance;
@@ -131,14 +141,12 @@ export async function onRequestPost({ request, env }) {
             voucherData.usedByOrder = orderId; 
             await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
-            // Update Order
             kvOrder.status = "paid";
             kvOrder.paidAt = new Date().toISOString();
             kvOrder.price = 0;
             kvOrder.usedVoucher = voucherCode;
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
-            // Notifications
             const notifs = [
                 sendAdminEmail(kvOrder, env),
                 sendPaidTelegram(kvOrder, env),

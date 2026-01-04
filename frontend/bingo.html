@@ -203,14 +203,12 @@
     // Icons
     lucide.createIcons();
 
-    // Config
+    // UPDATED BINGO CONFIGURATION
     const packs = [
-      { id: "1", count: 1, price: 3 },
-      { id: "3", count: 3, price: 7 },
-      { id: "6", count: 6, price: 14, popular: true },
-      { id: "9", count: 9, price: 20 },
-      { id: "12", count: 12, price: 25 },
-      { id: "15", count: 15, price: 30 },
+      { id: "1", count: 1, price: 3.50 },
+      { id: "3", count: 3, price: 10 },
+      { id: "6", count: 6, price: 20, popular: true },
+      { id: "12", count: 12, price: 35 },
     ];
 
     let state = {
@@ -255,7 +253,7 @@
                   <p class="font-display text-lg sm:text-2xl font-bold text-gray-800">${pack.count} ${pack.count==1?'magnet':'magnets'}</p>
                   <p class="text-gray-500 text-xs font-semibold">£${(pack.price/pack.count).toFixed(2)} each</p>
                 </div>
-                <p class="font-display text-2xl sm:text-3xl font-bold text-gradient-party">£${pack.price}</p>
+                <p class="font-display text-2xl sm:text-3xl font-bold text-gradient-party">£${pack.price.toFixed(2)}</p>
               </div>
             </button>
           </div>
@@ -306,7 +304,7 @@
         submitBtn.disabled = false;
         submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-gradient-hot text-white shadow-pink animate-pulse-glow active:scale-95 hover:opacity-90";
         document.getElementById('submit-text').innerHTML = `
-          PAY £${pack.price} NOW
+          PAY £${pack.price.toFixed(2)} NOW
         `;
       } else {
         detailsSection.classList.add('hidden');
