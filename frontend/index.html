@@ -31,37 +31,38 @@
       <input id="phone" type="tel" autocomplete="tel" placeholder="+44 7700 900000" required style="margin-bottom: 16px;" />
       <p id="phoneError" class="error-text" style="display:none;">Please enter a valid phone number.</p>
 
-      <label style="margin-bottom: 8px; display:block; color:var(--text-muted); font-size:0.9rem; font-weight:500;">Shipping / Collection Method</label>
-      <div class="shipping-options" id="shipping-wrapper">
+      <label style="margin-bottom: 12px; display:block; color:var(--text-muted); font-size:0.95rem; font-weight:600;">Shipping / Collection Method</label>
+      
+      <div class="shipping-grid" id="shipping-wrapper">
         
-        <label class="option-card">
+        <label class="shipping-card">
           <input type="radio" name="shipping" value="GI_COLLECT">
-          <div class="option-text">
-            <span class="option-title">📍 Collection (Free)</span>
-            <span class="option-desc">Pick up from Glacis Estate</span>
+          <div class="shipping-content">
+            <span class="shipping-title">📍 Collection (Free)</span>
+            <span class="shipping-desc">Pick up from Glacis Estate</span>
           </div>
         </label>
 
-        <label class="option-card">
+        <label class="shipping-card">
           <input type="radio" name="shipping" value="GI_DELIVER">
-          <div class="option-text">
-            <span class="option-title">🚚 Gibraltar Delivery (+£3.00)</span>
-            <span class="option-desc">Delivered within 48 hours</span>
+          <div class="shipping-content">
+            <span class="shipping-title">🚚 Gibraltar Delivery (+£3.00)</span>
+            <span class="shipping-desc">Delivered within 48 hours</span>
           </div>
         </label>
 
-        <label class="option-card">
+        <label class="shipping-card">
           <input type="radio" name="shipping" value="GB">
-          <div class="option-text">
-            <span class="option-title">🇬🇧 UK Delivery (+£5.00)</span>
-            <span class="option-desc">Royal Mail Tracked</span>
+          <div class="shipping-content">
+            <span class="shipping-title">🇬🇧 UK Delivery (+£5.00)</span>
+            <span class="shipping-desc">Royal Mail Tracked</span>
           </div>
         </label>
 
       </div>
       <p id="shippingError" class="error-text" style="display:none;">Please select a shipping method.</p>
 
-      <label for="promo-code" style="margin-top:20px;">Promo Code / Voucher</label>
+      <label for="promo-code" style="margin-top:24px;">Promo Code / Voucher</label>
       <div style="display:flex; gap:8px;">
         <input id="promo-code" type="text" placeholder="Enter code" style="flex:1; text-transform:uppercase;" />
         <button id="apply-promo" type="button" class="btn-ghost">Apply</button>

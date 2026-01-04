@@ -134,6 +134,63 @@ label {
   height: 18px;
 }
 
+/* --- NEW SHIPPING CARDS UI --- */
+.shipping-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shipping-card {
+  display: flex;
+  align-items: flex-start; /* Align to top in case of wrapping */
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  cursor: pointer;
+  background: #f9fafb;
+  transition: all 0.2s;
+  margin-bottom: 0 !important; /* Override default label margin */
+}
+
+.shipping-card:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* Selected State */
+.shipping-card:has(input:checked) {
+  background: rgba(89, 201, 165, 0.08); /* Very light teal */
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.shipping-card input {
+  accent-color: var(--primary);
+  width: 18px; 
+  height: 18px;
+  margin-top: 2px; /* Align with title text */
+  flex-shrink: 0;
+}
+
+.shipping-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.shipping-title {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+.shipping-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 /* --- SOCIAL MEDIA BUTTONS --- */
 .social-options {
   display: flex;

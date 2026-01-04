@@ -619,6 +619,9 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
+    // GET SHIPPING SELECTION
+    const country = document.querySelector('input[name="shipping"]:checked').value;
+    
     const packSizePayload = (selectedPackType === 'voucher') 
         ? `voucher_${selectedPackSize}` 
         : selectedPackSize;
@@ -636,7 +639,7 @@ payBtn.addEventListener("click", async () => {
           packSize: packSizePayload, 
           packType: selectedPackType,
           socialPermission: socialPermission,
-          shippingMethod: selectedShipping // <--- UPDATED FROM RADIO
+          shippingMethod: country 
       }),
     });
     
@@ -677,7 +680,7 @@ payBtn.addEventListener("click", async () => {
         email: customerEmail,
         packSize: packSizePayload, 
         packType: selectedPackType,
-        country: selectedShipping, // <--- UPDATED FROM RADIO
+        country: country, // <--- UPDATED FROM RADIO
         voucherCode: voucherCode
       }),
     });
