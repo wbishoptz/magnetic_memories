@@ -254,7 +254,6 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        // UPDATED: Added bingoNumber to CSV export
         const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt"]];
         for (const o of filteredOrders) rows.push([
             o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || ""
@@ -342,10 +341,14 @@
               statusDisplay = `<span class="status-pill ${(o.status||'').replace(/\s+/g, '_')}">${o.status}</span>`;
           }
 
-          // --- UPDATED: Bingo Badge Logic ---
+          // BINGO BADGE
           if (o.event === 'BINGO') {
               let numDisplay = o.bingoNumber ? `#${o.bingoNumber}` : '';
               statusDisplay += ` <span class="tag" style="background:#f59e0b; color:black; font-weight:800; font-size:11px; border:none; box-shadow:0 2px 5px rgba(245, 158, 11, 0.4);">🎱 ${numDisplay}</span>`;
+          }
+          // VALENTINES BADGE (NEW)
+          if (o.event === 'VALENTINES') {
+              statusDisplay += ` <span class="tag" style="background:#be123c; color:white; border:none; font-weight:700; font-size:10px;">💘 VALENTINES</span>`;
           }
 
           let packDisplay = o.packSize || "?";
@@ -382,11 +385,13 @@
           const order = data.order;
           if (!order) { detailsContainer.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
 
-          // --- UPDATED: Bingo Banner Logic ---
+          // --- TOP BANNER LOGIC ---
           let topBanner = "";
           if (order.event === 'BINGO') {
               let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
+          } else if (order.event === 'VALENTINES') {
+              topBanner = `<div style="background:linear-gradient(135deg, #e11d48, #be123c); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(225, 29, 72, 0.4);">💘 VALENTINE'S ORDER 💘</div>`;
           }
 
           const isVoucher = String(order.packSize).startsWith('voucher_');
@@ -402,7 +407,6 @@
                   ? `<span style="color:#66d19e;">Recovery Email Sent ✅</span>` 
                   : `<span style="color:#9ca3af;">Recovery Pending (Waiting 1hr) ⏳</span>`;
               html += `<div class="field-value">${recoveryMsg}</div>`;
-              
               if (!order.recoverySent) {
                   html += `<button class="btn-action" id="manual-recovery-btn">Send Recovery Email ✉️</button>`;
               }
@@ -411,20 +415,33 @@
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
+          // --- SHIPPING + PRICE BREAKDOWN (NEW) ---
           let shipLabel = "Unknown";
-          if (order.shippingMethod === 'GB') shipLabel = "🇬🇧 UK Delivery";
-          else if (order.shippingMethod === 'GI_DELIVER') shipLabel = "🚚 Gibraltar Delivery";
-          else if (order.shippingMethod === 'GI_COLLECT') shipLabel = "📍 Gibraltar Collection";
-          else if (order.customer?.address?.country === 'GB') shipLabel = "🇬🇧 UK Delivery (Legacy)";
-          else shipLabel = "📍 Gibraltar Collection (Legacy)";
+          let shipCost = 0;
+          if (order.shippingMethod === 'GB') { shipLabel = "🇬🇧 UK Delivery"; shipCost = 5.00; }
+          else if (order.shippingMethod === 'GI_DELIVER') { shipLabel = "🚚 Gibraltar Delivery"; shipCost = 3.00; }
+          else if (order.shippingMethod === 'GI_COLLECT') { shipLabel = "📍 Gibraltar Collection"; shipCost = 0; }
+          else if (order.customer?.address?.country === 'GB') { shipLabel = "🇬🇧 UK Delivery (Legacy)"; shipCost = 5.00; }
+          else { shipLabel = "📍 Gibraltar Collection (Legacy)"; shipCost = 0; }
           
           html += `<div class="field-label">Shipping Method</div><div class="field-value" style="font-weight:bold; color:#e5e7eb;">${shipLabel}</div>`;
 
-          const socials = order.socialPermission 
-              ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">✅ SOCIALS OK</span>`
-              : `<span style="color:#a7a7a7; border:1px solid #555; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:8px;">❌ NO SOCIALS</span>`;
+          // PRICE CALCULATION DISPLAY
+          if (!isVoucher && typeof order.price === 'number') {
+             const total = order.price + shipCost;
+             html += `<div class="field-label">Total Paid</div><div class="field-value" style="font-family:monospace; font-size:1.1em;">
+               £${order.price.toFixed(2)} (Pack) + £${shipCost.toFixed(2)} (Ship) = <span style="color:#66d19e; font-weight:bold;">£${total.toFixed(2)}</span>
+             </div>`;
+          }
 
-          html += `<div class="field-label">Customer</div><div class="field-value">${order.email} ${socials}<br>${order.phone || "No phone"}</div>`;
+          // --- SOCIALS PERMISSION (NEW) ---
+          const socials = order.socialPermission === true 
+              ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.9em;">✅ SOCIALS OK</span>`
+              : (order.socialPermission === false 
+                  ? `<span style="color:#f87171; border:1px solid #f87171; padding:2px 6px; border-radius:4px; font-size:0.9em;">❌ NO SOCIALS</span>` 
+                  : `<span style="color:#9ca3af;">❓ UNKNOWN</span>`);
+
+          html += `<div class="field-label">Customer</div><div class="field-value">${order.email} <br> ${socials} <br>${order.phone || "No phone"}</div>`;
           
           if (order.customer?.address) {
              const a = order.customer.address;
@@ -437,6 +454,11 @@
 
           html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           
+          // --- PRE-MADE SELECTIONS (NEW) ---
+          if (order.premadeSelections && order.premadeSelections.length > 0) {
+              html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div><div class="field-value" style="font-family:monospace;">${order.premadeSelections.join(", ")}</div>`;
+          }
+
           if (!isVoucher) {
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
@@ -461,18 +483,9 @@
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ key: adminKey, orderId })
                       });
-                      if (res.ok) {
-                          alert("Email sent!");
-                          loadOrderDetails(orderId);
-                          loadOrders();
-                      } else {
-                          alert("Failed to send.");
-                          manualRecBtn.textContent = "Try Again";
-                          manualRecBtn.disabled = false;
-                      }
-                  } catch (e) {
-                      alert("Error: " + e.message);
-                  }
+                      if (res.ok) { alert("Email sent!"); loadOrderDetails(orderId); loadOrders(); } 
+                      else { alert("Failed to send."); manualRecBtn.textContent = "Try Again"; manualRecBtn.disabled = false; }
+                  } catch (e) { alert("Error: " + e.message); }
               };
           }
 
