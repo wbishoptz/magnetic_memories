@@ -346,7 +346,7 @@
               let numDisplay = o.bingoNumber ? `#${o.bingoNumber}` : '';
               statusDisplay += ` <span class="tag" style="background:#f59e0b; color:black; font-weight:800; font-size:11px; border:none; box-shadow:0 2px 5px rgba(245, 158, 11, 0.4);">🎱 ${numDisplay}</span>`;
           }
-          // VALENTINES BADGE (NEW)
+          // VALENTINES BADGE
           if (o.event === 'VALENTINES') {
               statusDisplay += ` <span class="tag" style="background:#be123c; color:white; border:none; font-weight:700; font-size:10px;">💘 VALENTINES</span>`;
           }
@@ -415,7 +415,7 @@
              html += `<div class="field-value"><div class="input-inline"><select id="status-select"><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select><button id="status-update-btn">Update</button></div></div>`;
           }
 
-          // --- SHIPPING + PRICE BREAKDOWN (NEW) ---
+          // --- SHIPPING + PRICE BREAKDOWN ---
           let shipLabel = "Unknown";
           let shipCost = 0;
           if (order.shippingMethod === 'GB') { shipLabel = "🇬🇧 UK Delivery"; shipCost = 5.00; }
@@ -434,7 +434,7 @@
              </div>`;
           }
 
-          // --- SOCIALS PERMISSION (NEW) ---
+          // --- SOCIALS PERMISSION ---
           const socials = order.socialPermission === true 
               ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.9em;">✅ SOCIALS OK</span>`
               : (order.socialPermission === false 
@@ -454,9 +454,21 @@
 
           html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           
-          // --- PRE-MADE SELECTIONS (NEW) ---
+          // --- PRE-MADE SELECTIONS (IMAGES) ---
           if (order.premadeSelections && order.premadeSelections.length > 0) {
-              html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div><div class="field-value" style="font-family:monospace;">${order.premadeSelections.join(", ")}</div>`;
+              html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div>
+              <div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
+              
+              order.premadeSelections.forEach(id => {
+                  // Display thumbnail + ID
+                  // Assuming images are named v1.jpeg, v2.jpeg etc in the same directory as admin.html or root
+                  html += `<div style="text-align:center;">
+                    <img src="./${id}.jpeg" alt="${id}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #333; display:block; margin-bottom:2px;">
+                    <span style="font-size:10px; color:#aaa;">${id}</span>
+                  </div>`;
+              });
+              
+              html += `</div>`;
           }
 
           if (!isVoucher) {
