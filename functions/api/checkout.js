@@ -1,9 +1,12 @@
 // functions/api/checkout.js
 
+// --- PRICING CONFIGURATION ---
 const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 const BINGO_PRICES = { 1: 3.5, 3: 10, 6: 20, 12: 35 };
+
+const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 
 const VOUCHERS = { 
     "voucher_14": { price: 14, label: "£14 Gift Voucher (6 Magnets)" },
@@ -25,6 +28,8 @@ export async function onRequestPost({ request, env }) {
     const orderId = body?.orderId;
     const targetCountry = body?.country || "GI_COLLECT"; 
     const voucherCode = body?.voucherCode; 
+    // We get the event tag from the body (sent by frontend) or fallback to KV later
+    let eventTag = body?.event || null; 
 
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
@@ -39,6 +44,9 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
+    // Ensure we have the event tag from KV if not passed
+    if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
+
     // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
@@ -47,6 +55,7 @@ export async function onRequestPost({ request, env }) {
     let isVoucherPurchase = false;
 
     if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
+        // 1. BUYING A GIFT VOUCHER
         const v = VOUCHERS[packSizeRaw];
         if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
         price = v.price;
@@ -54,40 +63,48 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
+        // 2. BUYING MAGNETS
         let size = Number(packSizeRaw);
         
-        // CHECK IF BINGO OR STANDARD
-        const isBingo = (kvOrder?.event === 'BINGO');
-        
-        if (isBingo) {
-            price = BINGO_PRICES[size] || 20; // Default fallback to 6 pack price if error
+        if (eventTag === 'VALENTINES') {
+            // Valentine's Logic
+            price = VALENTINES_PRICES[size] || 0;
+            productName = `Valentine's Pack`;
+            productDesc = `${size} Custom Magnets + Pre-made Designs`;
+        } else if (eventTag === 'BINGO') {
+            // Bingo Logic
+            price = BINGO_PRICES[size] || 20; 
+            productName = `Bingo Special (${size} magnets)`;
+            productDesc = "Collect at the stall";
         } else {
-            // Standard Validation
+            // Standard Website Logic
             if (!STANDARD_PACKS.includes(size)) size = 3;
             price = STANDARD_PRICES[size];
-        }
-        
-        let type = kvOrder?.packType || body?.packType || "standard";
-        productName = `${size} custom photo magnets`;
-        productDesc = "50×50mm fridge magnets";
-        if (type === 'big_picture') {
-            productName = `Jigsaw Picture (${size} magnets)`;
-            productDesc = "One large photo split across magnets.";
+            productName = `${size} Custom Photo Magnets`;
+            productDesc = "50×50mm fridge magnets";
+            
+            let type = kvOrder?.packType || body?.packType || "standard";
+            if (type === 'big_picture') {
+                productName = `Jigsaw Picture (${size} magnets)`;
+                productDesc = "One large photo split across magnets.";
+            }
         }
     }
 
     // --- INJECT BINGO ORDER NUMBER ---
-    const isBingo = (kvOrder?.event === 'BINGO');
-    if (isBingo && kvOrder?.bingoNumber) {
+    if (eventTag === 'BINGO' && kvOrder?.bingoNumber) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
     // Determine Success URL based on event
-    const successPage = isBingo ? "bingo-return.html" : "return.html";
+    let successPage = "return.html";
+    if (eventTag === 'BINGO') successPage = "bingo-return.html";
+    // We can use the standard return page for Valentines, or a new one later
+    
     const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
-    // --- DISCOUNT LOGIC ---
+    // --- APPLY DISCOUNT CODE (PARTIAL BALANCE LOGIC) ---
     let discountAmount = 0;
     let finalPrice = price;
     let voucherData = null;
@@ -107,14 +124,14 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- STRIPE SESSION ---
+    // --- STRIPE SESSION PARAMS ---
     const params = new URLSearchParams();
     params.append("mode", "payment");
     params.append("success_url", successUrl);
     params.append("cancel_url", cancelUrl);
     if (kvOrder?.email) params.append("customer_email", kvOrder.email);
     params.append("metadata[orderId]", orderId);
-    if (isBingo) params.append("metadata[event]", "BINGO"); 
+    if (eventTag) params.append("metadata[event]", eventTag); 
     
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
@@ -131,31 +148,45 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][product_data][description]", productDesc);
     params.append("line_items[0][price_data][unit_amount]", String(price * 100)); 
 
-    // --- 100% DISCOUNT HANDLING ---
+    // --- 100% DISCOUNT HANDLING (VOUCHER COVERS ALL) ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
+            // Update Voucher Balance
             const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
             const newBalance = currentBalance - discountAmount;
+            
             voucherData.balance = newBalance;
-            if (newBalance <= 0) { voucherData.redeemed = true; voucherData.balance = 0; }
+            if (newBalance <= 0) {
+                voucherData.redeemed = true;
+                voucherData.balance = 0;
+            }
             voucherData.usedByOrder = orderId; 
             await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
+            // Update Order Status
             kvOrder.status = "paid";
             kvOrder.paidAt = new Date().toISOString();
             kvOrder.price = 0;
             kvOrder.usedVoucher = voucherCode;
             await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
+            // Send Notifications
             const notifs = [
                 sendAdminEmail(kvOrder, env),
-                sendPaidTelegram(kvOrder, env),
-                isBingo ? sendBingoEmail(kvOrder, env) : sendPaidEmail(kvOrder, env)
+                sendPaidTelegram(kvOrder, env)
             ];
+            
+            if (eventTag === 'BINGO') {
+                notifs.push(sendBingoEmail(kvOrder, env));
+            } else {
+                notifs.push(sendPaidEmail(kvOrder, env));
+            }
+            
             await Promise.allSettled(notifs);
 
             return jsonResponse({ checkoutUrl: successUrl });
         } else {
+            // Partial Discount (Update Stripe Price)
             params.set("line_items[0][price_data][unit_amount]", String(finalPrice * 100));
             params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
         }
@@ -176,6 +207,7 @@ export async function onRequestPost({ request, env }) {
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
+            // Collection (Free)
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
@@ -213,7 +245,7 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-// --- HELPERS ---
+// --- HELPER FUNCTIONS ---
 
 function esc(str) { return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -229,7 +261,7 @@ async function fetchWithRetry(url, options, retries = 3) {
   return null;
 }
 
-// STANDARD EMAIL
+// Standard Email
 async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -252,7 +284,7 @@ async function sendPaidEmail(order, env) {
   });
 }
 
-// BINGO SPECIFIC EMAIL
+// Bingo Email
 async function sendBingoEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -280,6 +312,7 @@ async function sendBingoEmail(order, env) {
   });
 }
 
+// Admin Alert Email
 async function sendAdminEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -288,8 +321,10 @@ async function sendAdminEmail(order, env) {
 
   if (!apiKey || !from || recipients.length === 0) return;
 
-  const title = order.event === 'BINGO' ? `🎱 BINGO ORDER #${order.bingoNumber}` : `New Order ${order.orderId}`;
-  
+  let title = `New Order ${order.orderId}`;
+  if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
+  if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
+
   const subject = `${title} - Paid`;
   const html = `
     <div style="font-family: system-ui, sans-serif;">
@@ -309,6 +344,7 @@ async function sendAdminEmail(order, env) {
   ));
 }
 
+// Telegram Alert
 async function sendPaidTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = env.TELEGRAM_CHAT_ID;
@@ -316,16 +352,11 @@ async function sendPaidTelegram(order, env) {
 
   const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
   
-  // Custom Bingo Alert
   let header = "💳 <b>New Order</b>";
-  let details = `ID: <code>${esc(order.orderId)}</code>`;
-  
-  if (order.event === 'BINGO') {
-      header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
-      details = `Pack: ${order.packSize} magnets`;
-  }
+  if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
+  if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
 
-  const text = `${header}\n${details}\nEmail: ${esc(order.email)}`;
+  const text = `${header}\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nPack: ${order.packSize}`;
 
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
   await Promise.all(chatIds.map(chatId =>
