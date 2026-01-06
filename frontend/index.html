@@ -1,470 +1,344 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta charset="utf-8" />
   <title>Magnetic Memories</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            border: "hsl(214.3 31.8% 91.4%)",
-            input: "hsl(214.3 31.8% 91.4%)",
-            ring: "hsl(175 60% 35%)",
-            background: "hsl(180 25% 97%)",
-            foreground: "hsl(200 30% 15%)",
-            primary: { DEFAULT: "hsl(175 60% 35%)", foreground: "hsl(0 0% 100%)" },
-            secondary: { DEFAULT: "hsl(330 80% 55%)", foreground: "hsl(0 0% 100%)" },
-            muted: { DEFAULT: "hsl(270 20% 94%)", foreground: "hsl(200 15% 45%)" },
-            card: { DEFAULT: "hsl(0 0% 100%)", foreground: "hsl(200 30% 15%)" },
-          },
-          fontFamily: {
-            sans: ['Nunito', 'sans-serif'],
-            display: ['Fredoka', 'sans-serif'],
-          },
-          animation: {
-            'float-slow': 'float 6s ease-in-out infinite',
-            'float-medium': 'float 5s ease-in-out infinite',
-            'float-fast': 'float 4s ease-in-out infinite',
-          },
-          keyframes: {
-            float: {
-              '0%, 100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(-10px)' },
-            }
-          }
-        }
-      }
-    }
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
+  <meta name="description" content="Turn your favorite photos into high-quality square magnets. Printed in the UK." />
+  <meta property="og:title" content="Magnetic Memories – Custom Photo Magnets" />
+  <meta property="og:description" content="Turn your favorite photos into high-quality square magnets. Packs start at just £7." />
+  <meta property="og:type" content="website" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    body { font-family: 'Nunito', sans-serif; }
-    h1, h2, h3, .font-display { font-family: 'Fredoka', sans-serif; }
+    /* VALENTINE BANNER STYLES */
+    .val-banner {
+      display: block;
+      text-decoration: none;
+      margin: 0 auto 24px auto;
+      max-width: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      padding: 16px 20px;
+      box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.3), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      color: white;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
     
-    /* Cropper Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 50; display: none; align-items: center; justify-content: center; }
-    .modal-content { background: white; padding: 20px; border-radius: 16px; width: 90%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; }
-    .cropper-container { height: 400px; background: #333; margin-bottom: 16px; border-radius: 8px; overflow: hidden; }
+    .val-banner:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(225, 29, 72, 0.4), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
+    }
+
+    .val-content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .val-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .val-icon-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .val-texts h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: white;
+    }
+
+    .val-texts p {
+      margin: 2px 0 0 0;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.9);
+      font-weight: 500;
+    }
+
+    .val-btn {
+      background: white;
+      color: #e11d48;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: background 0.2s;
+    }
+    
+    .val-banner:hover .val-btn {
+      background: #fff0f3;
+    }
+
+    /* Floating Hearts Animation */
+    .val-bg-heart {
+      position: absolute;
+      color: rgba(255,255,255,0.15);
+      animation: valFloat 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes valFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @media (max-width: 480px) {
+      .val-icon-circle { display: none; }
+      .val-btn span { display: none; } /* Hide "Shop Now" text on tiny screens, show arrow only if needed, or keep short */
+      .val-btn span.short { display: inline; }
+      .val-btn span.long { display: none; }
+    }
+    @media (min-width: 481px) {
+      .val-btn span.short { display: none; }
+    }
   </style>
 </head>
-<body class="bg-background min-h-screen">
-
-  <main class="min-h-screen pb-20 px-4 pt-6 max-w-md mx-auto">
+<body>
+  <main class="container">
+    <img src="./logo.png" alt="Magnetic Memories" class="main-logo" />
     
-    <header class="text-center mb-6">
-      <div class="inline-block relative">
-        <h1 class="text-4xl font-bold text-primary mb-1 tracking-tight">Magnetic<br/>Memories</h1>
-        <div class="absolute -right-6 -top-2">
-          <i data-lucide="sparkles" class="w-6 h-6 text-yellow-400 fill-yellow-400"></i>
-        </div>
+    <a href="/valentines" class="val-banner">
+      <div style="position:absolute; inset:0;">
+        <i data-lucide="heart" class="val-bg-heart" style="top:10px; left:15px; width:20px; animation-delay:0s;"></i>
+        <i data-lucide="heart" class="val-bg-heart" style="top:15px; right:40px; width:14px; animation-delay:1s;"></i>
+        <i data-lucide="heart" class="val-bg-heart" style="bottom:10px; right:80px; width:18px; animation-delay:2s;"></i>
       </div>
-      <p class="text-muted-foreground font-medium mt-2">Turn your photos into custom magnets</p>
-    </header>
 
-    <a href="/valentines" class="block mb-8 no-underline group">
-      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 px-5 py-5 shadow-lg transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl">
-        
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
-          <i data-lucide="heart" class="absolute top-2 left-4 w-4 h-4 text-white/20 animate-float-slow fill-white/20"></i>
-          <i data-lucide="heart" class="absolute top-3 right-6 w-3 h-3 text-white/15 animate-float-medium fill-white/15"></i>
-          <i data-lucide="heart" class="absolute bottom-3 right-12 w-5 h-5 text-white/15 animate-float-fast fill-white/15"></i>
+      <div class="val-content">
+        <div class="val-left">
+          <div class="val-icon-circle">
+            <i data-lucide="heart" style="color:white; fill:white; width:20px;"></i>
+          </div>
+          <div class="val-texts">
+            <h3>Valentine's Edition</h3>
+            <p>The perfect gift for your special someone 💕</p>
+          </div>
         </div>
-
-        <div class="relative z-10 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <div class="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm">
-              <i data-lucide="heart" class="w-5 h-5 text-white fill-white"></i>
-            </div>
-            <div class="text-left">
-              <h3 class="text-lg font-bold text-white leading-tight font-display">
-                Valentine's Edition
-              </h3>
-              <p class="text-white/80 text-xs sm:text-sm font-medium">
-                The perfect gift for your special someone 💕
-              </p>
-            </div>
-          </div>
-
-          <div class="shrink-0 bg-white text-rose-600 font-bold px-4 py-2 text-sm rounded-lg shadow-md transition-all group-hover:bg-white/90 flex items-center">
-            <span class="hidden sm:inline mr-1">Shop Now</span>
-            <span class="sm:hidden mr-1">Shop</span>
-            <i data-lucide="arrow-right" class="w-4 h-4"></i>
-          </div>
+        <div class="val-btn">
+          <span class="long">Shop Now</span>
+          <span class="short">Shop</span>
+          <i data-lucide="arrow-right" style="width:16px;"></i>
         </div>
       </div>
     </a>
-    <section class="mb-8">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        1. Choose your pack
-      </h2>
-      <div class="grid grid-cols-2 gap-3" id="pack-grid">
-        </div>
-    </section>
+    <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
-    <section class="mb-8">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        2. Add your photos
-      </h2>
+    <section class="card">
+      <h2>Your details</h2>
       
-      <div class="bg-card rounded-3xl p-4 shadow-sm border border-border">
-        <div class="grid grid-cols-3 gap-3" id="image-grid">
+      <label for="email">Email address</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 4px;" />
+      <p class="hint" style="margin-bottom: 16px; margin-top: 0;">We’ll send your order confirmation here.</p>
+      <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
+
+      <label for="phone">Phone number</label>
+      <input id="phone" type="tel" autocomplete="tel" placeholder="+44 7700 900000" required style="margin-bottom: 16px;" />
+      <p id="phoneError" class="error-text" style="display:none;">Please enter a valid phone number.</p>
+
+      <label style="margin-bottom: 12px; display:block; color:var(--text-muted); font-size:0.95rem; font-weight:600;">Shipping / Collection Method</label>
+      
+      <div class="shipping-grid" id="shipping-wrapper">
+        
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GI_COLLECT">
+          <div class="shipping-content">
+            <span class="shipping-title">📍 Collection (Free)</span>
+            <span class="shipping-desc">Pick up from Atlantic Suites</span>
           </div>
-        
-        <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
-        
-        <div class="flex items-center justify-center gap-2 py-4">
-          <span class="font-display text-2xl font-bold text-muted-foreground" id="counter-text">0/6</span>
-          <span class="text-muted-foreground">photos selected</span>
+        </label>
+
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GI_DELIVER">
+          <div class="shipping-content">
+            <span class="shipping-title">🚚 Gibraltar Delivery (+£3.00)</span>
+            <span class="shipping-desc">Delivered within 48 hours</span>
+          </div>
+        </label>
+
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GB">
+          <div class="shipping-content">
+            <span class="shipping-title">🇬🇧 UK Delivery (+£5.00)</span>
+            <span class="shipping-desc">Royal Mail Tracked</span>
+          </div>
+        </label>
+
+      </div>
+      <p id="shippingError" class="error-text" style="display:none;">Please select a shipping method.</p>
+
+      <label for="promo-code" style="margin-top:24px;">Promo Code / Voucher</label>
+      <div style="display:flex; gap:8px;">
+        <input id="promo-code" type="text" placeholder="Enter code" style="flex:1; text-transform:uppercase;" />
+        <button id="apply-promo" type="button" class="btn-ghost">Apply</button>
+      </div>
+      <p id="promo-msg" style="font-size:0.85rem; margin-top:6px; display:none;"></p>
+
+      <div style="margin-top: 24px; border-top: 1px solid var(--border-light); padding-top: 20px;">
+        <label style="margin-bottom: 8px;">Are you happy for us to share your order on social media? 📸</label>
+        <div class="social-options" id="social-wrapper">
+          <label class="social-btn">
+            <input type="radio" name="socials" value="yes">
+            <span>Yes, please!</span>
+          </label>
+          <label class="social-btn">
+            <input type="radio" name="socials" value="no">
+            <span>No, keep it private</span>
+          </label>
         </div>
+        <p id="socialError" class="error-text" style="display:none;">Please select an option.</p>
+      </div>
+
+    </section>
+
+    <section class="card">
+      <h2>Choose your magnet pack</h2>
+      
+      <h3>Standard Packs (1 magnet per photo)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="standard_3" checked> 3 magnets — £7</label>
+        <label><input type="radio" name="pack" value="standard_6"> 6 magnets — £14</label>
+        <label><input type="radio" name="pack" value="standard_9"> 9 magnets — £20</label>
+        <label><input type="radio" name="pack" value="standard_12"> 12 magnets — £25</label>
+        <label><input type="radio" name="pack" value="standard_15"> 15 magnets — £30</label>
+      </div>
+
+      <h3>Gift Vouchers (Digital Code)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="voucher_14"> £14 Voucher (6 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_20"> £20 Voucher (9 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_25"> £25 Voucher (12 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_30"> £30 Voucher (15 magnets)</label>
+      </div>
+
+      <p class="hint" style="margin-top:16px;">Each magnet is 50×50 mm. Your photo(s) will be cropped to fit.</p>
+    </section>
+
+    <section class="card" id="upload-section">
+      <h2>Upload your photos</h2>
+
+      <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
+        <div class="dz-message">
+          Tap to select photos<br>
+          <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
+        </div>
+      </form>
+
+      <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
+
+      <div class="upload-meta">
+        <div>
+          <div class="counter">
+            <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
+          </div>
+          <div id="count-help" class="count-help" aria-live="polite">You need exactly 3 photos.</div>
+          <div id="crop-help" class="count-help warn" aria-live="polite" style="display:none;">Cropping required for 0 photo(s).</div>
+        </div>
+        <ul class="hint">
+          <li>Accepted: JPG, PNG, HEIC</li>
+          <li>Max file size: 95 MB each</li>
+          <li>Click “Crop” or “Remove” on a thumbnail to adjust</li>
+        </ul>
+      </div>
+
+      <div class="progress" id="upload-progress" aria-hidden="true">
+        <div class="progress-bar" id="upload-progress-bar" style="width:0%"></div>
       </div>
     </section>
 
-    <section class="mb-8 hidden" id="details-section">
-      <h2 class="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-        3. Your details
-      </h2>
-      <div class="space-y-3">
-        <div class="relative">
-          <i data-lucide="phone" class="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground"></i>
-          <input type="tel" id="phone" placeholder="Mobile number" class="w-full pl-10 h-12 rounded-xl border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-        </div>
-        <div class="relative">
-          <i data-lucide="mail" class="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground"></i>
-          <input type="email" id="email" placeholder="Email address" class="w-full pl-10 h-12 rounded-xl border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-        </div>
-        <div class="mt-4">
-            <label class="text-sm font-bold text-foreground mb-2 block">Delivery Method</label>
-            <div class="grid grid-cols-2 gap-3">
-                <div onclick="setShipping('GI_COLLECT')" id="ship-collect" class="border-2 rounded-xl p-3 cursor-pointer text-center bg-white hover:border-primary transition-all">
-                    <i data-lucide="map-pin" class="w-5 h-5 mx-auto mb-1 text-primary"></i>
-                    <div class="font-bold text-xs">Collection</div>
-                    <div class="text-[10px] text-muted-foreground">Free</div>
-                </div>
-                <div onclick="setShipping('GI_DELIVER')" id="ship-deliver" class="border-2 rounded-xl p-3 cursor-pointer text-center bg-white hover:border-primary transition-all">
-                    <i data-lucide="truck" class="w-5 h-5 mx-auto mb-1 text-primary"></i>
-                    <div class="font-bold text-xs">Delivery</div>
-                    <div class="text-[10px] text-muted-foreground">+£3.00</div>
-                </div>
-            </div>
-        </div>
-      </div>
+    <section class="card actions actions-centered">
+      <button id="payBtn" class="cta" type="button">Pay securely</button>
+      <div id="status" class="status"></div>
     </section>
 
-    <button id="submit-btn" disabled class="w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-muted text-muted-foreground cursor-not-allowed shadow-lg">
-      Select photos to start
-    </button>
-
-    <footer class="text-center text-sm text-muted-foreground pt-8 pb-4">
-      <p>Small magnets, big memories ❤️</p>
+    <footer>
+      <p class="tiny">
+        By uploading you confirm you have the rights to print these images. We store photos only to fulfill your order.
+      </p>
+      <p class="tiny" style="margin-top:8px;">
+        <a href="/legal.html" style="color:#555; text-decoration:underline;">Privacy & Terms</a>
+      </p>
     </footer>
   </main>
 
-  <div id="crop-modal" class="modal-overlay">
-    <div class="modal-content">
-      <h3 class="text-lg font-bold mb-2">Crop your photo</h3>
-      <div class="cropper-container">
-        <img id="crop-image" src="" style="max-width:100%;">
-      </div>
-      <div class="flex gap-2 justify-end mt-4">
-        <button id="crop-cancel" class="px-4 py-2 text-gray-600 font-medium">Cancel</button>
-        <button id="crop-confirm" class="px-4 py-2 bg-secondary text-white rounded-lg font-bold">Save Crop</button>
+  <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
+    <div class="modal-card">
+      <h3 id="upgrade-title">Change pack size?</h3>
+      <p id="upgrade-text" class="modal-text"></p>
+      <div class="modal-actions">
+        <button id="upgrade-confirm" class="btn-primary" type="button">Confirm</button>
+        <button id="upgrade-keep" class="btn-ghost" type="button">Cancel</button>
       </div>
     </div>
   </div>
 
-  <script>
-    lucide.createIcons();
+  <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="modal-card cropper-card">
+      <h3 id="crop-title">Crop your photo</h3>
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
+      <p class="hint" style="margin-top:8px;">Adjust to fit the square. This is exactly how it will print.</p>
+      <div class="modal-actions">
+        <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
+        <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
+      </div>
+    </div>
+  </div>
 
-    // --- CONFIG ---
-    const packs = [
-      { id: "3", count: 3, price: 7 },
-      { id: "6", count: 6, price: 14, popular: true },
-      { id: "9", count: 9, price: 20 },
-      { id: "12", count: 12, price: 25 },
-      { id: "15", count: 15, price: 30 },
-    ];
-
-    // --- STATE ---
-    let state = {
-      selectedPack: "6",
-      files: [], 
-      phone: "",
-      email: "",
-      shippingMethod: "GI_COLLECT" // Default
-    };
-
-    // --- UI RENDER ---
-    const packGrid = document.getElementById('pack-grid');
-    const imageGrid = document.getElementById('image-grid');
-    const fileInput = document.getElementById('fileInput');
-    const counterText = document.getElementById('counter-text');
-    const submitBtn = document.getElementById('submit-btn');
-    const detailsSection = document.getElementById('details-section');
-
-    function renderPacks() {
-      packGrid.innerHTML = packs.map(pack => {
-        const isSelected = state.selectedPack === pack.id;
-        const classes = isSelected 
-          ? "border-secondary bg-secondary/10 ring-1 ring-secondary" 
-          : "border-border bg-card hover:border-primary/50";
-        
-        return `
-          <div class="relative ${pack.popular ? 'col-span-2' : ''}" onclick="selectPack('${pack.id}')">
-            ${pack.popular ? `<span class="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-secondary text-white text-xs font-bold px-3 py-0.5 rounded-full whitespace-nowrap shadow-sm">MOST POPULAR</span>` : ''}
-            <button class="w-full p-3 sm:p-4 rounded-2xl border-2 transition-all duration-200 active:scale-95 text-left ${classes}">
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <p class="font-display text-lg sm:text-2xl font-bold text-foreground">${pack.count} magnets</p>
-                  <p class="text-muted-foreground text-xs">£${(pack.price/pack.count).toFixed(2)} each</p>
-                </div>
-                <p class="font-display text-2xl sm:text-3xl font-bold text-primary">£${pack.price}</p>
-              </div>
-            </button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderImages() {
-      const required = getRequiredCount();
-      const slots = [];
-
-      // Existing images
-      state.files.forEach(img => {
-        slots.push(`
-          <div class="relative aspect-square rounded-xl overflow-hidden shadow-sm border border-border group">
-            <img src="${img.preview}" class="w-full h-full object-cover">
-            <button onclick="removeImage('${img.id}')" class="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white shadow-md active:scale-90">
-              <i data-lucide="x" class="w-3 h-3"></i>
-            </button>
-          </div>
-        `);
-      });
-
-      // Empty slots
-      const remaining = required - state.files.length;
-      for(let i=0; i<remaining; i++) {
-        slots.push(`
-          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/50 cursor-pointer hover:border-secondary transition-colors active:scale-95">
-            <i data-lucide="plus" class="w-6 h-6 text-muted-foreground/50"></i>
-          </div>
-        `);
-      }
-
-      imageGrid.innerHTML = slots.join('');
-      lucide.createIcons(); // Refresh icons
-      counterText.textContent = `${state.files.length}/${required}`;
-      counterText.className = `font-display text-2xl font-bold ${state.files.length === required ? 'text-primary' : 'text-muted-foreground'}`;
+  <div id="whatsapp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="wa-title">
+    <div class="modal-card" style="text-align: center;">
+      <h3 id="wa-title" style="color: #59c9a5; margin-bottom: 12px;">File Too Large</h3>
+      <p class="modal-text" style="margin-bottom: 24px;">
+        This photo is very large (over 95MB)!<br>
+        Please send this file directly to us on WhatsApp:
+      </p>
       
-      updateButton();
-    }
+      <a href="https://wa.me/35054007718" target="_blank" style="display:block; background:#25D366; color:white; padding:16px; border-radius:12px; text-decoration:none; font-weight:bold; font-size:1.2rem; margin-bottom:16px;">
+        <span style="font-size:1.4rem; vertical-align:middle; margin-right:8px;">📱</span> 
+        +350 54007718
+      </a>
 
-    function updateButton() {
-      const required = getRequiredCount();
-      const isComplete = state.files.length === required;
-      const pack = packs.find(p => p.id === state.selectedPack);
-      const shipCost = state.shippingMethod === 'GI_DELIVER' ? 3.00 : 0;
-      const total = pack.price + shipCost;
+      <button id="wa-close" class="btn-ghost" type="button">Close</button>
+    </div>
+  </div>
 
-      if (isComplete) {
-        detailsSection.classList.remove('hidden');
-        submitBtn.disabled = false;
-        submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-secondary text-white shadow-lg active:scale-95";
-        submitBtn.textContent = `Pay £${total.toFixed(2)}`;
-      } else {
-        detailsSection.classList.add('hidden');
-        submitBtn.disabled = true;
-        submitBtn.className = "w-full py-5 rounded-2xl font-display text-xl font-bold transition-all duration-300 bg-muted text-muted-foreground cursor-not-allowed";
-        const needed = required - state.files.length;
-        submitBtn.textContent = `Add ${needed} more photo${needed>1?'s':''}`;
-      }
-    }
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    window.setShipping = (method) => {
-        state.shippingMethod = method;
-        const cEl = document.getElementById('ship-collect');
-        const dEl = document.getElementById('ship-deliver');
-        const active = "border-primary bg-primary/5 ring-1 ring-primary";
-        const inactive = "border-2 bg-white hover:border-primary";
-        
-        cEl.className = `border-2 rounded-xl p-3 cursor-pointer text-center transition-all ${method==='GI_COLLECT' ? active : inactive}`;
-        dEl.className = `border-2 rounded-xl p-3 cursor-pointer text-center transition-all ${method==='GI_DELIVER' ? active : inactive}`;
-        updateButton();
-    }
-
-    // --- ACTIONS ---
-    window.selectPack = (id) => {
-      state.selectedPack = id;
-      const required = getRequiredCount();
-      if(state.files.length > required) {
-        state.files = state.files.slice(0, required);
-      }
-      renderPacks();
-      renderImages();
-    };
-
-    window.removeImage = (id) => {
-      state.files = state.files.filter(f => f.id !== id);
-      renderImages();
-    };
-
-    function getRequiredCount() {
-      return packs.find(p => p.id === state.selectedPack)?.count || 0;
-    }
-
-    fileInput.addEventListener('change', (e) => {
-      if(!e.target.files.length) return;
-      const required = getRequiredCount();
-      const remaining = required - state.files.length;
-      if (remaining <= 0) return;
-
-      const newFiles = Array.from(e.target.files).slice(0, remaining).map(file => ({
-        id: crypto.randomUUID(),
-        file: file,
-        preview: URL.createObjectURL(file), // Temp preview
-        blob: null // Cropped blob
-      }));
-
-      // Queue cropping
-      processCropQueue(newFiles);
-      fileInput.value = '';
-    });
-
-    // --- CROPPER LOGIC ---
-    let cropQueue = [];
-    let currentCrop = null;
-    let cropper = null;
-    const modal = document.getElementById('crop-modal');
-    const cropImg = document.getElementById('crop-image');
-
-    async function processCropQueue(files) {
-      for(const f of files) {
-        await new Promise(resolve => {
-          openCropper(f, resolve);
-        });
-      }
-      renderImages();
-    }
-
-    function openCropper(fileObj, done) {
-      currentCrop = { fileObj, done };
-      cropImg.src = fileObj.preview;
-      modal.style.display = 'flex';
-      
-      if(cropper) cropper.destroy();
-      cropper = new Cropper(cropImg, {
-        aspectRatio: 1,
-        viewMode: 1,
-        autoCropArea: 1,
-        background: false
-      });
-    }
-
-    document.getElementById('crop-confirm').onclick = () => {
-      if(!cropper || !currentCrop) return;
-      cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 }).toBlob(blob => {
-        const finalUrl = URL.createObjectURL(blob);
-        
-        state.files.push({
-          id: currentCrop.fileObj.id,
-          file: currentCrop.fileObj.file,
-          blob: blob,
-          preview: finalUrl
-        });
-
-        modal.style.display = 'none';
-        currentCrop.done();
-        cropper.destroy();
-      }, 'image/jpeg', 0.95);
-    };
-
-    document.getElementById('crop-cancel').onclick = () => {
-      modal.style.display = 'none';
-      if(currentCrop) currentCrop.done();
-      if(cropper) cropper.destroy();
-    };
-
-    // --- SUBMISSION ---
-    submitBtn.onclick = async () => {
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-
-      if (!email || !phone) {
-        alert("Please enter your email and phone number.");
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Processing...";
-
-      try {
-        // 1. Create Order
-        const orderRes = await fetch("/api/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            email, phone, 
-            packSize: state.selectedPack, 
-            packType: 'standard',
-            socialPermission: true, // Default true for standard
-            shippingMethod: state.shippingMethod
-          }),
-        });
-        
-        if (!orderRes.ok) throw new Error("Order creation failed");
-        const { orderId } = await orderRes.json();
-
-        // 2. Upload Images
-        submitBtn.textContent = "Uploading photos...";
-        for (const item of state.files) {
-          const form = new FormData();
-          const fname = item.file.name.replace(/\.[^/.]+$/, "") + ".jpg";
-          form.append("file", item.blob, fname);
-          
-          await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, {
-            method: "POST",
-            body: form
-          });
-        }
-
-        // 3. Checkout
-        submitBtn.textContent = "Redirecting...";
-        const ckRes = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId, email,
-            packSize: state.selectedPack,
-            packType: 'standard',
-            country: state.shippingMethod
-          }),
-        });
-        
-        const { checkoutUrl } = await ckRes.json();
-        window.location.href = checkoutUrl;
-
-      } catch (e) {
-        console.error(e);
-        alert("Something went wrong. Please try again.");
-        submitBtn.disabled = false;
-        updateButton();
-      }
-    };
-
-    // Init
-    renderPacks();
-    renderImages();
-    setShipping('GI_COLLECT'); // Init ship select styles
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+  <script src="./app.js"></script>
+  
+  <script>lucide.createIcons();</script>
 </body>
 </html>
