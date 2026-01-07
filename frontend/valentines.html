@@ -72,7 +72,11 @@
       </div>
       <h1 class="text-4xl sm:text-5xl font-bold mb-3 leading-tight tracking-tight">Magnetic<br/><span class="text-primary">Memories</span></h1>
       <p class="text-lg sm:text-xl text-muted-foreground font-medium mb-2 font-serif italic">Valentine's Edition</p>
-      <p class="text-muted-foreground mb-8 max-w-xs mx-auto text-sm sm:text-base">Turn your favourite moments into beautiful magnets instantly.</p>
+      
+      <p class="text-muted-foreground mb-8 max-w-xs mx-auto text-sm sm:text-base">
+        Turn your favourite moments into beautiful <strong>50x50mm</strong> magnets instantly.
+      </p>
+      
       <button onclick="goToStep(1)" class="w-full max-w-xs py-3.5 bg-primary text-white rounded-full font-semibold text-lg shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2">
         <i data-lucide="sparkles" class="w-5 h-5"></i> Create Your Magnets
       </button>
@@ -86,7 +90,7 @@
       <div class="text-center mb-4">
         <span class="inline-block px-3 py-1 rounded-full bg-secondary text-primary text-[10px] font-bold uppercase mb-2">Step 1 of 4</span>
         <h2 class="text-2xl font-bold font-serif text-foreground mb-1">Choose Package</h2>
-        <p class="text-muted-foreground text-xs sm:text-sm">Includes custom photos + pre-made designs</p>
+        <p class="text-muted-foreground text-xs sm:text-sm">Premium 50x50mm magnets • Custom + Pre-made</p>
       </div>
       <div class="space-y-3" id="pack-list"></div>
       <button id="btn-step-1" disabled onclick="goToStep(2)" class="mt-4 w-full py-3.5 bg-primary disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
@@ -176,6 +180,8 @@
         <div class="pt-2 border-t border-rose-50 space-y-1 text-xs text-muted-foreground">
           <div class="flex justify-between"><span>Package Price</span> <span id="summary-base-price" class="font-medium text-foreground">£0.00</span></div>
           <div class="flex justify-between"><span>Shipping</span> <span id="summary-shipping-price" class="font-medium text-foreground">--</span></div>
+          <div class="flex justify-between"><span>Size</span> <span class="font-medium text-foreground">50x50mm</span></div>
+          
           <div class="flex justify-between pt-2 border-t border-rose-100 items-baseline">
             <span class="font-bold text-base text-foreground">Total</span>
             <span class="font-serif text-xl font-bold text-primary" id="summary-total-price">£0.00</span>
@@ -227,7 +233,6 @@
       { id: 4, name: "Full Heart", custom: 12, premade: 3, price: 35.00 } 
     ];
 
-    // UPDATED: Now uses actual images v1.jpeg to v12.jpeg
     const DESIGNS = [
       { id: "v1", src: "./v1.jpeg", name: "Design 1" },
       { id: "v2", src: "./v2.jpeg", name: "Design 2" },
