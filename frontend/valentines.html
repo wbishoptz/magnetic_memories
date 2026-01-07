@@ -88,9 +88,7 @@
         <h2 class="text-2xl font-bold font-serif text-foreground mb-1">Choose Package</h2>
         <p class="text-muted-foreground text-xs sm:text-sm">Includes custom photos + pre-made designs</p>
       </div>
-      
       <div class="space-y-3" id="pack-list"></div>
-      
       <button id="btn-step-1" disabled onclick="goToStep(2)" class="mt-4 w-full py-3.5 bg-primary disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
@@ -149,17 +147,20 @@
               <i data-lucide="map-pin" class="w-5 h-5 mx-auto mb-1 text-primary"></i>
               <div class="font-bold text-xs">Collection</div>
               <div class="text-[10px] text-green-600 font-medium">Free</div>
+              <div class="text-[10px] text-muted-foreground mt-1 font-bold">Atlantic Suites</div>
             </div>
             <div onclick="setShipping('GI_DELIVER')" id="ship-deliver" class="border-2 rounded-xl p-2 cursor-pointer text-center hover:bg-rose-50 transition-all">
               <i data-lucide="truck" class="w-5 h-5 mx-auto mb-1 text-primary"></i>
               <div class="font-bold text-xs">Delivery</div>
               <div class="text-[10px] text-primary font-medium">+£3.00</div>
+              <div class="text-[10px] text-muted-foreground mt-1">Gibraltar Only</div>
             </div>
           </div>
         </div>
 
         <div>
           <label class="block text-[10px] font-bold text-foreground uppercase tracking-wider mb-2">2. Permissions</label>
+          <p class="text-[10px] text-muted-foreground mb-1.5">Can we share your magnets on our social media?</p>
           <div class="grid grid-cols-2 gap-2">
             <div onclick="setSocial(true)" id="social-yes" class="border-2 rounded-xl p-2 cursor-pointer text-center hover:bg-rose-50 transition-all">
               <i data-lucide="camera" class="w-4 h-4 mx-auto mb-1 text-primary"></i>
@@ -226,6 +227,7 @@
       { id: 4, name: "Full Heart", custom: 12, premade: 3, price: 35.00 } 
     ];
 
+    // UPDATED: Now uses actual images v1.jpeg to v12.jpeg
     const DESIGNS = [
       { id: "v1", src: "./v1.jpeg", name: "Design 1" },
       { id: "v2", src: "./v2.jpeg", name: "Design 2" },

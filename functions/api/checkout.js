@@ -99,7 +99,6 @@ export async function onRequestPost({ request, env }) {
     // Determine Success URL based on event
     let successPage = "return.html";
     if (eventTag === 'BINGO') successPage = "bingo-return.html";
-    // We can use the standard return page for Valentines, or a new one later
     
     const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
@@ -148,7 +147,7 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][product_data][description]", productDesc);
     params.append("line_items[0][price_data][unit_amount]", String(price * 100)); 
 
-    // --- 100% DISCOUNT HANDLING (VOUCHER COVERS ALL) ---
+    // --- 100% DISCOUNT HANDLING ---
     if (voucherCode && discountAmount > 0) {
         if (finalPrice === 0) {
             // Update Voucher Balance
@@ -207,7 +206,7 @@ export async function onRequestPost({ request, env }) {
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
-            // Collection (Free)
+            // Collection (Free) - SPECIFIC LABEL
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
