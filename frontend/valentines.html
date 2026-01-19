@@ -158,7 +158,7 @@
     <div id="step-3" class="hidden animate-in slide-in-from-right duration-500">
       <div class="text-center mb-4">
         <span class="inline-block px-3 py-1 rounded-full bg-secondary text-primary text-[10px] font-bold uppercase mb-2">Upload</span>
-        <h2 class="text-2xl font-bold font-serif text-foreground mb-1">Upload Photos</h2>
+        <h2 class="text-2xl font-bold font-serif text-foreground mb-1">Upload <span id="upload-count-target" class="text-primary">0</span> Photos</h2>
         <p class="text-muted-foreground text-xs sm:text-sm" id="upload-help-text">Tap slots to add your memories</p>
       </div>
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-border mb-4">
@@ -308,6 +308,8 @@
     window.selectProduct = (type) => {
       state.productType = type;
       if (type === 'box') {
+        // Reset defaults for Box if returning
+        if (!state.packId) state.packId = 2;
         goToStep('1-box');
       } else {
         // Flexi Heart defaults
@@ -387,17 +389,26 @@
 
     function renderPhotos() {
       let limit = 1;
+      
+      // Determine Limit
       if (state.productType === 'box') {
         const pack = PACKS.find(p => p.id === state.packId);
-        limit = pack.custom;
+        if(pack) limit = pack.custom;
       }
       
-      document.getElementById('upload-count-target').innerText = limit;
-      // Change helper text based on product
+      // Update Counter Text (with Check to avoid crash)
+      const countEl = document.getElementById('upload-count-target');
+      if(countEl) countEl.innerText = limit;
+
+      // Helper Text
       const helpText = state.productType === 'flexi' ? "Upload the face for your Flexi Heart" : "Tap slots to add your memories";
-      document.getElementById('upload-help-text').innerText = helpText;
+      const helpEl = document.getElementById('upload-help-text');
+      if(helpEl) helpEl.innerText = helpText;
       
+      // RENDER SLOTS
       let html = '';
+      
+      // 1. Existing Photos
       state.photos.forEach(img => {
         html += `
           <div class="aspect-square rounded-xl relative overflow-hidden shadow-sm group border border-border">
@@ -406,6 +417,8 @@
           </div>
         `;
       });
+
+      // 2. Empty Slots
       const remaining = limit - state.photos.length;
       for(let i=0; i<remaining; i++) {
         html += `
@@ -415,12 +428,16 @@
           </div>
         `;
       }
+
       document.getElementById('photo-grid').innerHTML = html;
       lucide.createIcons();
+      
       const isComplete = state.photos.length === limit;
       const btn = document.getElementById('btn-step-3');
-      btn.disabled = !isComplete;
-      btn.innerHTML = isComplete ? `Review Order <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>` : `Add ${remaining} more`;
+      if(btn) {
+          btn.disabled = !isComplete;
+          btn.innerHTML = isComplete ? `Review Order <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>` : `Add ${remaining} more`;
+      }
       lucide.createIcons();
     }
 
@@ -435,7 +452,6 @@
       window.scrollTo(0,0);
     };
 
-    // Nav Helper for Upload Back Button
     window.goBackFromUpload = () => {
       if(state.productType === 'box') goToStep('2-box');
       else goToStep('1-flexi');
@@ -482,8 +498,10 @@
         productName = `Flexi Heart (${state.flexiColor})`;
       } else {
         const pack = PACKS.find(p => p.id === state.packId);
-        basePrice = pack.price;
-        productName = pack.name;
+        if(pack) {
+            basePrice = pack.price;
+            productName = pack.name;
+        }
       }
 
       const shipCost = state.shippingMethod === 'GI_DELIVER' ? 3.00 : 0;
@@ -531,7 +549,7 @@
           socialPermission: state.socialPermission,
           shippingMethod: state.shippingMethod,
           event: "VALENTINES", 
-          productType: state.productType, // 'box' or 'flexi'
+          productType: state.productType, 
         };
 
         if (state.productType === 'box') {
@@ -539,8 +557,8 @@
           payload.packType = 'standard';
           payload.premadeSelections = state.selectedDesigns;
         } else {
-          payload.packSize = 1; // Flexi is always 1 item technically
-          payload.packType = 'flexi'; // Distinction
+          payload.packSize = 1; 
+          payload.packType = 'flexi'; 
           payload.flexiColor = state.flexiColor;
         }
 
@@ -566,8 +584,8 @@
             orderId, email, 
             country: state.shippingMethod, 
             event: "VALENTINES",
-            productType: state.productType, // Help checkout distinguish price
-            packSize: payload.packSize // pass this along
+            productType: state.productType, 
+            packSize: payload.packSize 
           })
         });
         
@@ -599,7 +617,7 @@
         let limit = 1;
         if (state.productType === 'box') {
            const pack = PACKS.find(p => p.id === state.packId);
-           limit = pack.custom;
+           if(pack) limit = pack.custom;
         }
         
         const remaining = limit - state.photos.length;
@@ -634,7 +652,8 @@
 
     window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
 
-    // Initial State is Step 0 (No renderPacks needed yet)
+    // START
+    // Step 0 is static, no render needed.
   </script>
 </body>
 </html>
