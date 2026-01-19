@@ -4,15 +4,19 @@
 const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
+const BINGO_PACKS = [1, 3, 6, 12];
 const BINGO_PRICES = { 1: 3.5, 3: 10, 6: 20, 12: 35 };
 
+const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 
+const FLEXI_PRICE = 15.00;
+
 const VOUCHERS = { 
-    "voucher_14": { price: 14, label: "£14 Gift Voucher (6 Magnets)" },
-    "voucher_20": { price: 20, label: "£20 Gift Voucher (9 Magnets)" },
-    "voucher_25": { price: 25, label: "£25 Gift Voucher (12 Magnets)" },
-    "voucher_30": { price: 30, label: "£30 Gift Voucher (15 Magnets)" }
+    "voucher_14": { price: 14, label: "£14 Gift Voucher" },
+    "voucher_20": { price: 20, label: "£20 Gift Voucher" },
+    "voucher_25": { price: 25, label: "£25 Gift Voucher" },
+    "voucher_30": { price: 30, label: "£30 Gift Voucher" }
 };
 
 function jsonResponse(body, status = 200) {
@@ -26,11 +30,9 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
-    const targetCountry = body?.country || "GI_COLLECT"; 
     const voucherCode = body?.voucherCode; 
-    // We get the event tag from the body (sent by frontend) or fallback to KV later
     let eventTag = body?.event || null; 
-
+    
     if (!orderId) {
       return jsonResponse({ error: "Missing orderId." }, 400);
     }
@@ -44,8 +46,9 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
-    // Ensure we have the event tag from KV if not passed
+    // Ensure we have the event/product info from KV if not passed in body
     if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
+    const productType = kvOrder?.productType || body?.productType || 'standard';
 
     // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
@@ -63,14 +66,22 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
-        // 2. BUYING MAGNETS
+        // 2. BUYING MAGNETS / PRODUCTS
         let size = Number(packSizeRaw);
         
         if (eventTag === 'VALENTINES') {
-            // Valentine's Logic
-            price = VALENTINES_PRICES[size] || 0;
-            productName = `Valentine's Pack`;
-            productDesc = `${size} Custom Magnets + Pre-made Designs`;
+            if (productType === 'flexi') {
+                // Valentines Flexi Heart
+                price = FLEXI_PRICE;
+                const color = kvOrder?.flexiColor || "Standard";
+                productName = `Flexi Heart (${color})`;
+                productDesc = "1 Custom Photo Face";
+            } else {
+                // Valentines Box
+                price = VALENTINES_PRICES[size] || 0;
+                productName = `Valentine's Box (${size} magnets)`;
+                productDesc = "Custom Photos + Pre-made Designs";
+            }
         } else if (eventTag === 'BINGO') {
             // Bingo Logic
             price = BINGO_PRICES[size] || 20; 
@@ -193,6 +204,8 @@ export async function onRequestPost({ request, env }) {
 
     // --- SHIPPING LOGIC ---
     if (!isVoucherPurchase) {
+        const targetCountry = body?.country || kvOrder?.shippingMethod || "GI_COLLECT";
+
         if (targetCountry === "GB") {
             params.append("shipping_address_collection[allowed_countries][0]", "GB");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
@@ -206,7 +219,7 @@ export async function onRequestPost({ request, env }) {
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
-            // Collection (Free) - SPECIFIC LABEL
+            // Collection (Free)
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");

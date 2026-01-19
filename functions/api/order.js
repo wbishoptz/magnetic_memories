@@ -1,18 +1,16 @@
 // functions/api/order.js
 
 // --- CONFIGURATION ---
-
-// 1. Standard Website
 const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
-// 2. Bingo Event (1, 3, 6, 12)
 const BINGO_PACKS = [1, 3, 6, 12];
 const BINGO_PRICES = { 1: 3.50, 3: 10, 6: 20, 12: 35 };
 
-// 3. Valentines Event (Pack IDs 1, 2, 3, 4)
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
+
+const FLEXI_PRICE = 15.00; // Fixed price for Flexi Heart
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -25,104 +23,100 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     
-    // Core Fields
-    const emailRaw = body?.email ?? "";
-    const phoneRaw = body?.phone ?? ""; 
-    const packSizeRaw = body?.packSize;
-    const packType = body?.packType || "standard";
-    const socialPermission = body?.socialPermission || false;
-    const shippingMethod = body?.shippingMethod || "GI_COLLECT"; 
+    // Fields
+    const email = String(body?.email || "").trim();
+    const phone = String(body?.phone || "").trim();
+    const packSizeRaw = body?.packSize; 
+    const eventTag = body?.event || null; 
     
-    // Event Specifics
-    const eventTag = body?.event || null; // 'BINGO', 'VALENTINES', or null
-    const premadeSelections = body?.premadeSelections || []; // For Valentines
-    
-    let orderId = body?.orderId;
-    const isUpdate = !!orderId;
-
-    // Validation
-    const email = String(emailRaw).trim();
-    const phone = String(phoneRaw).trim();
+    // New Fields for Valentines Flexi
+    const productType = body?.productType || 'standard'; // 'flexi' or 'standard'/'box'
+    const flexiColor = body?.flexiColor || null;
+    const premadeSelections = body?.premadeSelections || []; 
 
     if (!/\S+@\S+\.\S+/.test(email)) return jsonResponse({ error: "Invalid email." }, 400);
-    if (phone.length < 6) return jsonResponse({ error: "Invalid phone." }, 400);
 
-    // --- PRICE & PACK VALIDATION ---
-    let packSize = Number(packSizeRaw);
     let price = 0;
-    const isVoucher = String(packSizeRaw).startsWith("voucher_");
+    const packSize = Number(packSizeRaw);
 
-    if (isVoucher) {
-        // Gift Voucher Purchase (Price handled in checkout based on code value)
+    // --- PRICING LOGIC ---
+    if (String(packSizeRaw).startsWith("voucher_")) {
+        // Buying a voucher (price handled in checkout, stored as 0 here usually or lookup)
+        // For order record, we usually set price 0 here and let checkout handle payment intent
         price = 0; 
     } else {
         if (eventTag === 'VALENTINES') {
-            // Valentines Logic
-            if (!VALENTINES_PACKS.includes(packSize)) {
-                return jsonResponse({ error: "Invalid Valentine's pack selection." }, 400);
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+            } else {
+                // Standard Valentine's Box
+                if (!VALENTINES_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
+                price = VALENTINES_PRICES[packSize];
             }
-            price = VALENTINES_PRICES[packSize];
         } 
         else if (eventTag === 'BINGO') {
-            // Bingo Logic
-            if (!BINGO_PACKS.includes(packSize)) {
-                return jsonResponse({ error: "Invalid Bingo pack selection." }, 400);
-            }
+            if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
             price = BINGO_PRICES[packSize];
         } 
         else {
-            // Standard Website Logic
-            if (!STANDARD_PACKS.includes(packSize)) {
-                return jsonResponse({ error: "Invalid pack size." }, 400);
-            }
+            // Standard Website
+            if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
             price = STANDARD_PRICES[packSize];
         }
     }
 
-    if (!orderId) orderId = crypto.randomUUID();
-
-    // Fetch existing if updating (to preserve creation date or other flags)
+    let orderId = body?.orderId || crypto.randomUUID();
+    
+    // Get existing order if updating (rarely used for creation, but good for safety)
     let existingOrder = {};
-    if (isUpdate) {
+    if (body?.orderId) {
         const rawKv = await env.ORDERS_KV.get(`order:${orderId}`);
         if (rawKv) existingOrder = JSON.parse(rawKv);
-    }
-
-    // --- BINGO ORDER NUMBER ---
-    let bingoNumber = existingOrder.bingoNumber || null;
-    if (eventTag === 'BINGO' && !bingoNumber) {
-        try {
-            const currentSeq = await env.ORDERS_KV.get('config:bingo_seq');
-            let nextSeq = 1;
-            if (currentSeq) nextSeq = parseInt(currentSeq, 10) + 1;
-            await env.ORDERS_KV.put('config:bingo_seq', String(nextSeq));
-            bingoNumber = nextSeq;
-        } catch (e) {
-            console.error("Failed to generate bingo number", e);
-        }
     }
 
     const now = new Date().toISOString();
 
     const order = {
-      orderId, email, phone, packSize, packType,
-      socialPermission, shippingMethod, price,
-      event: eventTag, 
-      premadeSelections: premadeSelections, // Save heart choices
-      bingoNumber: bingoNumber,             // Save simple number
+      orderId, 
+      email, 
+      phone, 
+      packSize, 
+      price, 
+      event: eventTag,
+      
+      // New specific fields
+      productType, 
+      flexiColor, 
+      premadeSelections, 
+      
+      // System fields
       status: existingOrder.status || "draft",         
       createdAt: existingOrder.createdAt || now, 
       updatedAt: now,
       images: existingOrder.images || [],       
       stripeSessionId: existingOrder.stripeSessionId || null,
       recoverySent: existingOrder.recoverySent || false,
-      recoverySkipped: existingOrder.recoverySkipped || false
+      shippingMethod: body?.shippingMethod || existingOrder.shippingMethod,
+      socialPermission: body?.socialPermission || existingOrder.socialPermission,
+      bingoNumber: existingOrder.bingoNumber
     };
+
+    // Bingo Sequence Logic
+    if (eventTag === 'BINGO' && !order.bingoNumber) {
+        try {
+            const currentSeq = await env.ORDERS_KV.get('config:bingo_seq');
+            let nextSeq = 1;
+            if (currentSeq) nextSeq = parseInt(currentSeq, 10) + 1;
+            await env.ORDERS_KV.put('config:bingo_seq', String(nextSeq));
+            order.bingoNumber = nextSeq;
+        } catch (e) {}
+    }
 
     await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
 
     return jsonResponse({ orderId });
   } catch (err) {
+    console.error("Order Create Error:", err);
     return jsonResponse({ error: "Failed to create order." }, 500);
   }
 }
@@ -134,15 +128,7 @@ export async function onRequestGet({ request, env }) {
     if (!orderId) return jsonResponse({ error: "Missing orderId." }, 400);
     const raw = await env.ORDERS_KV.get(`order:${orderId}`);
     if (!raw) return jsonResponse({ error: "Order not found." }, 404);
-    const order = JSON.parse(raw);
-    
-    // Fallback price logic for display if missing
-    if (!order.price && order.packSize && !String(order.packSize).startsWith("voucher_")) {
-        if (order.event === 'VALENTINES') order.price = VALENTINES_PRICES[order.packSize];
-        else if (order.event === 'BINGO') order.price = BINGO_PRICES[order.packSize];
-        else order.price = STANDARD_PRICES[order.packSize];
-    }
-    return jsonResponse(order);
+    return jsonResponse(JSON.parse(raw));
   } catch (err) {
     return jsonResponse({ error: "Failed to load order." }, 500);
   }

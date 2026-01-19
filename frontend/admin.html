@@ -454,14 +454,18 @@
 
           html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           
+          // --- FLEXI COLOR (NEW) ---
+          if (order.productType === 'flexi') {
+              html += `<div class="field-label" style="color:#f97316;">🧡 Flexi Heart Color</div>
+                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.flexiColor || "Unknown"}</div>`;
+          }
+
           // --- PRE-MADE SELECTIONS (IMAGES) ---
           if (order.premadeSelections && order.premadeSelections.length > 0) {
               html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div>
               <div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
               
               order.premadeSelections.forEach(id => {
-                  // Display thumbnail + ID
-                  // Assuming images are named v1.jpeg, v2.jpeg etc in the same directory as admin.html or root
                   html += `<div style="text-align:center;">
                     <img src="./${id}.jpeg" alt="${id}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #333; display:block; margin-bottom:2px;">
                     <span style="font-size:10px; color:#aaa;">${id}</span>
