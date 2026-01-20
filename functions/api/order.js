@@ -10,7 +10,7 @@ const BINGO_PRICES = { 1: 3.50, 3: 10, 6: 20, 12: 35 };
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 
-const FLEXI_PRICE = 15.00; // Fixed price for Flexi Heart
+const FLEXI_PRICE = 12.50; // UPDATED PRICE HERE
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {

@@ -90,7 +90,7 @@
           </div>
           <h3 class="font-serif text-xl font-bold text-foreground">Flexi Heart</h3>
           <p class="text-sm text-muted-foreground">The Magnet Man (1 Photo)</p>
-          <div class="mt-2 text-primary font-bold">£15.00</div>
+          <div class="mt-2 text-primary font-bold">£12.50</div>
         </div>
 
       </div>
@@ -495,7 +495,7 @@
       let productName = "";
 
       if (state.productType === 'flexi') {
-        basePrice = 15.00;
+        basePrice = 12.50; // UPDATED PRICE HERE
         productName = `Flexi Heart (${state.flexiColor})`;
       } else {
         const pack = PACKS.find(p => p.id === state.packId);
