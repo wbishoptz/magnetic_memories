@@ -263,7 +263,7 @@
 
   <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
     <div class="container max-w-md mx-auto">
-      <button id="main-btn" onclick="nextStep()" class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
+      <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
     </div>
@@ -283,21 +283,21 @@
   <script>
     lucide.createIcons();
 
-    // --- DATA (Images added here) ---
+    // --- DATA ---
     const PRODUCTS = {
       bohemian: [
-        { id: 'b3', size: 3, framePrice: 8, fullPrice: 15, img: './bohemian-3.jpeg' },
-        { id: 'b4', size: 4, framePrice: 10, fullPrice: 17, img: './bohemian-4.jpeg' },
-        { id: 'b6', size: 6, framePrice: 12, fullPrice: 25, img: './bohemian-6.jpeg' },
+        { id: 'b3', size: 3, framePrice: 8, fullPrice: 15 },
+        { id: 'b4', size: 4, framePrice: 10, fullPrice: 17 },
+        { id: 'b6', size: 6, framePrice: 12, fullPrice: 25 },
       ],
       sleek: [
-        { id: 's1', size: 1, framePrice: 5, fullPrice: 7, img: './sleek-1.jpeg' },
-        { id: 's2', size: 2, framePrice: 7, fullPrice: 12, img: './sleek-2.jpeg' },
-        { id: 's3', size: 3, framePrice: 8, fullPrice: 15, img: './sleek-3.jpeg' },
-        { id: 's4', size: 4, framePrice: 10, fullPrice: 17, img: './sleek-4.jpeg' },
+        { id: 's1', size: 1, framePrice: 5, fullPrice: 7 },
+        { id: 's2', size: 2, framePrice: 7, fullPrice: 12 },
+        { id: 's3', size: 3, framePrice: 8, fullPrice: 15 },
+        { id: 's4', size: 4, framePrice: 10, fullPrice: 17 },
       ],
       rollercube: [
-        { id: 'rc', size: 4, framePrice: 10, fullPrice: 17, img: './rollercube.jpeg' }
+        { id: 'rc', size: 4, framePrice: 10, fullPrice: 17 }
       ]
     };
 
@@ -355,32 +355,51 @@
       const btn = document.getElementById('main-btn');
       let valid = false;
       let text = "Continue";
+      let priceLabel = "";
 
       if (state.step === 1) {
         valid = !!state.style;
         text = "Continue";
+        priceLabel = "";
       } else if (state.step === 2) {
         valid = !!state.product;
         text = "Customize";
+        if (state.product) {
+            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+            priceLabel = ` • £${p.toFixed(2)}`;
+        }
       } else if (state.step === 3) {
         valid = true;
         if (state.withMagnets && state.photos.length !== state.product.size) valid = false;
         text = "Proceed to Pay";
+        if (state.product) {
+            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+            priceLabel = ` • £${p.toFixed(2)}`;
+        }
       } else if (state.step === 4) {
         valid = state.shipping && state.social !== null;
-        text = "Complete Order";
+        if(state.product) {
+            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+            const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0;
+            const total = p + ship;
+            text = `Pay £${total.toFixed(2)}`;
+        } else {
+            text = "Complete Order";
+        }
       }
 
       // Visual Disable (Clickable for Alert)
       if (!valid) {
         btn.classList.add('opacity-50', 'cursor-not-allowed');
+        // Reset text if disabled to simple prompt
+        if(state.step===4) text = "Complete Options";
       } else {
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
       }
 
       btn.innerHTML = state.step === 4 && valid 
-        ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> Pay Now` 
-        : `${text} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+        ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` 
+        : `${text}${priceLabel} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
       lucide.createIcons();
     }
 
@@ -389,25 +408,20 @@
       state.style = style;
       if (style === 'rollercube') {
         state.product = PRODUCTS.rollercube[0]; // Auto select only size
-        nextStep(); // Skip size step
+        setTimeout(() => nextStep(), 300); // Auto-advance
       } else {
         renderSizeGrid();
-        nextStep();
+        setTimeout(() => nextStep(), 300); // Auto-advance
       }
     };
 
-    // STEP 2 - NEW RENDER WITH IMAGES
+    // STEP 2
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
       container.innerHTML = PRODUCTS[state.style].map(p => `
-        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
-             <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" onerror="this.style.display='none'" />
-          </div>
-          <div class="px-3 pb-3">
-            <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
-            <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
-          </div>
+        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl p-4 text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
+          <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
+          <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
         </div>
       `).join('');
     }
@@ -419,6 +433,7 @@
       state.photos = [];
       updateCustomUI();
       renderSizeGrid(); // Visual update
+      setTimeout(() => nextStep(), 300); // Auto-advance
     };
 
     // STEP 3
