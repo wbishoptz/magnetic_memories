@@ -350,6 +350,10 @@
           if (o.event === 'VALENTINES') {
               statusDisplay += ` <span class="tag" style="background:#be123c; color:white; border:none; font-weight:700; font-size:10px;">💘 VALENTINES</span>`;
           }
+          // FRAMES BADGE
+          if (o.event === 'FRAMES') {
+              statusDisplay += ` <span class="tag" style="background:#ea580c; color:white; border:none; font-weight:700; font-size:10px;">🖼️ FRAMES</span>`;
+          }
 
           let packDisplay = o.packSize || "?";
           let style = "";
@@ -392,6 +396,8 @@
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
           } else if (order.event === 'VALENTINES') {
               topBanner = `<div style="background:linear-gradient(135deg, #e11d48, #be123c); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(225, 29, 72, 0.4);">💘 VALENTINE'S ORDER 💘</div>`;
+          } else if (order.event === 'FRAMES') {
+              topBanner = `<div style="background:linear-gradient(135deg, #ea580c, #c2410c); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center;">🖼️ FRAME ORDER</div>`;
           }
 
           const isVoucher = String(order.packSize).startsWith('voucher_');
@@ -452,15 +458,26 @@
           if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
           if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
-          html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
+          // --- CONDITIONAL PACK/FRAME DISPLAY ---
+          if (order.event === 'FRAMES') {
+              const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
+              const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
+              
+              html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize} slots)</div>
+                       <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
+                       <div class="field-value">Type: ${type}</div>`;
+          } else {
+              html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
+          }
           
-          // --- FLEXI COLOR (NEW) ---
+          // --- FLEXI COLOR ---
           if (order.productType === 'flexi') {
               html += `<div class="field-label" style="color:#f97316;">🧡 Flexi Heart Color</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.flexiColor || "Unknown"}</div>`;
           }
 
-          // --- PRE-MADE SELECTIONS (IMAGES) ---
+          // --- PRE-MADE SELECTIONS ---
           if (order.premadeSelections && order.premadeSelections.length > 0) {
               html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div>
               <div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
