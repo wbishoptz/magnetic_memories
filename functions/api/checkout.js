@@ -9,8 +9,25 @@ const BINGO_PRICES = { 1: 3.5, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
+const FLEXI_PRICE = 12.50;
 
-const FLEXI_PRICE = 12.50; // UPDATED PRICE HERE
+// NEW: Frame Pricing
+const FRAME_PRICES = {
+  bohemian: {
+    3: { frame: 8, full: 15 },
+    4: { frame: 10, full: 17 },
+    6: { frame: 12, full: 25 },
+  },
+  sleek: {
+    1: { frame: 5, full: 7 },
+    2: { frame: 7, full: 12 },
+    3: { frame: 8, full: 15 },
+    4: { frame: 10, full: 17 },
+  },
+  rollercube: {
+    4: { frame: 10, full: 17 }
+  }
+};
 
 const VOUCHERS = { 
     "voucher_14": { price: 14, label: "£14 Gift Voucher" },
@@ -66,29 +83,54 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
-        // 2. BUYING MAGNETS / PRODUCTS
+        // 2. BUYING PHYSICAL ITEMS
         let size = Number(packSizeRaw);
         
-        if (eventTag === 'VALENTINES') {
+        if (eventTag === 'FRAMES') {
+            // --- NEW FRAMES LOGIC ---
+            const style = kvOrder.frameStyle || 'bohemian';
+            const fSize = kvOrder.frameSize || size;
+            const withMags = kvOrder.includeMagnets || false;
+            const color = kvOrder.frameColor || 'White';
+
+            const pData = FRAME_PRICES[style]?.[fSize];
+            if (pData) {
+                price = withMags ? pData.full : pData.frame;
+                
+                // Construct nice Name: "Bohemian Frame (Black)"
+                const styleName = style.charAt(0).toUpperCase() + style.slice(1);
+                productName = `${styleName} Frame (${color})`;
+                
+                // Construct nice Desc: "With 4 custom magnets"
+                productDesc = withMags 
+                    ? `With ${fSize} personalised magnets` 
+                    : `Frame only (${fSize} slots)`;
+            } else {
+                price = 0;
+                productName = "Unknown Frame Configuration";
+            }
+
+        } else if (eventTag === 'VALENTINES') {
+            // --- VALENTINES LOGIC ---
             if (productType === 'flexi') {
-                // Valentines Flexi Heart
                 price = FLEXI_PRICE;
                 const color = kvOrder?.flexiColor || "Standard";
                 productName = `Flexi Heart (${color})`;
                 productDesc = "1 Custom Photo Face";
             } else {
-                // Valentines Box
                 price = VALENTINES_PRICES[size] || 0;
                 productName = `Valentine's Box (${size} magnets)`;
                 productDesc = "Custom Photos + Pre-made Designs";
             }
+
         } else if (eventTag === 'BINGO') {
-            // Bingo Logic
+            // --- BINGO LOGIC ---
             price = BINGO_PRICES[size] || 20; 
             productName = `Bingo Special (${size} magnets)`;
             productDesc = "Collect at the stall";
+
         } else {
-            // Standard Website Logic
+            // --- STANDARD LOGIC ---
             if (!STANDARD_PACKS.includes(size)) size = 3;
             price = STANDARD_PRICES[size];
             productName = `${size} Custom Photo Magnets`;
@@ -107,32 +149,12 @@ export async function onRequestPost({ request, env }) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
-    // Determine Success URL based on event
+    // Determine Success URL
     let successPage = "return.html";
     if (eventTag === 'BINGO') successPage = "bingo-return.html";
     
     const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
-
-    // --- APPLY DISCOUNT CODE (PARTIAL BALANCE LOGIC) ---
-    let discountAmount = 0;
-    let finalPrice = price;
-    let voucherData = null;
-    let voucherKey = null;
-    
-    if (voucherCode && !isVoucherPurchase) {
-        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
-        const vRaw = await env.ORDERS_KV.get(voucherKey);
-        if (vRaw) {
-            voucherData = JSON.parse(vRaw);
-            const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-            if (!voucherData.redeemed && currentBalance > 0) {
-                const deduction = Math.min(price, currentBalance);
-                discountAmount = deduction;
-                finalPrice = Math.max(0, price - discountAmount);
-            }
-        }
-    }
 
     // --- STRIPE SESSION PARAMS ---
     const params = new URLSearchParams();
@@ -143,63 +165,74 @@ export async function onRequestPost({ request, env }) {
     params.append("metadata[orderId]", orderId);
     if (eventTag) params.append("metadata[event]", eventTag); 
     
+    // Voucher Metadata
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
         params.append("metadata[voucherValue]", String(price));
     }
-    
-    if (voucherCode && discountAmount > 0) {
+    if (voucherCode) {
         params.append("metadata[usedVoucher]", voucherCode);
     }
 
+    // APPLY VOUCHER DISCOUNT LOGIC
+    let discountAmount = 0;
+    let finalPrice = price;
+    let voucherData = null;
+    let voucherKey = null;
+
+    if (voucherCode && !isVoucherPurchase) {
+        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        const vRaw = await env.ORDERS_KV.get(voucherKey);
+        if (vRaw) {
+            voucherData = JSON.parse(vRaw);
+            const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
+            if (!voucherData.redeemed && currentBalance > 0) {
+                discountAmount = Math.min(price, currentBalance);
+                finalPrice = Math.max(0, price - discountAmount);
+            }
+        }
+    }
+
+    // CREATE STRIPE LINE ITEM
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("line_items[0][price_data][product_data][description]", productDesc);
-    params.append("line_items[0][price_data][unit_amount]", String(price * 100)); 
+    params.append("line_items[0][price_data][unit_amount]", String(finalPrice * 100)); // Use final price after discount
 
-    // --- 100% DISCOUNT HANDLING ---
-    if (voucherCode && discountAmount > 0) {
-        if (finalPrice === 0) {
-            // Update Voucher Balance
-            const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-            const newBalance = currentBalance - discountAmount;
-            
-            voucherData.balance = newBalance;
-            if (newBalance <= 0) {
-                voucherData.redeemed = true;
-                voucherData.balance = 0;
-            }
-            voucherData.usedByOrder = orderId; 
-            await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
+    // Description override if voucher used
+    if (discountAmount > 0) {
+        params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
+    }
 
-            // Update Order Status
-            kvOrder.status = "paid";
-            kvOrder.paidAt = new Date().toISOString();
-            kvOrder.price = 0;
-            kvOrder.usedVoucher = voucherCode;
-            await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
-
-            // Send Notifications
-            const notifs = [
-                sendAdminEmail(kvOrder, env),
-                sendPaidTelegram(kvOrder, env)
-            ];
-            
-            if (eventTag === 'BINGO') {
-                notifs.push(sendBingoEmail(kvOrder, env));
-            } else {
-                notifs.push(sendPaidEmail(kvOrder, env));
-            }
-            
-            await Promise.allSettled(notifs);
-
-            return jsonResponse({ checkoutUrl: successUrl });
-        } else {
-            // Partial Discount (Update Stripe Price)
-            params.set("line_items[0][price_data][unit_amount]", String(finalPrice * 100));
-            params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
+    // --- 100% DISCOUNT HANDLING (SKIP STRIPE) ---
+    if (voucherCode && discountAmount > 0 && finalPrice === 0) {
+        // 1. Update Voucher
+        const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
+        const newBalance = currentBalance - discountAmount;
+        voucherData.balance = newBalance;
+        if (newBalance <= 0) {
+            voucherData.redeemed = true;
+            voucherData.balance = 0;
         }
+        voucherData.usedByOrder = orderId; 
+        await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
+
+        // 2. Update Order
+        kvOrder.status = "paid";
+        kvOrder.paidAt = new Date().toISOString();
+        kvOrder.price = 0;
+        kvOrder.usedVoucher = voucherCode;
+        await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
+
+        // 3. Notifications
+        const notifs = [sendAdminEmail(kvOrder, env), sendPaidTelegram(kvOrder, env)];
+        if (eventTag === 'BINGO') notifs.push(sendBingoEmail(kvOrder, env));
+        else notifs.push(sendPaidEmail(kvOrder, env));
+        
+        await Promise.allSettled(notifs);
+
+        return jsonResponse({ checkoutUrl: successUrl });
     }
 
     // --- SHIPPING LOGIC ---
@@ -219,7 +252,6 @@ export async function onRequestPost({ request, env }) {
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][currency]", "gbp");
             params.append("shipping_options[0][shipping_rate_data][display_name]", "Local Delivery");
         } else {
-            // Collection (Free)
             params.append("shipping_address_collection[allowed_countries][0]", "GI");
             params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
             params.append("shipping_options[0][shipping_rate_data][fixed_amount][amount]", "0");
@@ -336,13 +368,14 @@ async function sendAdminEmail(order, env) {
   let title = `New Order ${order.orderId}`;
   if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
+  if (order.event === 'FRAMES') title = `🖼️ FRAME ORDER`;
 
   const subject = `${title} - Paid`;
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>${title}</h2>
       <p><strong>Customer:</strong> ${order.email}</p>
-      <p><strong>Pack:</strong> ${order.packSize} magnets</p>
+      <p><strong>Product:</strong> ${order.event === 'FRAMES' ? 'Frame' : order.packSize + ' magnets'}</p>
       <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
     </div>
   `;
@@ -367,8 +400,9 @@ async function sendPaidTelegram(order, env) {
   let header = "💳 <b>New Order</b>";
   if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
+  if (order.event === 'FRAMES') header = `🖼️ <b>FRAME ORDER</b>`;
 
-  const text = `${header}\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}\nPack: ${order.packSize}`;
+  const text = `${header}\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}`;
 
   const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
   await Promise.all(chatIds.map(chatId =>

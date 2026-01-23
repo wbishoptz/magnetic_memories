@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Magnetic Memories | Frames Collection</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ["class"],
+      theme: {
+        container: { center: true, padding: "1rem", screens: { "2xl": "1400px" } },
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+          colors: {
+            border: "hsl(350 30% 90%)", input: "hsl(350 30% 90%)", ring: "hsl(350 80% 55%)",
+            background: "hsl(15 33% 97%)", foreground: "hsl(340 20% 15%)",
+            primary: "hsl(350 80% 55%)", secondary: "hsl(15 40% 94%)",
+            muted: "hsl(15 20% 92%)", "muted-foreground": "hsl(340 10% 45%)",
+            accent: "hsl(350 75% 95%)", card: "white",
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+          },
+          keyframes: {
+            fadeIn: { from: { opacity: 0 }, to: { opacity: 1 } },
+            slideUp: { from: { opacity: 0, transform: 'translateY(20px)' }, to: { opacity: 1, transform: 'translateY(0)' } }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: hsl(15 33% 97%); color: hsl(340 20% 15%); font-family: 'Inter', sans-serif; }
+    h1, h2, h3, .font-serif { font-family: 'Playfair Display', serif; }
+    .gradient-coral { background: linear-gradient(135deg, hsl(350 80% 55%), hsl(20 85% 60%)); }
+    .shadow-soft { box-shadow: 0 4px 20px -4px hsl(350 80% 55% / 0.15); }
+    
+    /* Cropper Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
+    .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
+    .cropper-container img { display: block; max-width: 100%; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-24">
+
+  <header class="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+    <div class="flex items-center justify-between px-4 py-3">
+      <button onclick="goBack()" class="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </button>
+      <h1 class="font-serif text-lg font-semibold">Frame Collection</h1>
+      <div class="w-10"></div>
+    </div>
+    
+    <div class="w-full px-4 py-4">
+      <div class="flex items-center justify-between relative">
+        <div class="absolute left-0 right-0 top-3.5 h-0.5 bg-muted -z-10"></div>
+        <div id="progress-fill" class="absolute left-0 top-3.5 h-0.5 bg-primary transition-all duration-500 ease-out -z-10" style="width: 0%"></div>
+        
+        <div class="flex flex-col items-center step-indicator" data-step="1">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all">1</div>
+          <span class="text-[10px] mt-1 font-medium text-primary">Style</span>
+        </div>
+        <div class="flex flex-col items-center step-indicator" data-step="2">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">2</div>
+          <span class="text-[10px] mt-1 font-medium text-muted-foreground">Size</span>
+        </div>
+        <div class="flex flex-col items-center step-indicator" data-step="3">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">3</div>
+          <span class="text-[10px] mt-1 font-medium text-muted-foreground">Custom</span>
+        </div>
+        <div class="flex flex-col items-center step-indicator" data-step="4">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">4</div>
+          <span class="text-[10px] mt-1 font-medium text-muted-foreground">Pay</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 container mx-auto px-4 py-6 max-w-md">
+
+    <div id="step-1" class="animate-fade-in">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full gradient-coral mb-4 shadow-soft">
+          <i data-lucide="flower-2" class="w-6 h-6 text-white"></i>
+        </div>
+        <h2 class="font-serif text-2xl font-bold mb-1">Choose Your Style</h2>
+        <p class="text-sm text-muted-foreground">Select the perfect frame style</p>
+      </div>
+
+      <div class="space-y-4">
+        <div onclick="selectStyle('bohemian')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
+          <div class="h-32 bg-orange-100 flex items-center justify-center"><span class="text-orange-300">Image: Bohemian</span></div>
+          <div class="p-4">
+            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="flower-2" class="w-4 h-4 text-primary"></i> Bohemian</h3>
+            <p class="text-sm text-muted-foreground">Warm, artistic frames with a handcrafted feel.</p>
+          </div>
+        </div>
+
+        <div onclick="selectStyle('sleek')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
+          <div class="h-32 bg-slate-100 flex items-center justify-center"><span class="text-slate-300">Image: Sleek</span></div>
+          <div class="p-4">
+            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
+            <p class="text-sm text-muted-foreground">Modern, minimalist frames for a clean look.</p>
+          </div>
+        </div>
+
+        <div onclick="selectStyle('rollercube')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
+          <div class="h-32 bg-purple-100 flex items-center justify-center"><span class="text-purple-300">Image: Rollercube</span></div>
+          <div class="p-4">
+            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-primary"></i> Rollercube</h3>
+            <p class="text-sm text-muted-foreground">Interactive 3D rotating display cube.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="step-2" class="hidden animate-fade-in">
+      <div class="text-center mb-6">
+        <h2 class="font-serif text-2xl font-bold mb-1">Select Size</h2>
+        <p class="text-sm text-muted-foreground">How many magnets?</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4" id="size-grid">
+        </div>
+    </div>
+
+    <div id="step-3" class="hidden animate-fade-in">
+      <div class="text-center mb-6">
+        <h2 class="font-serif text-2xl font-bold mb-1">Customize</h2>
+        <p class="text-sm text-muted-foreground" id="customize-subtitle">Personalise your order</p>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Options</label>
+        <div class="space-y-3">
+          <div onclick="setMagnets(false)" id="opt-frame" class="cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all">
+            <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center"><i data-lucide="frame" class="w-5 h-5 text-muted-foreground"></i></div>
+            <div class="flex-1">
+              <div class="font-semibold text-sm">Frame Only</div>
+              <div class="text-xs text-muted-foreground">Just the frame</div>
+            </div>
+            <div class="font-bold text-sm" id="price-frame">£0.00</div>
+          </div>
+
+          <div onclick="setMagnets(true)" id="opt-magnets" class="cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all">
+            <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center"><i data-lucide="image" class="w-5 h-5 text-muted-foreground"></i></div>
+            <div class="flex-1">
+              <div class="font-semibold text-sm">Frame + Magnets</div>
+              <div class="text-xs text-muted-foreground">Includes custom photos</div>
+            </div>
+            <div class="font-bold text-sm" id="price-magnets">£0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
+        <div class="grid grid-cols-2 gap-3">
+          <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
+            <div class="font-semibold text-sm">White</div>
+          </div>
+          <div onclick="setColor('Black')" id="col-black" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div>
+            <div class="font-semibold text-sm">Black</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="upload-section" class="hidden animate-slide-up">
+        <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+          Upload Photos (<span id="photo-count">0</span>/<span id="photo-target">0</span>)
+        </label>
+        
+        <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
+        <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
+        
+        <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
+      </div>
+    </div>
+
+    <div id="step-4" class="hidden animate-fade-in">
+      <div class="text-center mb-6">
+        <h2 class="font-serif text-2xl font-bold mb-1">Confirm Order</h2>
+        <p class="text-sm text-muted-foreground">Final details</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-border shadow-sm overflow-hidden mb-6">
+        <div class="h-1 gradient-coral"></div>
+        <div class="p-4 space-y-6">
+          
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-semibold text-foreground" id="summary-product">Product Name</h3>
+              <p class="text-sm text-muted-foreground" id="summary-desc">Details</p>
+            </div>
+            <span class="font-bold text-lg text-primary" id="summary-price">£0.00</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">1. Delivery</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div onclick="setShipping('GI_COLLECT')" id="ship-collect" class="cursor-pointer border-2 rounded-xl p-3 text-center transition-all">
+                <i data-lucide="map-pin" class="w-4 h-4 mx-auto mb-1 text-primary"></i>
+                <div class="font-bold text-xs">Collection</div>
+                <div class="text-[10px] text-green-600">Free</div>
+              </div>
+              <div onclick="setShipping('GI_DELIVER')" id="ship-deliver" class="cursor-pointer border-2 rounded-xl p-3 text-center transition-all">
+                <i data-lucide="truck" class="w-4 h-4 mx-auto mb-1 text-primary"></i>
+                <div class="font-bold text-xs">Delivery</div>
+                <div class="text-[10px] text-primary">+£3.00</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">2. Socials</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div onclick="setSocial(true)" id="social-yes" class="cursor-pointer border-2 rounded-xl p-3 text-center transition-all">
+                <i data-lucide="camera" class="w-4 h-4 mx-auto mb-1 text-primary"></i>
+                <div class="font-bold text-xs">Yes, share!</div>
+              </div>
+              <div onclick="setSocial(false)" id="social-no" class="cursor-pointer border-2 rounded-xl p-3 text-center transition-all">
+                <i data-lucide="lock" class="w-4 h-4 mx-auto mb-1 text-muted-foreground"></i>
+                <div class="font-bold text-xs">No thanks</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t pt-4 flex justify-between items-baseline">
+            <span class="font-bold text-lg">Total</span>
+            <span class="font-bold text-xl text-primary" id="summary-total">£0.00</span>
+          </div>
+
+          <div class="space-y-3">
+            <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground">3. Contact</label>
+            <input type="email" id="email" placeholder="Email address" class="w-full p-3 rounded-xl border bg-background text-sm focus:ring-2 focus:ring-primary outline-none" />
+            <input type="tel" id="phone" placeholder="Mobile number" class="w-full p-3 rounded-xl border bg-background text-sm focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
+    <div class="container max-w-md mx-auto">
+      <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+        Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="modal-overlay">
+    <div class="modal-content animate-fade-in">
+      <h3 class="font-serif text-xl font-bold mb-2">Adjust Photo</h3>
+      <div class="cropper-container"><img id="crop-image" src="" /></div>
+      <div class="flex gap-3 justify-end mt-4">
+        <button onclick="closeCropper()" class="px-4 py-2 font-bold text-muted-foreground">Cancel</button>
+        <button id="crop-save" class="px-6 py-2 bg-primary text-white rounded-lg font-bold">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // --- DATA ---
+    const PRODUCTS = {
+      bohemian: [
+        { id: 'b3', size: 3, framePrice: 8, fullPrice: 15 },
+        { id: 'b4', size: 4, framePrice: 10, fullPrice: 17 },
+        { id: 'b6', size: 6, framePrice: 12, fullPrice: 25 },
+      ],
+      sleek: [
+        { id: 's1', size: 1, framePrice: 5, fullPrice: 7 },
+        { id: 's2', size: 2, framePrice: 7, fullPrice: 12 },
+        { id: 's3', size: 3, framePrice: 8, fullPrice: 15 },
+        { id: 's4', size: 4, framePrice: 10, fullPrice: 17 },
+      ],
+      rollercube: [
+        { id: 'rc', size: 4, framePrice: 10, fullPrice: 17 }
+      ]
+    };
+
+    // --- STATE ---
+    let state = {
+      step: 1,
+      style: null,
+      product: null,
+      color: 'White',
+      withMagnets: false,
+      photos: [],
+      shipping: null,
+      social: null
+    };
+
+    // --- LOGIC ---
+    
+    function render() {
+      // Step visibility
+      [1,2,3,4].forEach(s => {
+        const el = document.getElementById(`step-${s}`);
+        if(s === state.step) {
+          el.classList.remove('hidden');
+          setTimeout(() => window.scrollTo(0,0), 50); // Scroll top
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      // Progress Bar
+      const progress = ((state.step - 1) / 3) * 100;
+      document.getElementById('progress-fill').style.width = `${progress}%`;
+      document.querySelectorAll('.step-indicator').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        const circle = el.querySelector('div');
+        const text = el.querySelector('span');
+        
+        if (s < state.step) { // Completed
+          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all";
+          circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>';
+          text.className = "text-[10px] mt-1 font-medium text-primary";
+        } else if (s === state.step) { // Current
+          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all";
+          circle.innerText = s;
+          text.className = "text-[10px] mt-1 font-medium text-primary";
+        } else { // Future
+          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all";
+          circle.innerText = s;
+          text.className = "text-[10px] mt-1 font-medium text-muted-foreground";
+        }
+      });
+      lucide.createIcons();
+
+      // Main Button Logic
+      const btn = document.getElementById('main-btn');
+      let valid = false;
+      let text = "Continue";
+
+      if (state.step === 1) {
+        valid = !!state.style;
+        text = "Choose Size";
+      } else if (state.step === 2) {
+        valid = !!state.product;
+        text = "Customize";
+      } else if (state.step === 3) {
+        valid = true;
+        // If magnets selected, must match count
+        if (state.withMagnets && state.photos.length !== state.product.size) valid = false;
+        text = "Proceed to Pay";
+      } else if (state.step === 4) {
+        valid = state.shipping && state.social !== null;
+        text = "Complete Order";
+      }
+
+      btn.disabled = !valid;
+      btn.innerHTML = state.step === 4 && valid 
+        ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> Pay Now` 
+        : `${text} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+      lucide.createIcons();
+    }
+
+    // STEP 1
+    window.selectStyle = (style) => {
+      state.style = style;
+      if (style === 'rollercube') {
+        state.product = PRODUCTS.rollercube[0]; // Auto select only size
+        nextStep(); // Skip size step
+      } else {
+        renderSizeGrid();
+        nextStep();
+      }
+    };
+
+    // STEP 2
+    function renderSizeGrid() {
+      const container = document.getElementById('size-grid');
+      container.innerHTML = PRODUCTS[state.style].map(p => `
+        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl p-4 text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
+          <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
+          <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
+        </div>
+      `).join('');
+    }
+
+    window.selectProduct = (pid) => {
+      state.product = PRODUCTS[state.style].find(p => p.id === pid);
+      // Reset customization
+      state.withMagnets = false;
+      state.photos = [];
+      updateCustomUI();
+      renderSizeGrid(); // Visual update
+    };
+
+    // STEP 3
+    window.setMagnets = (enabled) => {
+      state.withMagnets = enabled;
+      updateCustomUI();
+    };
+
+    window.setColor = (col) => {
+      state.color = col;
+      updateCustomUI();
+    };
+
+    function updateCustomUI() {
+      // Highlights
+      const optF = document.getElementById('opt-frame');
+      const optM = document.getElementById('opt-magnets');
+      const activeClass = "border-primary bg-accent ring-1 ring-primary";
+      
+      optF.className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
+      optM.className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
+
+      // Prices
+      if(state.product) {
+        document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
+        document.getElementById('price-magnets').innerText = `£${state.product.fullPrice.toFixed(2)}`;
+        document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
+      }
+
+      // Color Highlights
+      const colW = document.getElementById('col-white');
+      const colB = document.getElementById('col-black');
+      colW.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'White' ? activeClass : ''}`;
+      colB.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'Black' ? activeClass : ''}`;
+
+      // Photo Section
+      const uploadSec = document.getElementById('upload-section');
+      if (state.withMagnets) {
+        uploadSec.classList.remove('hidden');
+        document.getElementById('photo-target').innerText = state.product.size;
+        renderPhotos();
+      } else {
+        uploadSec.classList.add('hidden');
+      }
+      render(); // Update button
+    }
+
+    function renderPhotos() {
+      const container = document.getElementById('photo-grid');
+      const limit = state.product.size;
+      document.getElementById('photo-count').innerText = state.photos.length;
+
+      let html = '';
+      state.photos.forEach((img, idx) => {
+        html += `
+          <div class="aspect-square rounded-xl relative overflow-hidden border border-border">
+            <img src="${img.preview}" class="w-full h-full object-cover">
+            <button onclick="removePhoto(${idx})" class="absolute top-1 right-1 bg-white text-red-500 rounded-full p-1 shadow-sm"><i data-lucide="x" class="w-3 h-3"></i></button>
+          </div>
+        `;
+      });
+
+      if (state.photos.length < limit) {
+        html += `
+          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Add</span>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    // STEP 4 - Summary
+    function updateSummary() {
+      const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+      const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
+      const total = price + ship;
+
+      let name = "";
+      if (state.style === 'bohemian') name = "Bohemian Frame";
+      else if (state.style === 'sleek') name = "Sleek Frame";
+      else name = "Rollercube";
+
+      const desc = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
+
+      document.getElementById('summary-product').innerText = name;
+      document.getElementById('summary-desc').innerText = desc;
+      document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
+      document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
+      
+      render(); // Update button state
+    }
+
+    // Navigation
+    window.nextStep = () => {
+      if (state.step === 4) {
+        submitOrder();
+        return;
+      }
+      // Skip size selection for rollercube
+      if (state.step === 1 && state.style === 'rollercube') {
+        state.step = 3;
+      } else {
+        state.step++;
+      }
+      
+      if(state.step === 3) updateCustomUI();
+      if(state.step === 4) updateSummary();
+      render();
+    };
+
+    window.goBack = () => {
+      if (state.step === 3 && state.style === 'rollercube') {
+        state.step = 1;
+      } else {
+        state.step--;
+      }
+      if (state.step < 1) window.location.href = "/";
+      else render();
+    };
+
+    // Shipping & Socials
+    window.setShipping = (m) => {
+      state.shipping = m;
+      // UI Update
+      const c = document.getElementById('ship-collect');
+      const d = document.getElementById('ship-deliver');
+      const active = "border-primary bg-accent ring-1 ring-primary";
+      c.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?active:''}`;
+      d.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?active:''}`;
+      updateSummary();
+    };
+
+    window.setSocial = (v) => {
+      state.social = v;
+      const y = document.getElementById('social-yes');
+      const n = document.getElementById('social-no');
+      const active = "border-primary bg-accent ring-1 ring-primary";
+      y.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===true?active:''}`;
+      n.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===false?active:''}`;
+      render();
+    };
+
+    // Upload Logic
+    const fileInput = document.getElementById('fileInput');
+    const modal = document.getElementById('crop-modal');
+    const cropImg = document.getElementById('crop-image');
+    let cropper = null;
+
+    fileInput.addEventListener('change', (e) => {
+      if(e.target.files.length) {
+        const remaining = state.product.size - state.photos.length;
+        if(remaining <= 0) return;
+        const files = Array.from(e.target.files).slice(0, remaining);
+        processQueue(files);
+        fileInput.value = "";
+      }
+    });
+
+    async function processQueue(files) {
+      for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
+      renderPhotos();
+      render(); // Check button state
+    }
+
+    function openCropper(file, resolve) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        cropImg.src = e.target.result;
+        modal.style.display = 'flex';
+        if(cropper) cropper.destroy();
+        cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+        document.getElementById('crop-save').onclick = () => {
+          cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
+            state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
+            closeCropper(); resolve();
+          }, 'image/jpeg', 0.95);
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+
+    window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
+    window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); render(); };
+
+    // SUBMIT
+    window.submitOrder = async () => {
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const btn = document.getElementById('main-btn');
+
+      if(!email || !phone) { alert("Please enter email & phone"); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+
+      try {
+        // Create Order
+        const res = await fetch("/api/order", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email, phone,
+            event: "FRAMES",
+            productType: "frame",
+            // Custom Fields
+            frameStyle: state.style,
+            frameSize: state.product.size,
+            frameColor: state.color,
+            includeMagnets: state.withMagnets,
+            shippingMethod: state.shipping,
+            socialPermission: state.social
+          })
+        });
+        
+        if(!res.ok) throw new Error("API Error");
+        const { orderId } = await res.json();
+
+        // Upload
+        if(state.withMagnets && state.photos.length > 0) {
+          btn.innerHTML = "Uploading photos...";
+          for(const p of state.photos) {
+            const form = new FormData();
+            form.append("file", p.blob, "photo.jpg");
+            await fetch(`/api/upload?orderId=${orderId}`, { method: "POST", body: form });
+          }
+        }
+
+        // Checkout
+        btn.innerHTML = "Redirecting...";
+        const ckRes = await fetch("/api/checkout", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, email, country: state.shipping })
+        });
+        
+        const { checkoutUrl } = await ckRes.json();
+        window.location.href = checkoutUrl;
+
+      } catch(e) {
+        console.error(e);
+        alert("Error processing order");
+        btn.disabled = false;
+        render();
+      }
+    };
+
+    // Init
+    render();
+  </script>
+</body>
+</html>

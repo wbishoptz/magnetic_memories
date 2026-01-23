@@ -9,8 +9,25 @@ const BINGO_PRICES = { 1: 3.50, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
+const FLEXI_PRICE = 12.50;
 
-const FLEXI_PRICE = 12.50; // UPDATED PRICE HERE
+// NEW: Frame Pricing Configuration
+const FRAME_PRICES = {
+  bohemian: {
+    3: { frame: 8, full: 15 },
+    4: { frame: 10, full: 17 },
+    6: { frame: 12, full: 25 },
+  },
+  sleek: {
+    1: { frame: 5, full: 7 },
+    2: { frame: 7, full: 12 },
+    3: { frame: 8, full: 15 },
+    4: { frame: 10, full: 17 },
+  },
+  rollercube: {
+    4: { frame: 10, full: 17 } // Rollercube is fixed size 4
+  }
+};
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -23,16 +40,22 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     
-    // Fields
+    // --- COMMON FIELDS ---
     const email = String(body?.email || "").trim();
     const phone = String(body?.phone || "").trim();
     const packSizeRaw = body?.packSize; 
     const eventTag = body?.event || null; 
     
-    // New Fields for Valentines Flexi
-    const productType = body?.productType || 'standard'; // 'flexi' or 'standard'/'box'
+    // --- SPECIAL FIELDS (VALENTINES / FRAMES) ---
+    const productType = body?.productType || 'standard'; 
     const flexiColor = body?.flexiColor || null;
     const premadeSelections = body?.premadeSelections || []; 
+    
+    // --- NEW FRAME FIELDS ---
+    const frameStyle = body?.frameStyle;
+    const frameSize = body?.frameSize;
+    const frameColor = body?.frameColor;
+    const includeMagnets = body?.includeMagnets;
 
     if (!/\S+@\S+\.\S+/.test(email)) return jsonResponse({ error: "Invalid email." }, 400);
 
@@ -41,25 +64,33 @@ export async function onRequestPost({ request, env }) {
 
     // --- PRICING LOGIC ---
     if (String(packSizeRaw).startsWith("voucher_")) {
-        // Buying a voucher (price handled in checkout, stored as 0 here usually or lookup)
-        // For order record, we usually set price 0 here and let checkout handle payment intent
-        price = 0; 
+        price = 0; // Vouchers handled in checkout
     } else {
-        if (eventTag === 'VALENTINES') {
+        if (eventTag === 'FRAMES') {
+            // 1. FRAMES LOGIC
+            const styleData = FRAME_PRICES[frameStyle];
+            const sizeData = styleData ? styleData[frameSize] : null;
+            
+            if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
+            
+            price = includeMagnets ? sizeData.full : sizeData.frame;
+        } 
+        else if (eventTag === 'VALENTINES') {
+            // 2. VALENTINES LOGIC
             if (productType === 'flexi') {
                 price = FLEXI_PRICE;
             } else {
-                // Standard Valentine's Box
                 if (!VALENTINES_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
                 price = VALENTINES_PRICES[packSize];
             }
         } 
         else if (eventTag === 'BINGO') {
+            // 3. BINGO LOGIC
             if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
             price = BINGO_PRICES[packSize];
         } 
         else {
-            // Standard Website
+            // 4. STANDARD WEBSITE LOGIC
             if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
             price = STANDARD_PRICES[packSize];
         }
@@ -67,7 +98,7 @@ export async function onRequestPost({ request, env }) {
 
     let orderId = body?.orderId || crypto.randomUUID();
     
-    // Get existing order if updating (rarely used for creation, but good for safety)
+    // Get existing order if updating
     let existingOrder = {};
     if (body?.orderId) {
         const rawKv = await env.ORDERS_KV.get(`order:${orderId}`);
@@ -80,14 +111,20 @@ export async function onRequestPost({ request, env }) {
       orderId, 
       email, 
       phone, 
-      packSize, 
+      packSize, // For frames, this might be undefined or the frameSize, handled below
       price, 
       event: eventTag,
       
-      // New specific fields
+      // Special Fields
       productType, 
       flexiColor, 
-      premadeSelections, 
+      premadeSelections,
+      
+      // New Frame Fields
+      frameStyle,
+      frameSize,
+      frameColor,
+      includeMagnets,
       
       // System fields
       status: existingOrder.status || "draft",         
