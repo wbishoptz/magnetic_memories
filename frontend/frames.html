@@ -94,9 +94,8 @@
 
     <div id="step-1" class="animate-fade-in">
       <div class="text-center mb-6">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full gradient-coral mb-4 shadow-soft">
-          <i data-lucide="flower-2" class="w-6 h-6 text-white"></i>
-        </div>
+        <img src="./logo.png" alt="Magnetic Memories" class="w-40 mx-auto mb-4 object-contain" />
+        
         <h2 class="font-serif text-2xl font-bold mb-1">Choose Your Style</h2>
         <p class="text-sm text-muted-foreground">Select the perfect frame style</p>
       </div>
@@ -265,7 +264,7 @@
 
   <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
     <div class="container max-w-md mx-auto">
-      <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+      <button id="main-btn" onclick="nextStep()" class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
     </div>
@@ -360,13 +359,12 @@
 
       if (state.step === 1) {
         valid = !!state.style;
-        text = "Choose Size";
+        text = "Continue"; // UPDATED
       } else if (state.step === 2) {
         valid = !!state.product;
         text = "Customize";
       } else if (state.step === 3) {
         valid = true;
-        // If magnets selected, must match count
         if (state.withMagnets && state.photos.length !== state.product.size) valid = false;
         text = "Proceed to Pay";
       } else if (state.step === 4) {
@@ -374,7 +372,13 @@
         text = "Complete Order";
       }
 
-      btn.disabled = !valid;
+      // Visual Disable (Clickable for Alert)
+      if (!valid) {
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+
       btn.innerHTML = state.step === 4 && valid 
         ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> Pay Now` 
         : `${text} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
@@ -508,10 +512,29 @@
 
     // Navigation
     window.nextStep = () => {
+      // 1. Validation Logic
+      if (state.step === 1 && !state.style) {
+        alert("Please choose a frame style to continue.");
+        return;
+      }
+      if (state.step === 2 && !state.product) {
+        alert("Please select a frame size.");
+        return;
+      }
+      if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) {
+        alert(`Please upload exactly ${state.product.size} photos.`);
+        return;
+      }
       if (state.step === 4) {
+        if (!state.shipping || state.social === null) {
+          alert("Please complete delivery and permission options.");
+          return;
+        }
         submitOrder();
         return;
       }
+
+      // 2. Progression Logic
       // Skip size selection for rollercube
       if (state.step === 1 && state.style === 'rollercube') {
         state.step = 3;
