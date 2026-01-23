@@ -263,7 +263,7 @@
 
   <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
     <div class="container max-w-md mx-auto">
-      <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
+      <button id="main-btn" onclick="nextStep()" class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
     </div>
@@ -510,6 +510,8 @@
 
     // STEP 4 - Summary
     function updateSummary() {
+      if(!state.product) return; // Safety check
+
       const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
       const total = price + ship;
@@ -526,44 +528,51 @@
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
       
-      render(); // Update button state
+      // render() removed from here to avoid loops, nextStep calls it
     }
 
     // Navigation
     window.nextStep = () => {
-      // 1. Validation Logic
-      if (state.step === 1 && !state.style) {
-        alert("Please choose a frame style to continue.");
-        return;
-      }
-      if (state.step === 2 && !state.product) {
-        alert("Please select a frame size.");
-        return;
-      }
-      if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) {
-        alert(`Please upload exactly ${state.product.size} photos.`);
-        return;
-      }
-      if (state.step === 4) {
-        if (!state.shipping || state.social === null) {
-          alert("Please complete delivery and permission options.");
+      try {
+        // 1. Validation Logic
+        if (state.step === 1 && !state.style) {
+          alert("Please choose a frame style to continue.");
           return;
         }
-        submitOrder();
-        return;
-      }
+        if (state.step === 2 && !state.product) {
+          alert("Please select a frame size.");
+          return;
+        }
+        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) {
+          alert(`Please upload exactly ${state.product.size} photos.`);
+          return;
+        }
+        if (state.step === 4) {
+          if (!state.shipping || state.social === null) {
+            alert("Please complete delivery and permission options.");
+            return;
+          }
+          submitOrder();
+          return;
+        }
 
-      // 2. Progression Logic
-      // Skip size selection for rollercube
-      if (state.step === 1 && state.style === 'rollercube') {
-        state.step = 3;
-      } else {
-        state.step++;
+        // 2. Progression Logic
+        // Skip size selection for rollercube
+        if (state.step === 1 && state.style === 'rollercube') {
+          state.step = 3;
+        } else {
+          state.step++;
+        }
+        
+        // Update UI based on new step
+        if(state.step === 3) updateCustomUI();
+        if(state.step === 4) updateSummary();
+        render();
+        
+      } catch(e) {
+        console.error("Navigation error:", e);
+        alert("Something went wrong. Please try again.");
       }
-      
-      if(state.step === 3) updateCustomUI();
-      if(state.step === 4) updateSummary();
-      render();
     };
 
     window.goBack = () => {
@@ -586,6 +595,7 @@
       c.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?active:''}`;
       d.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?active:''}`;
       updateSummary();
+      render(); // Explicit re-render for button update
     };
 
     window.setSocial = (v) => {
