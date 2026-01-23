@@ -283,21 +283,21 @@
   <script>
     lucide.createIcons();
 
-    // --- DATA ---
+    // --- DATA (Images added here) ---
     const PRODUCTS = {
       bohemian: [
-        { id: 'b3', size: 3, framePrice: 8, fullPrice: 15 },
-        { id: 'b4', size: 4, framePrice: 10, fullPrice: 17 },
-        { id: 'b6', size: 6, framePrice: 12, fullPrice: 25 },
+        { id: 'b3', size: 3, framePrice: 8, fullPrice: 15, img: './bohemian-3.jpeg' },
+        { id: 'b4', size: 4, framePrice: 10, fullPrice: 17, img: './bohemian-4.jpeg' },
+        { id: 'b6', size: 6, framePrice: 12, fullPrice: 25, img: './bohemian-6.jpeg' },
       ],
       sleek: [
-        { id: 's1', size: 1, framePrice: 5, fullPrice: 7 },
-        { id: 's2', size: 2, framePrice: 7, fullPrice: 12 },
-        { id: 's3', size: 3, framePrice: 8, fullPrice: 15 },
-        { id: 's4', size: 4, framePrice: 10, fullPrice: 17 },
+        { id: 's1', size: 1, framePrice: 5, fullPrice: 7, img: './sleek-1.jpeg' },
+        { id: 's2', size: 2, framePrice: 7, fullPrice: 12, img: './sleek-2.jpeg' },
+        { id: 's3', size: 3, framePrice: 8, fullPrice: 15, img: './sleek-3.jpeg' },
+        { id: 's4', size: 4, framePrice: 10, fullPrice: 17, img: './sleek-4.jpeg' },
       ],
       rollercube: [
-        { id: 'rc', size: 4, framePrice: 10, fullPrice: 17 }
+        { id: 'rc', size: 4, framePrice: 10, fullPrice: 17, img: './rollercube.jpeg' }
       ]
     };
 
@@ -415,13 +415,18 @@
       }
     };
 
-    // STEP 2
+    // STEP 2 - NEW RENDER WITH IMAGES
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
       container.innerHTML = PRODUCTS[state.style].map(p => `
-        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl p-4 text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
-          <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
-          <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
+        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
+          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
+             <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+          </div>
+          <div class="px-3 pb-3">
+            <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
+            <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
+          </div>
         </div>
       `).join('');
     }
