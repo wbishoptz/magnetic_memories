@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Magnetic Memories</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+
+  <meta name="description" content="Turn your favorite photos into high-quality square magnets. Printed in the UK." />
+  <meta property="og:title" content="Magnetic Memories – Custom Photo Magnets" />
+  <meta property="og:description" content="Turn your favorite photos into high-quality square magnets. Packs start at just £7." />
+  <meta property="og:type" content="website" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* VALENTINE BANNER STYLES */
+    .val-banner {
+      display: block;
+      text-decoration: none;
+      margin: 0 auto 24px auto;
+      max-width: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      padding: 16px 20px;
+      box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.3), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      color: white;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .val-banner:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(225, 29, 72, 0.4), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
+    }
+
+    .val-content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .val-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .val-icon-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .val-texts h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: white;
+    }
+
+    .val-texts p {
+      margin: 2px 0 0 0;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.9);
+      font-weight: 500;
+    }
+
+    .val-btn {
+      background: white;
+      color: #e11d48;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: background 0.2s;
+    }
+    
+    .val-banner:hover .val-btn {
+      background: #fff0f3;
+    }
+
+    /* Floating Hearts Animation */
+    .val-bg-heart {
+      position: absolute;
+      color: rgba(255,255,255,0.15);
+      animation: valFloat 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes valFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @media (max-width: 480px) {
+      .val-icon-circle { display: none; }
+      .val-btn span { display: none; } /* Hide "Shop Now" text on tiny screens, show arrow only if needed, or keep short */
+      .val-btn span.short { display: inline; }
+      .val-btn span.long { display: none; }
+    }
+    @media (min-width: 481px) {
+      .val-btn span.short { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <img src="./logo.png" alt="Magnetic Memories" class="main-logo" />
+    
+    <a href="/valentines" class="val-banner">
+      <div style="position:absolute; inset:0;">
+        <i data-lucide="heart" class="val-bg-heart" style="top:10px; left:15px; width:20px; animation-delay:0s;"></i>
+        <i data-lucide="heart" class="val-bg-heart" style="top:15px; right:40px; width:14px; animation-delay:1s;"></i>
+        <i data-lucide="heart" class="val-bg-heart" style="bottom:10px; right:80px; width:18px; animation-delay:2s;"></i>
+      </div>
+
+      <div class="val-content">
+        <div class="val-left">
+          <div class="val-icon-circle">
+            <i data-lucide="heart" style="color:white; fill:white; width:20px;"></i>
+          </div>
+          <div class="val-texts">
+            <h3>Valentine's Edition</h3>
+            <p>The perfect gift for your special someone 💕</p>
+          </div>
+        </div>
+        <div class="val-btn">
+          <span class="long">Shop Now</span>
+          <span class="short">Shop</span>
+          <i data-lucide="arrow-right" style="width:16px;"></i>
+        </div>
+      </div>
+    </a>
+    <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
+
+    <section class="card">
+      <h2>Your details</h2>
+      
+      <label for="email">Email address</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required style="margin-bottom: 4px;" />
+      <p class="hint" style="margin-bottom: 16px; margin-top: 0;">We’ll send your order confirmation here.</p>
+      <p id="emailError" class="error-text" style="display:none;">Please enter a valid email address.</p>
+
+      <label for="phone">Phone number</label>
+      <input id="phone" type="tel" autocomplete="tel" placeholder="+44 7700 900000" required style="margin-bottom: 16px;" />
+      <p id="phoneError" class="error-text" style="display:none;">Please enter a valid phone number.</p>
+
+      <label style="margin-bottom: 12px; display:block; color:var(--text-muted); font-size:0.95rem; font-weight:600;">Shipping / Collection Method</label>
+      
+      <div class="shipping-grid" id="shipping-wrapper">
+        
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GI_COLLECT">
+          <div class="shipping-content">
+            <span class="shipping-title">📍 Collection (Free)</span>
+            <span class="shipping-desc">Pick up from Atlantic Suites</span>
+          </div>
+        </label>
+
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GI_DELIVER">
+          <div class="shipping-content">
+            <span class="shipping-title">🚚 Gibraltar Delivery (+£3.00)</span>
+            <span class="shipping-desc">Delivered within 48 hours</span>
+          </div>
+        </label>
+
+        <label class="shipping-card">
+          <input type="radio" name="shipping" value="GB">
+          <div class="shipping-content">
+            <span class="shipping-title">🇬🇧 UK Delivery (+£5.00)</span>
+            <span class="shipping-desc">Royal Mail Tracked</span>
+          </div>
+        </label>
+
+      </div>
+      <p id="shippingError" class="error-text" style="display:none;">Please select a shipping method.</p>
+
+      <label for="promo-code" style="margin-top:24px;">Promo Code / Voucher</label>
+      <div style="display:flex; gap:8px;">
+        <input id="promo-code" type="text" placeholder="Enter code" style="flex:1; text-transform:uppercase;" />
+        <button id="apply-promo" type="button" class="btn-ghost">Apply</button>
+      </div>
+      <p id="promo-msg" style="font-size:0.85rem; margin-top:6px; display:none;"></p>
+
+      <div style="margin-top: 24px; border-top: 1px solid var(--border-light); padding-top: 20px;">
+        <label style="margin-bottom: 8px;">Are you happy for us to share your order on social media? 📸</label>
+        <div class="social-options" id="social-wrapper">
+          <label class="social-btn">
+            <input type="radio" name="socials" value="yes">
+            <span>Yes, please!</span>
+          </label>
+          <label class="social-btn">
+            <input type="radio" name="socials" value="no">
+            <span>No, keep it private</span>
+          </label>
+        </div>
+        <p id="socialError" class="error-text" style="display:none;">Please select an option.</p>
+      </div>
+
+    </section>
+
+    <section class="card">
+      <h2>Choose your magnet pack</h2>
+      
+      <h3>Standard Packs (1 magnet per photo)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="standard_3" checked> 3 magnets — £7</label>
+        <label><input type="radio" name="pack" value="standard_6"> 6 magnets — £14</label>
+        <label><input type="radio" name="pack" value="standard_9"> 9 magnets — £20</label>
+        <label><input type="radio" name="pack" value="standard_12"> 12 magnets — £25</label>
+        <label><input type="radio" name="pack" value="standard_15"> 15 magnets — £30</label>
+      </div>
+
+      <h3>Gift Vouchers (Digital Code)</h3>
+      <div class="packs">
+        <label><input type="radio" name="pack" value="voucher_14"> £14 Voucher (6 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_20"> £20 Voucher (9 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_25"> £25 Voucher (12 magnets)</label>
+        <label><input type="radio" name="pack" value="voucher_30"> £30 Voucher (15 magnets)</label>
+      </div>
+
+      <p class="hint" style="margin-top:16px;">Each magnet is 50×50 mm. Your photo(s) will be cropped to fit.</p>
+    </section>
+
+    <section class="card" id="upload-section">
+      <h2>Upload your photos</h2>
+
+      <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
+        <div class="dz-message">
+          Tap to select photos<br>
+          <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
+        </div>
+      </form>
+
+      <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
+
+      <div class="upload-meta">
+        <div>
+          <div class="counter">
+            <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
+          </div>
+          <div id="count-help" class="count-help" aria-live="polite">You need exactly 3 photos.</div>
+          <div id="crop-help" class="count-help warn" aria-live="polite" style="display:none;">Cropping required for 0 photo(s).</div>
+        </div>
+        <ul class="hint">
+          <li>Accepted: JPG, PNG, HEIC</li>
+          <li>Max file size: 95 MB each</li>
+          <li>Click “Crop” or “Remove” on a thumbnail to adjust</li>
+        </ul>
+      </div>
+
+      <div class="progress" id="upload-progress" aria-hidden="true">
+        <div class="progress-bar" id="upload-progress-bar" style="width:0%"></div>
+      </div>
+    </section>
+
+    <section class="card actions actions-centered">
+      <button id="payBtn" class="cta" type="button">Pay securely</button>
+      <div id="status" class="status"></div>
+    </section>
+
+    <footer>
+      <p class="tiny">
+        By uploading you confirm you have the rights to print these images. We store photos only to fulfill your order.
+      </p>
+      <p class="tiny" style="margin-top:8px;">
+        <a href="/legal.html" style="color:#555; text-decoration:underline;">Privacy & Terms</a>
+      </p>
+    </footer>
+  </main>
+
+  <div id="upgrade-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
+    <div class="modal-card">
+      <h3 id="upgrade-title">Change pack size?</h3>
+      <p id="upgrade-text" class="modal-text"></p>
+      <div class="modal-actions">
+        <button id="upgrade-confirm" class="btn-primary" type="button">Confirm</button>
+        <button id="upgrade-keep" class="btn-ghost" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="modal-card cropper-card">
+      <h3 id="crop-title">Crop your photo</h3>
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
+      <p class="hint" style="margin-top:8px;">Adjust to fit the square. This is exactly how it will print.</p>
+      <div class="modal-actions">
+        <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
+        <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="whatsapp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="wa-title">
+    <div class="modal-card" style="text-align: center;">
+      <h3 id="wa-title" style="color: #59c9a5; margin-bottom: 12px;">File Too Large</h3>
+      <p class="modal-text" style="margin-bottom: 24px;">
+        This photo is very large (over 95MB)!<br>
+        Please send this file directly to us on WhatsApp:
+      </p>
+      
+      <a href="https://wa.me/35054007718" target="_blank" style="display:block; background:#25D366; color:white; padding:16px; border-radius:12px; text-decoration:none; font-weight:bold; font-size:1.2rem; margin-bottom:16px;">
+        <span style="font-size:1.4rem; vertical-align:middle; margin-right:8px;">📱</span> 
+        +350 54007718
+      </a>
+
+      <button id="wa-close" class="btn-ghost" type="button">Close</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+  <script src="./app.js"></script>
+  
+  <script>lucide.createIcons();</script>
+</body>
+</html>
