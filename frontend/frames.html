@@ -265,7 +265,7 @@
 
   <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
     <div class="container max-w-md mx-auto">
-      <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
+      <button id="main-btn" onclick="nextStep()" class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
     </div>
@@ -355,6 +355,10 @@
 
       // Main Button Logic
       const btn = document.getElementById('main-btn');
+      
+      // CRITICAL FIX: Ensure button is enabled by JS so clicks register
+      btn.disabled = false; 
+
       let valid = false;
       let text = "Continue";
       let priceLabel = "";
@@ -417,7 +421,7 @@
       }
     };
 
-    // STEP 2
+    // STEP 2 - NEW RENDER WITH IMAGES
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
       container.innerHTML = PRODUCTS[state.style].map(p => `
