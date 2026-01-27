@@ -24,6 +24,7 @@
           },
           animation: {
             'fade-in': 'fadeIn 0.5s ease-out',
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           },
           keyframes: {
             fadeIn: { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } }
@@ -37,6 +38,13 @@
 
   <div class="max-w-md w-full animate-fade-in text-center">
     
+    <a href="/valentines" class="block w-full bg-gradient-to-r from-pink-500 to-rose-600 text-white py-3 px-4 rounded-xl mb-8 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 group relative overflow-hidden">
+      <div class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+      <div class="font-bold text-sm flex items-center justify-center gap-2 relative z-10">
+        <span class="animate-pulse">💘</span> Shop Valentine's Specials <i data-lucide="arrow-right" class="w-4 h-4 transition-transform group-hover:translate-x-1"></i>
+      </div>
+    </a>
+
     <img src="./logo.png" alt="Magnetic Memories" class="w-64 mx-auto mb-8 object-contain" />
 
     <h1 class="font-serif text-3xl font-bold mb-2">Welcome</h1>
