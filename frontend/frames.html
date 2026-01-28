@@ -172,7 +172,7 @@
 
       <div class="mb-6">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
             <div class="font-semibold text-sm">White</div>
@@ -180,6 +180,10 @@
           <div onclick="setColor('Black')" id="col-black" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div>
             <div class="font-semibold text-sm">Black</div>
+          </div>
+          <div onclick="setColor('Olive')" id="col-olive" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #4C5642;"></div>
+            <div class="font-semibold text-sm">Olive</div>
           </div>
         </div>
       </div>
@@ -474,11 +478,14 @@
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
       }
 
-      // Color Highlights
+      // Color Highlights (UPDATED)
       const colW = document.getElementById('col-white');
       const colB = document.getElementById('col-black');
+      const colO = document.getElementById('col-olive'); // New Element
+
       colW.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'White' ? activeClass : ''}`;
       colB.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'Black' ? activeClass : ''}`;
+      colO.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'Olive' ? activeClass : ''}`;
 
       // Photo Section
       const uploadSec = document.getElementById('upload-section');
