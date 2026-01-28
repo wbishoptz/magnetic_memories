@@ -28,6 +28,28 @@
       .meta-row { margin-top: 14px; font-size: 13px; color: #9ca3af; }
       .meta-row span { color: #e5e7eb; }
       .hidden { display: none !important; }
+      
+      /* Buttons */
+      .btn-pay {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; margin-top: 16px; padding: 12px;
+        background: linear-gradient(135deg, #e11d48, #be123c);
+        color: white; font-weight: 600; border-radius: 8px;
+        border: none; cursor: pointer; text-decoration: none; font-size: 14px;
+        box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3); transition: all 0.2s;
+      }
+      .btn-pay:hover { opacity: 0.9; transform: translateY(-1px); }
+      
+      .btn-secondary {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 100%; margin-top: 10px; padding: 10px;
+        background: transparent; border: 1px solid #374151;
+        color: #9ca3af; font-weight: 500; border-radius: 8px;
+        cursor: pointer; text-decoration: none; font-size: 13px;
+        transition: all 0.2s;
+      }
+      .btn-secondary:hover { border-color: #6b7280; color: #e5e7eb; background: rgba(255,255,255,0.05); }
+
       /* Progress steps */
       .progress-container { display: flex; align-items: center; justify-content: center; margin: 20px auto 18px; gap: 10px; max-width: 640px; }
       .step { text-align: center; color: #6b7280; font-size: 11px; }
@@ -41,18 +63,6 @@
       .error-text { font-size: 14px; color: #fecaca; }
       .spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid #4b5563; border-top-color: #38bdf8; animation: spin 0.7s linear infinite; margin-right: 8px; }
       @keyframes spin { to { transform: rotate(360deg); } }
-
-      /* NEW: Styles for the Payment Recovery Button */
-      .btn-pay {
-        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-        width: 100%; margin-top: 16px; padding: 12px;
-        background: linear-gradient(135deg, #e11d48, #be123c);
-        color: white; font-weight: 600; border-radius: 8px;
-        border: none; cursor: pointer; text-decoration: none; font-size: 14px;
-        box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3); transition: all 0.2s;
-      }
-      .btn-pay:hover { opacity: 0.9; transform: translateY(-1px); }
-      .btn-pay:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
   </head>
   <body>
@@ -76,6 +86,10 @@
           </div>
           <button id="retryBtn" class="btn-pay" onclick="retryPayment()">
             Complete Payment &rarr;
+          </button>
+          
+          <button id="restartBtn" class="btn-secondary" onclick="restartOrder()">
+            Change Details / Start Over
           </button>
         </section>
 
@@ -127,6 +141,9 @@
       const priceMeta = document.getElementById("priceMeta");
       const createdMeta = document.getElementById("createdMeta");
       const imgContainer = document.getElementById("orderImages");
+
+      // Store event type for restart logic
+      let currentEventTag = 'standard'; 
 
       if (!orderId) {
         loadingBlock.classList.add("hidden");
@@ -192,10 +209,13 @@
             if (!res.ok) throw new Error("Order lookup failed");
             const order = await res.json();
             
+            // Capture Event for Restart Button
+            if (order.event) currentEventTag = order.event;
+
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
 
-            // --- NEW: CHECK FOR DRAFT / UNPAID STATUS ---
+            // --- CHECK FOR DRAFT / UNPAID STATUS ---
             if (order.status === 'draft' || !order.status) {
                 // Show the "Pay Now" block
                 draftBlock.classList.remove("hidden");
@@ -251,7 +271,6 @@
         var intervalId = setInterval(poll, 3000); 
       }
 
-      // --- NEW: RETRY PAYMENT FUNCTION ---
       async function retryPayment() {
         const btn = document.getElementById('retryBtn');
         btn.innerHTML = 'Redirecting...';
@@ -276,6 +295,16 @@
             alert("Connection error.");
             btn.disabled = false;
             btn.innerText = "Try Again";
+        }
+      }
+
+      // NEW FUNCTION: Direct user back to the correct product page
+      function restartOrder() {
+        if (confirm("This will start a new order. Your photos from this attempt won't be transferred.")) {
+            if (currentEventTag === 'FRAMES') window.location.href = "/frames";
+            else if (currentEventTag === 'VALENTINES') window.location.href = "/valentines";
+            else if (currentEventTag === 'BINGO') window.location.href = "/bingo";
+            else window.location.href = "/magnets";
         }
       }
     </script>
