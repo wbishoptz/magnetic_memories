@@ -41,19 +41,44 @@
       .error-text { font-size: 14px; color: #fecaca; }
       .spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid #4b5563; border-top-color: #38bdf8; animation: spin 0.7s linear infinite; margin-right: 8px; }
       @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* NEW: Styles for the Payment Recovery Button */
+      .btn-pay {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; margin-top: 16px; padding: 12px;
+        background: linear-gradient(135deg, #e11d48, #be123c);
+        color: white; font-weight: 600; border-radius: 8px;
+        border: none; cursor: pointer; text-decoration: none; font-size: 14px;
+        box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3); transition: all 0.2s;
+      }
+      .btn-pay:hover { opacity: 0.9; transform: translateY(-1px); }
+      .btn-pay:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
   </head>
   <body>
     <div class="page">
       <main class="card">
-        <h1>Thanks!</h1>
-        <p class="subtitle">We've received your order. If you just paid, this page will update once the payment is confirmed.</p>
+        <h1 id="pageTitle">Checking Status...</h1>
+        <p class="subtitle" id="pageSubtitle">Please wait while we look up your order.</p>
+        
         <div id="loadingBlock" class="panel">
           <div style="display: flex; align-items: center; gap: 10px">
             <div class="spinner"></div>
             <span class="loading-text">Loading your order…</span>
           </div>
         </div>
+
+        <section id="draftBlock" class="panel hidden" style="border-color: rgba(248, 113, 113, 0.3);">
+          <div class="panel-header" style="color: #fca5a5;">⚠️ Payment Incomplete</div>
+          <div class="status-text" style="color: #e5e7eb; margin-top: 8px;">
+            We have your order details saved, but the payment was not completed. 
+            You do not need to re-upload your photos.
+          </div>
+          <button id="retryBtn" class="btn-pay" onclick="retryPayment()">
+            Complete Payment &rarr;
+          </button>
+        </section>
+
         <section id="orderBlock" class="panel hidden">
           <div class="panel-header">Order</div>
           <div id="orderId" class="order-id">—</div>
@@ -77,16 +102,23 @@
           <div class="meta-row">Pack: <span id="packMeta">—</span> &nbsp;·&nbsp; Total: <span id="priceMeta">—</span></div>
           <div class="meta-row">Created: <span id="createdMeta">—</span></div>
         </section>
+
         <section id="errorBlock" class="panel hidden"><div class="error-text" id="errorMessage"></div></section>
       </main>
     </div>
     <script>
       const url = new URL(window.location.href);
       const orderId = url.searchParams.get("orderId");
+      
+      // UI Elements
+      const pageTitle = document.getElementById("pageTitle");
+      const pageSubtitle = document.getElementById("pageSubtitle");
       const loadingBlock = document.getElementById("loadingBlock");
+      const draftBlock = document.getElementById("draftBlock");
       const orderBlock = document.getElementById("orderBlock");
       const errorBlock = document.getElementById("errorBlock");
       const errorMessage = document.getElementById("errorMessage");
+      
       const orderIdEl = document.getElementById("orderId");
       const statusPill = document.getElementById("statusPill");
       const statusTextEl = document.getElementById("statusText");
@@ -100,6 +132,7 @@
         loadingBlock.classList.add("hidden");
         errorBlock.classList.remove("hidden");
         errorMessage.textContent = "We couldn't find an order ID in the link.";
+        pageTitle.textContent = "Error";
       } else {
         orderIdEl.textContent = orderId;
         startPolling(orderId);
@@ -107,7 +140,7 @@
 
       function formatStatus(status) {
         switch (status) {
-          case "checkout_created": return "Awaiting payment confirmation";
+          case "checkout_created": return "Awaiting payment";
           case "paid": return "Paid";
           case "printing": return "Printing";
           case "shipped": return "Shipped";
@@ -115,9 +148,10 @@
           default: return status || "Unknown";
         }
       }
+
       function statusMessage(status) {
         switch (status) {
-          case "checkout_created": return "We've created your checkout session and are waiting for payment.";
+          case "checkout_created": return "Waiting for payment...";
           case "paid": return "We've confirmed your payment. We'll start preparing your magnets shortly.";
           case "printing": return "We're currently printing your magnets.";
           case "shipped": return "Your magnets have been shipped.";
@@ -125,6 +159,7 @@
           default: return "We're processing your order.";
         }
       }
+
       function updateProgress(status) {
         const steps = ["paid", "printing", "shipped", "complete"];
         const lines = document.querySelectorAll(".line");
@@ -143,12 +178,11 @@
 
       function startPolling(orderId) {
         let attempts = 0;
-        const maxAttempts = 100; // Increased attempts (approx 6 mins)
+        const maxAttempts = 100; 
         
         const poll = async () => {
           attempts++;
           try {
-            // UPDATED: Added timestamp to URL and cache: no-store to force fresh data
             const timestamp = new Date().getTime();
             const res = await fetch(`/api/order?orderId=${encodeURIComponent(orderId)}&_t=${timestamp}`, {
                 cache: "no-store",
@@ -160,9 +194,25 @@
             
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
-            orderBlock.classList.remove("hidden");
 
-            // Check children.length to prevent duplicate images
+            // --- NEW: CHECK FOR DRAFT / UNPAID STATUS ---
+            if (order.status === 'draft' || !order.status) {
+                // Show the "Pay Now" block
+                draftBlock.classList.remove("hidden");
+                orderBlock.classList.add("hidden");
+                pageTitle.textContent = "Order Pending";
+                pageSubtitle.textContent = "Payment was not completed.";
+                clearInterval(intervalId); // Stop polling
+                return;
+            }
+
+            // --- STANDARD PAID FLOW ---
+            draftBlock.classList.add("hidden");
+            orderBlock.classList.remove("hidden");
+            pageTitle.textContent = "Thanks!";
+            pageSubtitle.textContent = "We've received your order.";
+
+            // Images
             if (order.images && order.images.length > 0 && imgContainer.children.length === 0) {
               order.images.forEach(img => {
                 const el = document.createElement("img");
@@ -199,6 +249,34 @@
         };
         poll();
         var intervalId = setInterval(poll, 3000); 
+      }
+
+      // --- NEW: RETRY PAYMENT FUNCTION ---
+      async function retryPayment() {
+        const btn = document.getElementById('retryBtn');
+        btn.innerHTML = 'Redirecting...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch("/api/checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId: orderId })
+            });
+            
+            const data = await res.json();
+            if (data.checkoutUrl) {
+              window.location.href = data.checkoutUrl;
+            } else {
+              alert("Error restarting checkout.");
+              btn.disabled = false;
+              btn.innerText = "Try Again";
+            }
+        } catch (e) {
+            alert("Connection error.");
+            btn.disabled = false;
+            btn.innerText = "Try Again";
+        }
       }
     </script>
   </body>
