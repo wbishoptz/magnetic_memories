@@ -11,7 +11,7 @@ const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 const FLEXI_PRICE = 12.50;
 
-// NEW: Frame Pricing Configuration
+// Frame Pricing Configuration
 const FRAME_PRICES = {
   bohemian: {
     3: { frame: 8, full: 15 },
@@ -25,7 +25,7 @@ const FRAME_PRICES = {
     4: { frame: 10, full: 17 },
   },
   rollercube: {
-    4: { frame: 10, full: 17 } // Rollercube is fixed size 4
+    4: { frame: 10, full: 17 }
   }
 };
 
@@ -46,12 +46,12 @@ export async function onRequestPost({ request, env }) {
     const packSizeRaw = body?.packSize; 
     const eventTag = body?.event || null; 
     
-    // --- SPECIAL FIELDS (VALENTINES / FRAMES) ---
+    // --- SPECIAL FIELDS ---
     const productType = body?.productType || 'standard'; 
     const flexiColor = body?.flexiColor || null;
     const premadeSelections = body?.premadeSelections || []; 
     
-    // --- NEW FRAME FIELDS ---
+    // --- FRAME FIELDS ---
     const frameStyle = body?.frameStyle;
     const frameSize = body?.frameSize;
     const frameColor = body?.frameColor;
@@ -64,19 +64,15 @@ export async function onRequestPost({ request, env }) {
 
     // --- PRICING LOGIC ---
     if (String(packSizeRaw).startsWith("voucher_")) {
-        price = 0; // Vouchers handled in checkout
+        price = 0; 
     } else {
         if (eventTag === 'FRAMES') {
-            // 1. FRAMES LOGIC
             const styleData = FRAME_PRICES[frameStyle];
             const sizeData = styleData ? styleData[frameSize] : null;
-            
             if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
-            
             price = includeMagnets ? sizeData.full : sizeData.frame;
         } 
         else if (eventTag === 'VALENTINES') {
-            // 2. VALENTINES LOGIC
             if (productType === 'flexi') {
                 price = FLEXI_PRICE;
             } else {
@@ -85,12 +81,10 @@ export async function onRequestPost({ request, env }) {
             }
         } 
         else if (eventTag === 'BINGO') {
-            // 3. BINGO LOGIC
             if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
             price = BINGO_PRICES[packSize];
         } 
         else {
-            // 4. STANDARD WEBSITE LOGIC
             if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
             price = STANDARD_PRICES[packSize];
         }
@@ -107,20 +101,24 @@ export async function onRequestPost({ request, env }) {
 
     const now = new Date().toISOString();
 
+    // BUG FIX: Handle boolean values correctly (explicit undefined check)
+    let socialPerm = existingOrder.socialPermission;
+    if (body.socialPermission !== undefined) {
+        socialPerm = body.socialPermission;
+    }
+
     const order = {
       orderId, 
       email, 
       phone, 
-      packSize, // For frames, this might be undefined or the frameSize, handled below
+      packSize, 
       price, 
       event: eventTag,
       
-      // Special Fields
       productType, 
       flexiColor, 
       premadeSelections,
       
-      // New Frame Fields
       frameStyle,
       frameSize,
       frameColor,
@@ -134,7 +132,10 @@ export async function onRequestPost({ request, env }) {
       stripeSessionId: existingOrder.stripeSessionId || null,
       recoverySent: existingOrder.recoverySent || false,
       shippingMethod: body?.shippingMethod || existingOrder.shippingMethod,
-      socialPermission: body?.socialPermission || existingOrder.socialPermission,
+      
+      // Fixed Social Logic
+      socialPermission: socialPerm,
+      
       bingoNumber: existingOrder.bingoNumber
     };
 

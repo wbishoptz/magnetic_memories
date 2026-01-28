@@ -440,14 +440,21 @@
              </div>`;
           }
 
-          // --- SOCIALS PERMISSION ---
-          const socials = order.socialPermission === true 
-              ? `<span style="color:#66d19e; font-weight:bold; border:1px solid #66d19e; padding:2px 6px; border-radius:4px; font-size:0.9em;">✅ SOCIALS OK</span>`
-              : (order.socialPermission === false 
-                  ? `<span style="color:#f87171; border:1px solid #f87171; padding:2px 6px; border-radius:4px; font-size:0.9em;">❌ NO SOCIALS</span>` 
-                  : `<span style="color:#9ca3af;">❓ UNKNOWN</span>`);
+          // --- SOCIALS PERMISSION (ROBUST DISPLAY) ---
+          let socials = "";
+          // Check explicit boolean true/false or string 'true'/'false'
+          if (order.socialPermission === true || order.socialPermission === "true") {
+              socials = `<span style="color:#10b981; font-weight:bold; border:1px solid #10b981; padding:4px 8px; border-radius:6px; background:rgba(16,185,129,0.1);">✅ SOCIALS APPROVED</span>`;
+          } else if (order.socialPermission === false || order.socialPermission === "false") {
+              socials = `<span style="color:#ef4444; font-weight:bold; border:1px solid #ef4444; padding:4px 8px; border-radius:6px; background:rgba(239,68,68,0.1);">❌ NO SOCIALS</span>`;
+          } else {
+              socials = `<span style="color:#9ca3af;">❓ UNKNOWN (No selection)</span>`;
+          }
 
-          html += `<div class="field-label">Customer</div><div class="field-value">${order.email} <br> ${socials} <br>${order.phone || "No phone"}</div>`;
+          // NEW DEDICATED SOCIALS FIELD
+          html += `<div class="field-label" style="color:#fcd34d;">Social Media Permission</div><div class="field-value" style="font-size:1.1em; margin-bottom:12px;">${socials}</div>`;
+
+          html += `<div class="field-label">Customer</div><div class="field-value">${order.email} <br> ${order.phone || "No phone"}</div>`;
           
           if (order.customer?.address) {
              const a = order.customer.address;
