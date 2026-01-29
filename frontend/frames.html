@@ -185,6 +185,14 @@
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #4C5642;"></div>
             <div class="font-semibold text-sm">Olive</div>
           </div>
+          <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div>
+            <div class="font-semibold text-xs leading-tight">Black Walnut</div>
+          </div>
+          <div onclick="setColor('White Marble')" id="col-marble" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #E5E5E5;"></div>
+            <div class="font-semibold text-xs leading-tight">White Marble</div>
+          </div>
         </div>
       </div>
 
@@ -360,7 +368,6 @@
 
       // Main Button Logic
       const btn = document.getElementById('main-btn');
-      
       btn.disabled = false; 
 
       let valid = false;
@@ -398,10 +405,9 @@
         }
       }
 
-      // Visual Disable (Clickable for Alert)
+      // Visual Disable
       if (!valid) {
         btn.classList.add('opacity-50', 'cursor-not-allowed');
-        // Reset text if disabled to simple prompt
         if(state.step===4) text = "Complete Options";
       } else {
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -417,15 +423,15 @@
     window.selectStyle = (style) => {
       state.style = style;
       if (style === 'rollercube') {
-        state.product = PRODUCTS.rollercube[0]; // Auto select only size
-        setTimeout(() => nextStep(), 300); // Auto-advance
+        state.product = PRODUCTS.rollercube[0]; 
+        setTimeout(() => nextStep(), 300); 
       } else {
         renderSizeGrid();
-        setTimeout(() => nextStep(), 300); // Auto-advance
+        setTimeout(() => nextStep(), 300); 
       }
     };
 
-    // STEP 2 - NEW RENDER WITH IMAGES
+    // STEP 2
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
       container.innerHTML = PRODUCTS[state.style].map(p => `
@@ -443,12 +449,11 @@
 
     window.selectProduct = (pid) => {
       state.product = PRODUCTS[state.style].find(p => p.id === pid);
-      // Reset customization
       state.withMagnets = false;
       state.photos = [];
       updateCustomUI();
-      renderSizeGrid(); // Visual update
-      setTimeout(() => nextStep(), 300); // Auto-advance
+      renderSizeGrid(); 
+      setTimeout(() => nextStep(), 300); 
     };
 
     // STEP 3
@@ -478,14 +483,21 @@
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
       }
 
-      // Color Highlights
-      const colW = document.getElementById('col-white');
-      const colB = document.getElementById('col-black');
-      const colO = document.getElementById('col-olive');
+      // Color Highlights (UPDATED for 5 options)
+      const colors = {
+        'White': 'col-white',
+        'Black': 'col-black',
+        'Olive': 'col-olive',
+        'Black Walnut': 'col-walnut',
+        'White Marble': 'col-marble'
+      };
 
-      colW.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'White' ? activeClass : ''}`;
-      colB.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'Black' ? activeClass : ''}`;
-      colO.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === 'Olive' ? activeClass : ''}`;
+      for (const [name, id] of Object.entries(colors)) {
+        const el = document.getElementById(id);
+        if (el) {
+           el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`;
+        }
+      }
 
       // Photo Section
       const uploadSec = document.getElementById('upload-section');
@@ -496,7 +508,7 @@
       } else {
         uploadSec.classList.add('hidden');
       }
-      render(); // Update button
+      render(); 
     }
 
     function renderPhotos() {
@@ -528,7 +540,7 @@
 
     // STEP 4 - Summary
     function updateSummary() {
-      if(!state.product) return; // Safety check
+      if(!state.product) return; 
 
       const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
@@ -545,44 +557,23 @@
       document.getElementById('summary-desc').innerText = desc;
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
-      
-      // render() removed from here to avoid loops, nextStep calls it
     }
 
     // Navigation
     window.nextStep = () => {
       try {
-        // 1. Validation Logic
-        if (state.step === 1 && !state.style) {
-          alert("Please choose a frame style to continue.");
-          return;
-        }
-        if (state.step === 2 && !state.product) {
-          alert("Please select a frame size.");
-          return;
-        }
-        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) {
-          alert(`Please upload exactly ${state.product.size} photos.`);
-          return;
-        }
+        if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
+        if (state.step === 2 && !state.product) { alert("Please select a frame size."); return; }
+        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) { alert(`Please upload exactly ${state.product.size} photos.`); return; }
         if (state.step === 4) {
-          if (!state.shipping || state.social === null) {
-            alert("Please complete delivery and permission options.");
-            return;
-          }
+          if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; }
           submitOrder();
           return;
         }
 
-        // 2. Progression Logic
-        // Skip size selection for rollercube
-        if (state.step === 1 && state.style === 'rollercube') {
-          state.step = 3;
-        } else {
-          state.step++;
-        }
+        if (state.step === 1 && state.style === 'rollercube') { state.step = 3; } 
+        else { state.step++; }
         
-        // Update UI based on new step
         if(state.step === 3) updateCustomUI();
         if(state.step === 4) updateSummary();
         render();
@@ -594,26 +585,21 @@
     };
 
     window.goBack = () => {
-      if (state.step === 3 && state.style === 'rollercube') {
-        state.step = 1;
-      } else {
-        state.step--;
-      }
+      if (state.step === 3 && state.style === 'rollercube') { state.step = 1; } 
+      else { state.step--; }
       if (state.step < 1) window.location.href = "/";
       else render();
     };
 
-    // Shipping & Socials
     window.setShipping = (m) => {
       state.shipping = m;
-      // UI Update
       const c = document.getElementById('ship-collect');
       const d = document.getElementById('ship-deliver');
       const active = "border-primary bg-accent ring-1 ring-primary";
       c.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?active:''}`;
       d.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?active:''}`;
       updateSummary();
-      render(); // Explicit re-render for button update
+      render(); 
     };
 
     window.setSocial = (v) => {
@@ -626,7 +612,6 @@
       render();
     };
 
-    // Upload Logic
     const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
@@ -645,7 +630,7 @@
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
       renderPhotos();
-      render(); // Check button state
+      render(); 
     }
 
     function openCropper(file, resolve) {
@@ -668,7 +653,6 @@
     window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
     window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); render(); };
 
-    // SUBMIT
     window.submitOrder = async () => {
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
@@ -680,14 +664,12 @@
       btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
 
       try {
-        // Create Order
         const res = await fetch("/api/order", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email, phone,
             event: "FRAMES",
             productType: "frame",
-            // Custom Fields
             frameStyle: state.style,
             frameSize: state.product.size,
             frameColor: state.color,
@@ -700,7 +682,6 @@
         if(!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
-        // Upload
         if(state.withMagnets && state.photos.length > 0) {
           btn.innerHTML = "Uploading photos...";
           for(const p of state.photos) {
@@ -710,7 +691,6 @@
           }
         }
 
-        // Checkout
         btn.innerHTML = "Redirecting...";
         const ckRes = await fetch("/api/checkout", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -728,7 +708,6 @@
       }
     };
 
-    // Init
     render();
   </script>
 </body>
