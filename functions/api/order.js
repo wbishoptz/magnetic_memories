@@ -17,6 +17,7 @@ const FRAME_PRICES = {
     3: { frame: 8, full: 15 },
     4: { frame: 10, full: 17 },
     6: { frame: 12, full: 25 },
+    9: { frame: 15, full: 30 }, // NEW 9 MAGNET OPTION
   },
   sleek: {
     1: { frame: 5, full: 7 },
@@ -101,7 +102,7 @@ export async function onRequestPost({ request, env }) {
 
     const now = new Date().toISOString();
 
-    // BUG FIX: Handle boolean values correctly (explicit undefined check)
+    // Handle boolean values correctly (explicit undefined check)
     let socialPerm = existingOrder.socialPermission;
     if (body.socialPermission !== undefined) {
         socialPerm = body.socialPermission;
@@ -133,7 +134,7 @@ export async function onRequestPost({ request, env }) {
       recoverySent: existingOrder.recoverySent || false,
       shippingMethod: body?.shippingMethod || existingOrder.shippingMethod,
       
-      // Fixed Social Logic
+      // Social Logic
       socialPermission: socialPerm,
       
       bingoNumber: existingOrder.bingoNumber
