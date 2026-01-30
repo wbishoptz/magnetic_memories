@@ -11,12 +11,13 @@ const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 const FLEXI_PRICE = 12.50;
 
-// NEW: Frame Pricing
+// Frame Pricing
 const FRAME_PRICES = {
   bohemian: {
     3: { frame: 8, full: 15 },
     4: { frame: 10, full: 17 },
     6: { frame: 12, full: 25 },
+    9: { frame: 15, full: 30 }, 
   },
   sleek: {
     1: { frame: 5, full: 7 },
@@ -62,6 +63,21 @@ export async function onRequestPost({ request, env }) {
     } catch (e) {
       console.error("KV get error:", e);
     }
+
+    // --- SECURITY CHECK (PREVENT DOUBLE PAYMENTS) ---
+    // If the order status is already paid or processing, do NOT create a new Stripe session.
+    if (kvOrder && ['paid', 'printing', 'shipped', 'completed'].includes(kvOrder.status)) {
+        console.log(`Order ${orderId} is already paid. Redirecting to success.`);
+        
+        let successPage = "return.html";
+        if (kvOrder.event === 'BINGO') successPage = "bingo-return.html";
+        
+        // Return a checkoutUrl that is actually just the success page
+        return jsonResponse({ 
+            checkoutUrl: `https://magnetic-memories.pages.dev/${successPage}?status=paid&orderId=${encodeURIComponent(orderId)}` 
+        });
+    }
+    // ------------------------------------------------
 
     // Ensure we have the event/product info from KV if not passed in body
     if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
@@ -198,7 +214,7 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("line_items[0][price_data][product_data][description]", productDesc);
-    params.append("line_items[0][price_data][unit_amount]", String(finalPrice * 100)); // Use final price after discount
+    params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100))); // Ensure integer pennies
 
     // Description override if voucher used
     if (discountAmount > 0) {
