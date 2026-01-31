@@ -53,6 +53,10 @@ export async function onRequestPost({ request, env }) {
     const flexiColor = body?.flexiColor || null;
     const premadeSelections = body?.premadeSelections || []; 
     
+    // --- MANUAL EVENT FIELDS (Restored) ---
+    const raffleNumber = body?.raffleNumber || null; 
+    const manualStatus = body?.status || "draft";    
+
     // --- FRAME FIELDS ---
     const frameStyle = body?.frameStyle;
     const frameSize = body?.frameSize;
@@ -65,7 +69,10 @@ export async function onRequestPost({ request, env }) {
     const packSize = Number(packSizeRaw);
 
     // --- PRICING LOGIC ---
-    if (String(packSizeRaw).startsWith("voucher_")) {
+    if (eventTag === 'MANUAL') {
+        price = 0; // Paid in cash/person
+    } 
+    else if (String(packSizeRaw).startsWith("voucher_")) {
         price = 0; 
     } else {
         if (eventTag === 'FRAMES') {
@@ -103,7 +110,7 @@ export async function onRequestPost({ request, env }) {
 
     const now = new Date().toISOString();
 
-    // Handle boolean values correctly (explicit undefined check)
+    // Handle boolean values correctly
     let socialPerm = existingOrder.socialPermission;
     if (body.socialPermission !== undefined) {
         socialPerm = body.socialPermission;
@@ -116,6 +123,7 @@ export async function onRequestPost({ request, env }) {
       packSize, 
       price, 
       event: eventTag,
+      raffleNumber, // Restored field
       
       productType, 
       flexiColor, 
@@ -127,15 +135,18 @@ export async function onRequestPost({ request, env }) {
       includeMagnets,
       
       // System fields
-      status: existingOrder.status || "draft",         
+      // Allow manual 'paid' status for events, otherwise default to draft logic
+      status: manualStatus === 'paid' ? 'paid' : (existingOrder.status || "draft"),
+      
       createdAt: existingOrder.createdAt || now, 
       updatedAt: now,
       images: existingOrder.images || [],       
       stripeSessionId: existingOrder.stripeSessionId || null,
       recoverySent: existingOrder.recoverySent || false,
-      shippingMethod: body?.shippingMethod || existingOrder.shippingMethod,
       
-      // Social Logic
+      // Smart shipping logic (Manual = Collect)
+      shippingMethod: body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null),
+      
       socialPermission: socialPerm,
       
       bingoNumber: existingOrder.bingoNumber

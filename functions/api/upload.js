@@ -12,6 +12,9 @@ export async function onRequestPost({ request, env }) {
   try {
     const url = new URL(request.url);
     const orderId = url.searchParams.get("orderId");
+    
+    // NEW: Allow manual event page to set a specific filename (e.g. "Ticket-505-1.jpg")
+    const customFilename = url.searchParams.get("filename");
 
     if (!orderId) {
       return json(400, { error: "Missing orderId." });
@@ -37,10 +40,14 @@ export async function onRequestPost({ request, env }) {
       return json(400, { error: "Missing file upload." });
     }
 
-    // 2. RESTORE ADMIN COMPATIBILITY
-    // We must use "orders/{orderId}/..." so the Admin Dashboard can find them.
-    const originalName = file.name || "photo.jpg";
+    // 2. RESTORE ADMIN COMPATIBILITY + SUPPORT CUSTOM NAMES
+    // We prioritize the customFilename (from Event Page) if it exists.
+    const originalName = customFilename || file.name || "photo.jpg";
+    
+    // Sanitize the name to be safe for file systems/URLs
     const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    
+    // Keep your exact folder structure so Admin downloads work
     const r2Key = `orders/${orderId}/original/${Date.now()}_${safeName}`;
 
     await env.R2_BUCKET.put(r2Key, file.stream(), {
@@ -57,7 +64,7 @@ export async function onRequestPost({ request, env }) {
     order.images = order.images || [];
     order.images.push({
       key: r2Key,
-      name: originalName,
+      name: safeName, // Save the clean name (e.g. Ticket-505-1.jpg)
       uploadedAt: new Date().toISOString(),
     });
 
