@@ -64,25 +64,37 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
-    // --- SECURITY CHECK (PREVENT DOUBLE PAYMENTS) ---
-    // If the order status is already paid or processing, do NOT create a new Stripe session.
+    // Determine Success Page
+    let successPage = "return.html";
+    if (kvOrder?.event === 'BINGO') successPage = "bingo-return.html";
+    const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
+
+    // --- CHECK 1: IS IT ALREADY PAID? ---
     if (kvOrder && ['paid', 'printing', 'shipped', 'completed'].includes(kvOrder.status)) {
-        console.log(`Order ${orderId} is already paid. Redirecting to success.`);
-        
-        let successPage = "return.html";
-        if (kvOrder.event === 'BINGO') successPage = "bingo-return.html";
-        
-        // Return a checkoutUrl that is actually just the success page
-        return jsonResponse({ 
-            checkoutUrl: `https://magnetic-memories.pages.dev/${successPage}?status=paid&orderId=${encodeURIComponent(orderId)}` 
-        });
+        return jsonResponse({ checkoutUrl: successUrl });
     }
-    // ------------------------------------------------
+
+    const stripe = require("stripe")(env.STRIPE_SECRET_KEY);
+
+    // --- CHECK 2: DOES AN OPEN SESSION ALREADY EXIST? (THE FIX) ---
+    if (kvOrder && kvOrder.stripeSessionId) {
+        try {
+            // Ask Stripe: "Is this session still active?"
+            const existingSession = await stripe.checkout.sessions.retrieve(kvOrder.stripeSessionId);
+            
+            // If it is OPEN, send them back to the SAME link.
+            if (existingSession && existingSession.status === 'open') {
+                console.log(`Reusing existing session ${existingSession.id} for order ${orderId}`);
+                return jsonResponse({ checkoutUrl: existingSession.url });
+            }
+        } catch (e) {
+            console.log("Existing session check failed (maybe expired), creating new one.");
+        }
+    }
 
     // Ensure we have the event/product info from KV if not passed in body
     if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
-    const productType = kvOrder?.productType || body?.productType || 'standard';
-
+    
     // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
@@ -113,11 +125,11 @@ export async function onRequestPost({ request, env }) {
             if (pData) {
                 price = withMags ? pData.full : pData.frame;
                 
-                // Construct nice Name: "Bohemian Frame (Black)"
+                // Construct nice Name
                 const styleName = style.charAt(0).toUpperCase() + style.slice(1);
                 productName = `${styleName} Frame (${color})`;
                 
-                // Construct nice Desc: "With 4 custom magnets"
+                // Construct nice Desc
                 productDesc = withMags 
                     ? `With ${fSize} personalised magnets` 
                     : `Frame only (${fSize} slots)`;
@@ -128,7 +140,7 @@ export async function onRequestPost({ request, env }) {
 
         } else if (eventTag === 'VALENTINES') {
             // --- VALENTINES LOGIC ---
-            if (productType === 'flexi') {
+            if (kvOrder?.productType === 'flexi') {
                 price = FLEXI_PRICE;
                 const color = kvOrder?.flexiColor || "Standard";
                 productName = `Flexi Heart (${color})`;
@@ -165,11 +177,6 @@ export async function onRequestPost({ request, env }) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
-    // Determine Success URL
-    let successPage = "return.html";
-    if (eventTag === 'BINGO') successPage = "bingo-return.html";
-    
-    const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
     // --- STRIPE SESSION PARAMS ---
@@ -214,16 +221,15 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("line_items[0][price_data][product_data][description]", productDesc);
-    params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100))); // Ensure integer pennies
+    params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100))); 
 
-    // Description override if voucher used
     if (discountAmount > 0) {
         params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
     }
 
     // --- 100% DISCOUNT HANDLING (SKIP STRIPE) ---
     if (voucherCode && discountAmount > 0 && finalPrice === 0) {
-        // 1. Update Voucher
+        // Update Voucher
         const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
         const newBalance = currentBalance - discountAmount;
         voucherData.balance = newBalance;
@@ -234,14 +240,14 @@ export async function onRequestPost({ request, env }) {
         voucherData.usedByOrder = orderId; 
         await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
-        // 2. Update Order
+        // Update Order
         kvOrder.status = "paid";
         kvOrder.paidAt = new Date().toISOString();
         kvOrder.price = 0;
         kvOrder.usedVoucher = voucherCode;
         await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
-        // 3. Notifications
+        // Notifications
         const notifs = [sendAdminEmail(kvOrder, env), sendPaidTelegram(kvOrder, env)];
         if (eventTag === 'BINGO') notifs.push(sendBingoEmail(kvOrder, env));
         else notifs.push(sendPaidEmail(kvOrder, env));
@@ -292,6 +298,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create checkout." }, 500);
     }
 
+    // --- SAVE SESSION ID TO DB ---
     kvOrder.stripeSessionId = session.id;
     if (voucherCode && discountAmount > 0) kvOrder.usedVoucher = voucherCode;
     
