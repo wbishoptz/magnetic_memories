@@ -5,7 +5,8 @@ const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 const BINGO_PACKS = [1, 3, 6, 12];
-const BINGO_PRICES = { 1: 3.5, 3: 10, 6: 20, 12: 35 };
+// UPDATED: 1 magnet is now £4.00
+const BINGO_PRICES = { 1: 4.00, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
@@ -74,7 +75,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ checkoutUrl: successUrl });
     }
 
-    // --- CHECK 2: REUSE EXISTING STRIPE SESSION (FIXED) ---
+    // --- CHECK 2: REUSE EXISTING STRIPE SESSION ---
     // Using fetch instead of 'require(stripe)' to match your environment
     if (kvOrder && kvOrder.stripeSessionId) {
         try {

@@ -5,7 +5,8 @@ const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 const BINGO_PACKS = [1, 3, 6, 12];
-const BINGO_PRICES = { 1: 3.50, 3: 10, 6: 20, 12: 35 };
+// UPDATED: 1 magnet is now £4.00
+const BINGO_PRICES = { 1: 4.00, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
@@ -17,7 +18,7 @@ const FRAME_PRICES = {
     3: { frame: 8, full: 15 },
     4: { frame: 10, full: 17 },
     6: { frame: 12, full: 25 },
-    9: { frame: 15, full: 30 }, // NEW 9 MAGNET OPTION
+    9: { frame: 15, full: 30 },
   },
   sleek: {
     1: { frame: 5, full: 7 },
