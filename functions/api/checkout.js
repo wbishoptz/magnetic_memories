@@ -74,27 +74,33 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ checkoutUrl: successUrl });
     }
 
-    const stripe = require("stripe")(env.STRIPE_SECRET_KEY);
-
-    // --- CHECK 2: DOES AN OPEN SESSION ALREADY EXIST? (THE FIX) ---
+    // --- CHECK 2: REUSE EXISTING STRIPE SESSION (FIXED) ---
+    // Using fetch instead of 'require(stripe)' to match your environment
     if (kvOrder && kvOrder.stripeSessionId) {
         try {
-            // Ask Stripe: "Is this session still active?"
-            const existingSession = await stripe.checkout.sessions.retrieve(kvOrder.stripeSessionId);
-            
-            // If it is OPEN, send them back to the SAME link.
-            if (existingSession && existingSession.status === 'open') {
-                console.log(`Reusing existing session ${existingSession.id} for order ${orderId}`);
-                return jsonResponse({ checkoutUrl: existingSession.url });
+            const sessionRes = await fetch(`https://api.stripe.com/v1/checkout/sessions/${kvOrder.stripeSessionId}`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+                },
+            });
+
+            if (sessionRes.ok) {
+                const existingSession = await sessionRes.json();
+                // If session is still valid/open, send them back to it
+                if (existingSession.status === 'open') {
+                    return jsonResponse({ checkoutUrl: existingSession.url });
+                }
             }
         } catch (e) {
-            console.log("Existing session check failed (maybe expired), creating new one.");
+            console.error("Session check failed (ignoring):", e);
         }
     }
 
     // Ensure we have the event/product info from KV if not passed in body
     if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
-    
+    const productType = kvOrder?.productType || body?.productType || 'standard';
+
     // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
@@ -125,11 +131,9 @@ export async function onRequestPost({ request, env }) {
             if (pData) {
                 price = withMags ? pData.full : pData.frame;
                 
-                // Construct nice Name
                 const styleName = style.charAt(0).toUpperCase() + style.slice(1);
                 productName = `${styleName} Frame (${color})`;
                 
-                // Construct nice Desc
                 productDesc = withMags 
                     ? `With ${fSize} personalised magnets` 
                     : `Frame only (${fSize} slots)`;
@@ -140,7 +144,7 @@ export async function onRequestPost({ request, env }) {
 
         } else if (eventTag === 'VALENTINES') {
             // --- VALENTINES LOGIC ---
-            if (kvOrder?.productType === 'flexi') {
+            if (productType === 'flexi') {
                 price = FLEXI_PRICE;
                 const color = kvOrder?.flexiColor || "Standard";
                 productName = `Flexi Heart (${color})`;
