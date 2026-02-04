@@ -17,7 +17,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* NEW: Back Button Styles */
+    /* Back Button Styles */
     .nav-header {
       display: flex;
       align-items: center;
@@ -42,110 +42,25 @@
       transform: translateX(-2px);
     }
 
-    /* VALENTINE BANNER STYLES */
-    .val-banner {
-      display: block;
-      text-decoration: none;
-      margin: 0 auto 24px auto;
-      max-width: 100%;
-      position: relative;
-      overflow: hidden;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-      padding: 16px 20px;
-      box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.3), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      color: white;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .val-banner:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 25px -5px rgba(225, 29, 72, 0.4), 0 8px 10px -6px rgba(225, 29, 72, 0.1);
-    }
-
-    .val-content {
-      position: relative;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .val-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-align: left;
-    }
-
-    .val-icon-circle {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.2);
-      backdrop-filter: blur(4px);
+    /* Holiday Banner Styles (Much simpler than Valentines) */
+    .holiday-banner {
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
+      gap: 12px;
+      background: #fffbeb; /* Amber-50 */
+      border: 1px solid #fcd34d; /* Amber-300 */
+      color: #92400e; /* Amber-800 */
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-
-    .val-texts h3 {
-      margin: 0;
-      font-size: 1.1rem;
-      font-weight: 700;
-      line-height: 1.2;
-      color: white;
-    }
-
-    .val-texts p {
-      margin: 2px 0 0 0;
+    .holiday-text {
       font-size: 0.85rem;
-      color: rgba(255,255,255,0.9);
       font-weight: 500;
-    }
-
-    .val-btn {
-      background: white;
-      color: #e11d48;
-      font-weight: 700;
-      font-size: 0.9rem;
-      padding: 8px 16px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-      transition: background 0.2s;
-    }
-    
-    .val-banner:hover .val-btn {
-      background: #fff0f3;
-    }
-
-    /* Floating Hearts Animation */
-    .val-bg-heart {
-      position: absolute;
-      color: rgba(255,255,255,0.15);
-      animation: valFloat 6s ease-in-out infinite;
-      pointer-events: none;
-    }
-    @keyframes valFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-
-    @media (max-width: 480px) {
-      .val-icon-circle { display: none; }
-      .val-btn span { display: none; } /* Hide "Shop Now" text on tiny screens, show arrow only if needed, or keep short */
-      .val-btn span.short { display: inline; }
-      .val-btn span.long { display: none; }
-    }
-    @media (min-width: 481px) {
-      .val-btn span.short { display: none; }
+      line-height: 1.4;
+      text-align: left;
     }
   </style>
 </head>
@@ -160,30 +75,14 @@
 
     <img src="./logo.png" alt="Magnetic Memories" class="main-logo" />
     
-    <a href="/valentines" class="val-banner">
-      <div style="position:absolute; inset:0;">
-        <i data-lucide="heart" class="val-bg-heart" style="top:10px; left:15px; width:20px; animation-delay:0s;"></i>
-        <i data-lucide="heart" class="val-bg-heart" style="top:15px; right:40px; width:14px; animation-delay:1s;"></i>
-        <i data-lucide="heart" class="val-bg-heart" style="bottom:10px; right:80px; width:18px; animation-delay:2s;"></i>
+    <div class="holiday-banner">
+      <i data-lucide="calendar-clock" style="width:20px; height:20px; flex-shrink:0;"></i>
+      <div class="holiday-text">
+        <strong>We are on holiday!</strong><br>
+        Orders placed now will be processed starting <u>Feb 28th</u>.
       </div>
+    </div>
 
-      <div class="val-content">
-        <div class="val-left">
-          <div class="val-icon-circle">
-            <i data-lucide="heart" style="color:white; fill:white; width:20px;"></i>
-          </div>
-          <div class="val-texts">
-            <h3>Valentine's Edition</h3>
-            <p>The perfect gift for your special someone 💕</p>
-          </div>
-        </div>
-        <div class="val-btn">
-          <span class="long">Shop Now</span>
-          <span class="short">Shop</span>
-          <i data-lucide="arrow-right" style="width:16px;"></i>
-        </div>
-      </div>
-    </a>
     <p class="subtitle">Pick a pack, upload, crop perfectly, and pay securely.</p>
 
     <section class="card">
