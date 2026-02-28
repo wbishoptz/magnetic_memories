@@ -92,13 +92,6 @@
 
   <main class="flex-1 container mx-auto px-4 py-6 max-w-md">
 
-    <div class="w-full bg-amber-100 border border-amber-200 text-amber-900 py-3 px-4 rounded-xl mb-6 shadow-sm flex items-center justify-center gap-3 animate-fade-in">
-      <i data-lucide="calendar-clock" class="w-5 h-5 text-amber-600 flex-shrink-0"></i>
-      <div class="text-xs font-bold text-left leading-tight">
-        On Holiday: Orders processed from <span class="underline">Feb 28th</span>.
-      </div>
-    </div>
-
     <div id="step-1" class="animate-fade-in">
       <div class="text-center mb-6">
         <img src="./logo.png" alt="Magnetic Memories" class="w-40 mx-auto mb-4 object-contain" />
@@ -490,7 +483,7 @@
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
       }
 
-      // Color Highlights (UPDATED for 5 options)
+      // Color Highlights
       const colors = {
         'White': 'col-white',
         'Black': 'col-black',
