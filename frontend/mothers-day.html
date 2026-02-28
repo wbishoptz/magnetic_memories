@@ -73,12 +73,22 @@
 
     <div id="step-landing" class="animate-fade-in text-center">
       <div class="mb-6">
-        <i data-lucide="flower-2" class="w-12 h-12 mx-auto text-primary mb-4"></i>
-        <h1 class="font-serif text-4xl font-bold mb-2">Magnetic Memories</h1>
-        <p class="text-primary font-medium mb-8">Mother's Day Edition</p>
+        <img src="./logo.png" alt="Magnetic Memories" class="w-48 md:w-56 mx-auto mb-4 object-contain" />
+        <p class="text-primary font-serif text-2xl font-bold mb-8">Mother's Day Edition</p>
       </div>
 
       <div class="space-y-4">
+        
+        <button onclick="selectLine('frames')" class="w-full p-6 rounded-2xl text-left transition-all duration-300 border-2 border-transparent mothers-card hover:border-primary/30 flex items-center gap-4">
+          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="frame" class="w-7 h-7 text-white"></i>
+          </div>
+          <div>
+            <h3 class="font-serif text-xl font-semibold mb-1">Photo Frames</h3>
+            <p class="text-sm text-muted-foreground">Beautiful magnetic frames in Bohemian & Sleek styles</p>
+          </div>
+        </button>
+        
         <button onclick="selectLine('magnets')" class="w-full p-6 rounded-2xl text-left transition-all duration-300 border-2 border-transparent mothers-card hover:border-primary/30 flex items-center gap-4">
           <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center flex-shrink-0">
             <i data-lucide="image" class="w-7 h-7 text-white"></i>
@@ -89,15 +99,6 @@
           </div>
         </button>
 
-        <button onclick="selectLine('frames')" class="w-full p-6 rounded-2xl text-left transition-all duration-300 border-2 border-transparent mothers-card hover:border-primary/30 flex items-center gap-4">
-          <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
-            <i data-lucide="frame" class="w-7 h-7 text-white"></i>
-          </div>
-          <div>
-            <h3 class="font-serif text-xl font-semibold mb-1">Photo Frames</h3>
-            <p class="text-sm text-muted-foreground">Beautiful magnetic frames in Bohemian & Sleek styles</p>
-          </div>
-        </button>
       </div>
     </div>
 
@@ -201,7 +202,7 @@
       { id: 1, name: "Bouquet Bloom", custom: 3, premade: 1, price: 12.50 },
       { id: 2, name: "Garden Party", custom: 6, premade: 2, price: 25.00, popular: true },
       { id: 3, name: "Full Bloom", custom: 9, premade: 3, price: 30.00 },
-      { id: 4, name: "Mum's Treasure", custom: 12, premade: 3, price: 35.00 }, // Fixed Typo
+      { id: 4, name: "Mum's Treasure", custom: 12, premade: 3, price: 35.00 }, 
     ];
 
     const PREMADES = [
@@ -221,8 +222,8 @@
 
     // --- STATE ---
     let state = {
-      step: 'landing', // landing, packages, frames, photos, premade, checkout
-      line: null, // magnets or frames
+      step: 'landing', 
+      line: null, 
       
       // Magnets
       pkg: null,
@@ -230,7 +231,7 @@
       
       // Frames
       frameStyle: 'bohemian',
-      frameSize: null, // obj
+      frameSize: null,
       frameColor: 'White',
 
       photos: [],
@@ -271,7 +272,6 @@
       btn.innerHTML = state.step === 'checkout' ? text : `${text} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
       lucide.createIcons();
 
-      // Renders specific to steps
       if(state.step === 'packages') renderPackages();
       if(state.step === 'frames') renderFrames();
       if(state.step === 'photos') renderPhotos();
