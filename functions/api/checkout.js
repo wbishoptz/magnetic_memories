@@ -13,6 +13,11 @@ const FLEXI_PRICE = 12.50;
 
 // Mother's Day Packages (Custom + Premade Magnets)
 const MOTHERS_PACKAGES = {
+  "Box 1": 12.50,
+  "Box 2": 25.00,
+  "Box 3": 30.00,
+  "Box 4": 35.00,
+  // Kept for backward compatibility
   "Bouquet Bloom": 12.50,
   "Garden Party": 25.00,
   "Full Bloom": 30.00,
@@ -115,7 +120,6 @@ export async function onRequestPost({ request, env }) {
     let isVoucherPurchase = false;
 
     if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
-        // 1. BUYING A GIFT VOUCHER
         const v = VOUCHERS[packSizeRaw];
         if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
         price = v.price;
@@ -123,7 +127,6 @@ export async function onRequestPost({ request, env }) {
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
     } else {
-        // 2. BUYING PHYSICAL ITEMS
         let size = Number(packSizeRaw);
         
         if (eventTag === 'MOTHERS_DAY') {
@@ -137,8 +140,6 @@ export async function onRequestPost({ request, env }) {
                     price = kvOrder.includeMagnets ? pData.full : pData.frame;
                     const styleName = style.charAt(0).toUpperCase() + style.slice(1);
                     productName = `Mother's Day: ${styleName} Frame (${kvOrder.frameColor || 'White'})`;
-                    
-                    // Fixed description based on whether magnets were included
                     productDesc = kvOrder.includeMagnets 
                       ? `With ${fSize} personalised magnets` 
                       : `Frame only (${fSize} slots)`;
@@ -153,7 +154,6 @@ export async function onRequestPost({ request, env }) {
             }
 
         } else if (eventTag === 'FRAMES') {
-            // --- NEW FRAMES LOGIC ---
             const style = kvOrder.frameStyle || 'bohemian';
             const fSize = kvOrder.frameSize || size;
             const withMags = kvOrder.includeMagnets || false;
@@ -170,7 +170,6 @@ export async function onRequestPost({ request, env }) {
             }
 
         } else if (eventTag === 'VALENTINES') {
-            // --- VALENTINES LOGIC ---
             if (productType === 'flexi') {
                 price = FLEXI_PRICE;
                 const color = kvOrder?.flexiColor || "Standard";
@@ -183,13 +182,11 @@ export async function onRequestPost({ request, env }) {
             }
 
         } else if (eventTag === 'BINGO') {
-            // --- BINGO LOGIC ---
             price = BINGO_PRICES[size] || 20; 
             productName = `Bingo Special (${size} magnets)`;
             productDesc = "Collect at the stall";
 
         } else {
-            // --- STANDARD LOGIC ---
             if (!STANDARD_PACKS.includes(size)) size = 3;
             price = STANDARD_PRICES[size];
             productName = `${size} Custom Photo Magnets`;
@@ -203,14 +200,12 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- INJECT BINGO ORDER NUMBER ---
     if (eventTag === 'BINGO' && kvOrder?.bingoNumber) {
         productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
-    // --- STRIPE SESSION PARAMS ---
     const params = new URLSearchParams();
     params.append("mode", "payment");
     params.append("success_url", successUrl);
@@ -219,7 +214,6 @@ export async function onRequestPost({ request, env }) {
     params.append("metadata[orderId]", orderId);
     if (eventTag) params.append("metadata[event]", eventTag); 
     
-    // Voucher Metadata
     if (isVoucherPurchase) {
         params.append("metadata[isVoucher]", "true");
         params.append("metadata[voucherValue]", String(price));
@@ -228,7 +222,6 @@ export async function onRequestPost({ request, env }) {
         params.append("metadata[usedVoucher]", voucherCode);
     }
 
-    // APPLY VOUCHER DISCOUNT LOGIC
     let discountAmount = 0;
     let finalPrice = price;
     let voucherData = null;
@@ -247,7 +240,6 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // CREATE STRIPE LINE ITEM
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);
@@ -258,9 +250,7 @@ export async function onRequestPost({ request, env }) {
         params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
     }
 
-    // --- 100% DISCOUNT HANDLING (SKIP STRIPE) ---
     if (voucherCode && discountAmount > 0 && finalPrice === 0) {
-        // Update Voucher
         const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
         const newBalance = currentBalance - discountAmount;
         voucherData.balance = newBalance;
@@ -271,14 +261,12 @@ export async function onRequestPost({ request, env }) {
         voucherData.usedByOrder = orderId; 
         await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
-        // Update Order
         kvOrder.status = "paid";
         kvOrder.paidAt = new Date().toISOString();
         kvOrder.price = 0;
         kvOrder.usedVoucher = voucherCode;
         await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 
-        // Notifications
         const notifs = [sendAdminEmail(kvOrder, env), sendPaidTelegram(kvOrder, env)];
         if (eventTag === 'BINGO') notifs.push(sendBingoEmail(kvOrder, env));
         else notifs.push(sendPaidEmail(kvOrder, env));
@@ -288,7 +276,6 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ checkoutUrl: successUrl });
     }
 
-    // --- SHIPPING LOGIC ---
     if (!isVoucherPurchase) {
         const targetCountry = body?.country || kvOrder?.shippingMethod || "GI_COLLECT";
 
@@ -329,7 +316,6 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: "Failed to create checkout." }, 500);
     }
 
-    // --- SAVE SESSION ID TO DB ---
     kvOrder.stripeSessionId = session.id;
     if (voucherCode && discountAmount > 0) kvOrder.usedVoucher = voucherCode;
     
@@ -359,7 +345,6 @@ async function fetchWithRetry(url, options, retries = 3) {
   return null;
 }
 
-// Standard Email
 async function sendPaidEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -382,7 +367,6 @@ async function sendPaidEmail(order, env) {
   });
 }
 
-// Bingo Email
 async function sendBingoEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -410,7 +394,6 @@ async function sendBingoEmail(order, env) {
   });
 }
 
-// Admin Alert Email
 async function sendAdminEmail(order, env) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
@@ -444,7 +427,6 @@ async function sendAdminEmail(order, env) {
   ));
 }
 
-// Telegram Alert
 async function sendPaidTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = env.TELEGRAM_CHAT_ID;

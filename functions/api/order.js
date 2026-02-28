@@ -12,8 +12,13 @@ const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 const FLEXI_PRICE = 12.50;
 
-// Mother's Day Packages (Custom + Premade Magnets)
+// Mother's Day Packages (Updated to Valentine's Box format)
 const MOTHERS_PACKAGES = {
+  "Box 1": 12.50,
+  "Box 2": 25.00,
+  "Box 3": 30.00,
+  "Box 4": 35.00,
+  // Kept for backward compatibility if any old links hit
   "Bouquet Bloom": 12.50,
   "Garden Party": 25.00,
   "Full Bloom": 30.00,
@@ -61,7 +66,7 @@ export async function onRequestPost({ request, env }) {
     const flexiColor = body?.flexiColor || null;
     const premadeSelections = body?.premadeSelections || []; 
     
-    // --- MANUAL EVENT FIELDS (Restored) ---
+    // --- MANUAL EVENT FIELDS ---
     const raffleNumber = body?.raffleNumber || null; 
     const manualStatus = body?.status || "draft";    
 
@@ -157,8 +162,6 @@ export async function onRequestPost({ request, env }) {
       frameColor,
       includeMagnets,
       
-      // System fields
-      // Allow manual 'paid' status for events, otherwise default to draft logic
       status: manualStatus === 'paid' ? 'paid' : (existingOrder.status || "draft"),
       
       createdAt: existingOrder.createdAt || now, 
@@ -167,7 +170,6 @@ export async function onRequestPost({ request, env }) {
       stripeSessionId: existingOrder.stripeSessionId || null,
       recoverySent: existingOrder.recoverySent || false,
       
-      // Smart shipping logic (Manual = Collect)
       shippingMethod: body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null),
       
       socialPermission: socialPerm,

@@ -105,9 +105,10 @@
     <div id="step-packages" class="hidden animate-fade-in">
       <div class="text-center mb-6">
         <h2 class="font-serif text-2xl font-bold mb-2">Choose Your Package</h2>
-        <p class="text-sm text-muted-foreground">Each magnet is 50×50mm premium quality</p>
+        <p class="text-sm text-muted-foreground">Each box contains 4 beautiful magnets</p>
       </div>
-      <div class="space-y-3" id="package-list"></div>
+      <div class="grid grid-cols-2 gap-4" id="package-list">
+        </div>
     </div>
 
     <div id="step-frame-style" class="hidden animate-fade-in">
@@ -282,11 +283,12 @@
     lucide.createIcons();
 
     // --- DATA ---
+    // Updated to match Valentine's exact Box logic and prices visually
     const PACKAGES = [
-      { id: 1, name: "Bouquet Bloom", custom: 3, premade: 1, price: 12.50 },
-      { id: 2, name: "Garden Party", custom: 6, premade: 2, price: 25.00, popular: true },
-      { id: 3, name: "Full Bloom", custom: 9, premade: 3, price: 30.00 },
-      { id: 4, name: "Mum's Treasure", custom: 12, premade: 3, price: 35.00 }, 
+      { id: 1, name: "Box 1", custom: 1, premade: 3, price: 12.50, img: "./box1.jpeg" },
+      { id: 2, name: "Box 2", custom: 2, premade: 2, price: 25.00, img: "./box2.jpeg", popular: true },
+      { id: 3, name: "Box 3", custom: 3, premade: 1, price: 30.00, img: "./box3.jpeg" },
+      { id: 4, name: "Box 4", custom: 4, premade: 0, price: 35.00, img: "./box4.jpeg" }, 
     ];
 
     const PREMADES = [
@@ -398,18 +400,28 @@
     // Magnets
     function renderPackages() {
       document.getElementById('package-list').innerHTML = PACKAGES.map(p => `
-        <button onclick="state.pkg=${p.id}; render();" class="w-full relative p-5 rounded-2xl text-left transition-all duration-300 border-2 ${state.pkg === p.id ? 'border-primary bg-secondary/50' : 'border-transparent mothers-card hover:border-primary/30'}">
-          ${p.popular && state.pkg !== p.id ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</div>' : ''}
-          <h3 class="font-serif text-lg font-bold mb-2">${p.name}</h3>
-          <div class="flex flex-col gap-1 text-sm text-foreground mb-4">
-            <div class="flex items-center gap-2"><i data-lucide="flower-2" class="w-4 h-4 text-primary"></i> ${p.custom} custom photos</div>
-            <div class="flex items-center gap-2 text-muted-foreground"><i data-lucide="flower-2" class="w-4 h-4 text-accent"></i> ${p.premade} pre-made designs</div>
+        <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.pkg === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
+          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2 relative">
+             ${p.popular && state.pkg !== p.id ? '<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 w-max">Most Popular</div>' : ''}
+             <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
           </div>
-          <div class="text-2xl font-bold text-primary">£${p.price.toFixed(2)}</div>
-        </button>
+          <div class="px-2 pb-3">
+            <h3 class="font-bold text-sm md:text-base text-foreground">${p.name}</h3>
+            <p class="text-[10px] md:text-xs text-muted-foreground leading-tight mt-1">${p.custom} Custom<br>${p.premade} Pre-made</p>
+            <p class="text-sm font-bold text-primary mt-1">£${p.price.toFixed(2)}</p>
+          </div>
+        </div>
       `).join('');
       lucide.createIcons();
     }
+
+    window.selectPackage = (pid) => {
+        state.pkg = pid;
+        state.photos = [];
+        state.selectedPremades = [];
+        state.step = 'photos';
+        render();
+    };
 
     // Frames
     window.selectFrameStyle = (style) => {
@@ -581,7 +593,7 @@
       if(state.line === 'magnets') {
         const p = PACKAGES.find(x => x.id === state.pkg);
         name = p.name;
-        desc = `${p.custom} Photos + ${p.premade} Designs`;
+        desc = `${p.custom} Custom + ${p.premade} Pre-made`;
         price = p.price;
       } else {
         const styleName = state.frameStyle.charAt(0).toUpperCase() + state.frameStyle.slice(1);
@@ -602,7 +614,14 @@
       else if (state.step === 'frame-custom') {
         state.step = state.withMagnets ? 'photos' : 'checkout';
       }
-      else if (state.step === 'photos') state.step = state.line === 'magnets' ? 'premade' : 'checkout';
+      else if (state.step === 'photos') {
+        if (state.line === 'magnets') {
+            const p = PACKAGES.find(x => x.id === state.pkg);
+            state.step = p.premade > 0 ? 'premade' : 'checkout'; // Skip premade selection if pkg has 0 premade
+        } else {
+            state.step = 'checkout';
+        }
+      }
       else if (state.step === 'premade') state.step = 'checkout';
       else if (state.step === 'checkout') await submitOrder();
       render();
@@ -615,7 +634,10 @@
       else if (state.step === 'photos') state.step = state.line === 'magnets' ? 'packages' : 'frame-custom';
       else if (state.step === 'premade') state.step = 'photos';
       else if (state.step === 'checkout') {
-         if (state.line === 'magnets') state.step = 'premade';
+         if (state.line === 'magnets') {
+             const p = PACKAGES.find(x => x.id === state.pkg);
+             state.step = p.premade > 0 ? 'premade' : 'photos';
+         }
          else state.step = state.withMagnets ? 'photos' : 'frame-custom';
       }
       else window.location.href = '/';
@@ -640,7 +662,7 @@
 
         if (state.line === 'magnets') {
           const p = PACKAGES.find(x => x.id === state.pkg);
-          payload.packSize = p.custom + p.premade;
+          payload.packSize = p.custom + p.premade; // Total magnets
           payload.premadeSelections = state.selectedPremades.map(id => PREMADES.find(x=>x.id===id).name);
           payload.mothersPackage = p.name;
         } else {
@@ -654,7 +676,7 @@
         if(!res.ok) throw new Error("Order error");
         const { orderId } = await res.json();
 
-        // Upload photos (now handling blobs from cropper)
+        // Upload photos (handling blobs from cropper)
         if (state.photos.length > 0) {
             btn.innerText = "Uploading photos...";
             for(let i=0; i<state.photos.length; i++) {
