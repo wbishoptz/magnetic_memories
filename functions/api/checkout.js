@@ -5,7 +5,6 @@ const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 const BINGO_PACKS = [1, 3, 6, 12];
-// UPDATED: 1 magnet is now £4.00
 const BINGO_PRICES = { 1: 4.00, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
@@ -138,7 +137,12 @@ export async function onRequestPost({ request, env }) {
                     price = kvOrder.includeMagnets ? pData.full : pData.frame;
                     const styleName = style.charAt(0).toUpperCase() + style.slice(1);
                     productName = `Mother's Day: ${styleName} Frame (${kvOrder.frameColor || 'White'})`;
-                    productDesc = `With ${fSize} personalised magnets`;
+                    
+                    // Fixed description based on whether magnets were included
+                    productDesc = kvOrder.includeMagnets 
+                      ? `With ${fSize} personalised magnets` 
+                      : `Frame only (${fSize} slots)`;
+                      
                 } else {
                     price = 0; productName = "Unknown Frame Configuration";
                 }
