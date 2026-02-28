@@ -12,6 +12,14 @@ const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 const FLEXI_PRICE = 12.50;
 
+// Mother's Day Packages (Custom + Premade Magnets)
+const MOTHERS_PACKAGES = {
+  "Bouquet Bloom": 12.50,
+  "Garden Party": 25.00,
+  "Full Bloom": 30.00,
+  "Mum's Treasure": 35.00
+};
+
 // Frame Pricing Configuration
 const FRAME_PRICES = {
   bohemian: {
@@ -62,6 +70,9 @@ export async function onRequestPost({ request, env }) {
     const frameSize = body?.frameSize;
     const frameColor = body?.frameColor;
     const includeMagnets = body?.includeMagnets;
+    
+    // --- MOTHERS DAY FIELDS ---
+    const mothersPackage = body?.mothersPackage;
 
     if (!/\S+@\S+\.\S+/.test(email)) return jsonResponse({ error: "Invalid email." }, 400);
 
@@ -74,7 +85,18 @@ export async function onRequestPost({ request, env }) {
     } 
     else if (String(packSizeRaw).startsWith("voucher_")) {
         price = 0; 
-    } else {
+    } 
+    else if (eventTag === 'MOTHERS_DAY') {
+        if (productType === 'frames') {
+            const styleData = FRAME_PRICES[frameStyle];
+            const sizeData = styleData ? styleData[frameSize] : null;
+            if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
+            price = includeMagnets ? sizeData.full : sizeData.frame;
+        } else {
+            price = MOTHERS_PACKAGES[mothersPackage] || 0;
+        }
+    }
+    else {
         if (eventTag === 'FRAMES') {
             const styleData = FRAME_PRICES[frameStyle];
             const sizeData = styleData ? styleData[frameSize] : null;
@@ -123,11 +145,12 @@ export async function onRequestPost({ request, env }) {
       packSize, 
       price, 
       event: eventTag,
-      raffleNumber, // Restored field
+      raffleNumber, 
       
       productType, 
       flexiColor, 
       premadeSelections,
+      mothersPackage, // Save the selected Mother's Day package name
       
       frameStyle,
       frameSize,

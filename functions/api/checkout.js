@@ -12,6 +12,14 @@ const VALENTINES_PACKS = [1, 2, 3, 4];
 const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 const FLEXI_PRICE = 12.50;
 
+// Mother's Day Packages (Custom + Premade Magnets)
+const MOTHERS_PACKAGES = {
+  "Bouquet Bloom": 12.50,
+  "Garden Party": 25.00,
+  "Full Bloom": 30.00,
+  "Mum's Treasure": 35.00
+};
+
 // Frame Pricing
 const FRAME_PRICES = {
   bohemian: {
@@ -76,7 +84,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     // --- CHECK 2: REUSE EXISTING STRIPE SESSION ---
-    // Using fetch instead of 'require(stripe)' to match your environment
     if (kvOrder && kvOrder.stripeSessionId) {
         try {
             const sessionRes = await fetch(`https://api.stripe.com/v1/checkout/sessions/${kvOrder.stripeSessionId}`, {
@@ -88,7 +95,6 @@ export async function onRequestPost({ request, env }) {
 
             if (sessionRes.ok) {
                 const existingSession = await sessionRes.json();
-                // If session is still valid/open, send them back to it
                 if (existingSession.status === 'open') {
                     return jsonResponse({ checkoutUrl: existingSession.url });
                 }
@@ -121,7 +127,28 @@ export async function onRequestPost({ request, env }) {
         // 2. BUYING PHYSICAL ITEMS
         let size = Number(packSizeRaw);
         
-        if (eventTag === 'FRAMES') {
+        if (eventTag === 'MOTHERS_DAY') {
+            // --- MOTHER'S DAY LOGIC ---
+            if (productType === 'frames') {
+                const style = kvOrder.frameStyle || 'bohemian';
+                const fSize = kvOrder.frameSize || size;
+                const pData = FRAME_PRICES[style]?.[fSize];
+                
+                if (pData) {
+                    price = kvOrder.includeMagnets ? pData.full : pData.frame;
+                    const styleName = style.charAt(0).toUpperCase() + style.slice(1);
+                    productName = `Mother's Day: ${styleName} Frame (${kvOrder.frameColor || 'White'})`;
+                    productDesc = `With ${fSize} personalised magnets`;
+                } else {
+                    price = 0; productName = "Unknown Frame Configuration";
+                }
+            } else {
+                price = MOTHERS_PACKAGES[kvOrder.mothersPackage] || 0;
+                productName = `Mother's Day: ${kvOrder.mothersPackage}`;
+                productDesc = `${size} magnets included`;
+            }
+
+        } else if (eventTag === 'FRAMES') {
             // --- NEW FRAMES LOGIC ---
             const style = kvOrder.frameStyle || 'bohemian';
             const fSize = kvOrder.frameSize || size;
@@ -131,16 +158,11 @@ export async function onRequestPost({ request, env }) {
             const pData = FRAME_PRICES[style]?.[fSize];
             if (pData) {
                 price = withMags ? pData.full : pData.frame;
-                
                 const styleName = style.charAt(0).toUpperCase() + style.slice(1);
                 productName = `${styleName} Frame (${color})`;
-                
-                productDesc = withMags 
-                    ? `With ${fSize} personalised magnets` 
-                    : `Frame only (${fSize} slots)`;
+                productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
             } else {
-                price = 0;
-                productName = "Unknown Frame Configuration";
+                price = 0; productName = "Unknown Frame Configuration";
             }
 
         } else if (eventTag === 'VALENTINES') {
@@ -396,6 +418,7 @@ async function sendAdminEmail(order, env) {
   let title = `New Order ${order.orderId}`;
   if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
+  if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
   if (order.event === 'FRAMES') title = `🖼️ FRAME ORDER`;
 
   const subject = `${title} - Paid`;
@@ -403,7 +426,7 @@ async function sendAdminEmail(order, env) {
     <div style="font-family: system-ui, sans-serif;">
       <h2>${title}</h2>
       <p><strong>Customer:</strong> ${order.email}</p>
-      <p><strong>Product:</strong> ${order.event === 'FRAMES' ? 'Frame' : order.packSize + ' magnets'}</p>
+      <p><strong>Product:</strong> ${order.event === 'FRAMES' || order.productType === 'frames' ? 'Frame' : order.packSize + ' magnets'}</p>
       <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
     </div>
   `;
@@ -428,6 +451,7 @@ async function sendPaidTelegram(order, env) {
   let header = "💳 <b>New Order</b>";
   if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
+  if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
   if (order.event === 'FRAMES') header = `🖼️ <b>FRAME ORDER</b>`;
 
   const text = `${header}\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}`;
