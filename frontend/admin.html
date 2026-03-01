@@ -350,6 +350,10 @@
           if (o.event === 'VALENTINES') {
               statusDisplay += ` <span class="tag" style="background:#be123c; color:white; border:none; font-weight:700; font-size:10px;">💘 VALENTINES</span>`;
           }
+          // MOTHER'S DAY BADGE (NEW)
+          if (o.event === 'MOTHERS_DAY') {
+              statusDisplay += ` <span class="tag" style="background:#be185d; color:white; border:none; font-weight:700; font-size:10px;">🌸 MOTHER'S DAY</span>`;
+          }
           // FRAMES BADGE
           if (o.event === 'FRAMES') {
               statusDisplay += ` <span class="tag" style="background:#ea580c; color:white; border:none; font-weight:700; font-size:10px;">🖼️ FRAMES</span>`;
@@ -396,6 +400,8 @@
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
           } else if (order.event === 'VALENTINES') {
               topBanner = `<div style="background:linear-gradient(135deg, #e11d48, #be123c); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(225, 29, 72, 0.4);">💘 VALENTINE'S ORDER 💘</div>`;
+          } else if (order.event === 'MOTHERS_DAY') {
+              topBanner = `<div style="background:linear-gradient(135deg, #be185d, #9d174d); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(190, 24, 93, 0.4);">🌸 MOTHER'S DAY ORDER 🌸</div>`;
           } else if (order.event === 'FRAMES') {
               topBanner = `<div style="background:linear-gradient(135deg, #ea580c, #c2410c); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center;">🖼️ FRAME ORDER</div>`;
           }
@@ -440,9 +446,8 @@
              </div>`;
           }
 
-          // --- SOCIALS PERMISSION (ROBUST DISPLAY) ---
+          // --- SOCIALS PERMISSION ---
           let socials = "";
-          // Check explicit boolean true/false or string 'true'/'false'
           if (order.socialPermission === true || order.socialPermission === "true") {
               socials = `<span style="color:#10b981; font-weight:bold; border:1px solid #10b981; padding:4px 8px; border-radius:6px; background:rgba(16,185,129,0.1);">✅ SOCIALS APPROVED</span>`;
           } else if (order.socialPermission === false || order.socialPermission === "false") {
@@ -451,7 +456,6 @@
               socials = `<span style="color:#9ca3af;">❓ UNKNOWN (No selection)</span>`;
           }
 
-          // NEW DEDICATED SOCIALS FIELD
           html += `<div class="field-label" style="color:#fcd34d;">Social Media Permission</div><div class="field-value" style="font-size:1.1em; margin-bottom:12px;">${socials}</div>`;
 
           html += `<div class="field-label">Customer</div><div class="field-value">${order.email} <br> ${order.phone || "No phone"}</div>`;
@@ -465,37 +469,32 @@
           if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
           if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
-          // --- CONDITIONAL PACK/FRAME DISPLAY ---
+          // --- CONDITIONAL PACK/FRAME/MOTHERS DISPLAY ---
           if (order.event === 'FRAMES') {
               const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
               const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
-              
-              html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div>
-                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize} slots)</div>
-                       <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
-                       <div class="field-value">Type: ${type}</div>`;
+              html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div><div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize} slots)</div><div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div><div class="field-value">Type: ${type}</div>`;
+          } else if (order.event === 'MOTHERS_DAY') {
+              html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div><div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div><div class="field-value">${order.packSize} total magnets</div>`;
           } else {
               html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           }
           
-          // --- FLEXI COLOR ---
           if (order.productType === 'flexi') {
-              html += `<div class="field-label" style="color:#f97316;">🧡 Flexi Heart Color</div>
-                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.flexiColor || "Unknown"}</div>`;
+              html += `<div class="field-label" style="color:#f97316;">🧡 Flexi Heart Color</div><div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.flexiColor || "Unknown"}</div>`;
           }
 
-          // --- PRE-MADE SELECTIONS ---
+          // --- PRE-MADE SELECTIONS (ROBUST) ---
           if (order.premadeSelections && order.premadeSelections.length > 0) {
-              html += `<div class="field-label" style="color:#e11d48;">💘 Pre-made Choices</div>
-              <div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
-              
-              order.premadeSelections.forEach(id => {
-                  html += `<div style="text-align:center;">
-                    <img src="./${id}.jpeg" alt="${id}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #333; display:block; margin-bottom:2px;">
-                    <span style="font-size:10px; color:#aaa;">${id}</span>
+              html += `<div class="field-label" style="color:#be185d;">🌸 Design Choices</div><div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
+              order.premadeSelections.forEach(name => {
+                  const num = name.match(/\d+/);
+                  const imgUrl = num ? `./premade-${num[0]}.jpg` : null;
+                  html += `<div style="text-align:center; border: 1px solid #be185d; padding: 4px; border-radius: 8px; background: rgba(190, 24, 93, 0.05);">
+                    ${imgUrl ? `<img src="${imgUrl}" style="width:60px; height:60px; object-fit:cover; border-radius:6px; display:block; margin-bottom:4px;">` : ''}
+                    <span style="font-size:10px; color:#f9fafb; font-weight:bold;">${name}</span>
                   </div>`;
               });
-              
               html += `</div>`;
           }
 
@@ -506,6 +505,7 @@
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
           detailsContainer.innerHTML = html;
 
+          // Wire up interactions
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
              await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
@@ -515,14 +515,9 @@
           const manualRecBtn = document.getElementById("manual-recovery-btn");
           if (manualRecBtn) {
               manualRecBtn.onclick = async () => {
-                  manualRecBtn.textContent = "Sending...";
-                  manualRecBtn.disabled = true;
+                  manualRecBtn.textContent = "Sending..."; manualRecBtn.disabled = true;
                   try {
-                      const res = await fetch("/api/admin-send-recovery", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ key: adminKey, orderId })
-                      });
+                      const res = await fetch("/api/admin-send-recovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: adminKey, orderId }) });
                       if (res.ok) { alert("Email sent!"); loadOrderDetails(orderId); loadOrders(); } 
                       else { alert("Failed to send."); manualRecBtn.textContent = "Try Again"; manualRecBtn.disabled = false; }
                   } catch (e) { alert("Error: " + e.message); }
@@ -538,7 +533,7 @@
           
           if (!isVoucher) {
               const dlBtn = document.getElementById("download-all-btn");
-              if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId);
+              if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId, order);
               loadOrderImages(orderId);
           }
         } catch (e) { detailsContainer.innerHTML = "Error loading details."; }
@@ -556,19 +551,30 @@
         lastImagesForOrder[id] = data.images;
       }
       
-      async function downloadAllImages(orderId) {
+      async function downloadAllImages(orderId, order) {
         const images = lastImagesForOrder[orderId] || [];
-        if (!images.length) { alert("No images found."); return; }
-        if (!window.JSZip) { alert("JSZip not loaded."); return; }
+        if (!images.length && (!order.premadeSelections || !order.premadeSelections.length)) { alert("No images found."); return; }
         const zip = new JSZip();
-        const folder = zip.folder(orderId) || zip;
+        
+        // Add User Uploads
         for (const img of images) {
             const keyEnc = encodeURIComponent(img.key);
             const imgUrl = `/api/admin-order-image?orderId=${encodeURIComponent(orderId)}&objectKey=${keyEnc}&key=${encodeURIComponent(adminKey)}`;
             const res = await fetch(imgUrl);
-            if (!res.ok) continue;
-            folder.file(img.filename || "image.jpg", await res.blob());
+            if (res.ok) zip.file(img.filename || "image.jpg", await res.blob());
         }
+
+        // Add Premade Selections (NEW)
+        if(order.premadeSelections) {
+            for(const name of order.premadeSelections) {
+                const num = name.match(/\d+/);
+                if(num) {
+                    const res = await fetch(`./premade-${num[0]}.jpg`);
+                    if(res.ok) zip.file(`Design-${num[0]}.jpg`, await res.blob());
+                }
+            }
+        }
+
         const content = await zip.generateAsync({ type: "blob" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = `${orderId}-images.zip`;
         document.body.appendChild(a); a.click();
