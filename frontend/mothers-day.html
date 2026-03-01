@@ -51,6 +51,9 @@
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
     .cropper-container img { display: block; max-width: 100%; }
+
+    /* Fix for image grid ratios */
+    .premade-img { width: 100%; height: 100%; object-fit: cover; }
   </style>
 </head>
 <body class="pb-24">
@@ -308,12 +311,17 @@
     ];
 
     const PREMADES = [
-      { id: 1, name: "Best Mum", icon: "💐", color: "bg-gradient-to-br from-purple-300 to-pink-400" },
-      { id: 2, name: "Love You Mum", icon: "💜", color: "bg-gradient-to-br from-pink-300 to-rose-400" },
-      { id: 3, name: "Super Mum", icon: "🦸‍♀️", color: "bg-gradient-to-br from-violet-300 to-purple-400" },
-      { id: 4, name: "Mum's Garden", icon: "🌷", color: "bg-gradient-to-br from-green-200 to-emerald-300" },
-      { id: 5, name: "#1 Mum", icon: "🏆", color: "bg-gradient-to-br from-amber-200 to-orange-300" },
-      { id: 6, name: "With Love", icon: "🌸", color: "bg-gradient-to-br from-rose-200 to-pink-300" },
+      { id: 1, name: "Design 1", img: "./premade-1.jpg" },
+      { id: 2, name: "Design 2", img: "./premade-2.jpg" },
+      { id: 3, name: "Design 3", img: "./premade-3.jpg" },
+      { id: 4, name: "Design 4", img: "./premade-4.jpg" },
+      { id: 5, name: "Design 5", img: "./premade-5.jpg" },
+      { id: 6, name: "Design 6", img: "./premade-6.jpg" },
+      { id: 7, name: "Design 7", img: "./premade-7.jpg" },
+      { id: 8, name: "Design 8", img: "./premade-8.jpg" },
+      { id: 9, name: "Design 9", img: "./premade-9.jpg" },
+      { id: 10, name: "Design 10", img: "./premade-10.jpg" },
+      { id: 11, name: "Design 11", img: "./premade-11.jpg" },
     ];
 
     const FRAME_PRODUCTS = {
@@ -462,8 +470,8 @@
       const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
       for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; }
 
-      const uploadSec = document.getElementById('upload-section');
-      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.product.size; renderPhotos(); } 
+      const uploadSec = document.getElementById('step-photos');
+      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.frameProduct.size; renderPhotos(); } 
       else { uploadSec.classList.add('hidden'); }
       render(); 
     }
@@ -485,7 +493,6 @@
       });
 
       if (state.photos.length < req) {
-        // NATIVE HTML FIX: Simple `<label>` connecting to the static input. Never breaks.
         html += `
           <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
             <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
@@ -497,7 +504,6 @@
       lucide.createIcons();
     }
 
-    // --- CROPPER UPLOAD LOGIC (FIXED) ---
     const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
@@ -511,7 +517,6 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
-      // SAFE CLEAR: This clears the field AFTER processing begins, avoiding memory issues
       e.target.value = '';
     });
 
@@ -539,7 +544,6 @@
           }, 'image/jpeg', 0.95);
         };
 
-        // FIXED: Canceling resolves the promise so it moves to the next photo
         document.getElementById('crop-cancel').onclick = () => { 
           closeCropper(); 
           resolve(); 
@@ -562,9 +566,11 @@
         const disabled = !sel && state.selectedPremades.length >= req;
         html += `
           <button onclick="togglePremade(${p.id})" ${disabled?'disabled':''} class="relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${sel ? 'border-primary ring-2 ring-primary/30 shadow-lg' : 'border-transparent'} ${disabled?'opacity-40':''}">
-            <div class="w-full h-full flex items-center justify-center ${p.color}"><span class="text-4xl">${p.icon}</span></div>
-            ${sel ? '<div class="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md"><i data-lucide="check" class="w-4 h-4 text-white"></i></div>' : ''}
-            <div class="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-sm p-2 text-white text-xs font-bold">${p.name}</div>
+            <div class="w-full h-full">
+                <img src="${p.img}" class="premade-img" alt="${p.name}">
+            </div>
+            ${sel ? '<div class="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md z-10"><i data-lucide="check" class="w-4 h-4 text-white"></i></div>' : ''}
+            <div class="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-sm p-1.5 text-white text-[10px] font-bold z-10">${p.name}</div>
           </button>
         `;
       });
