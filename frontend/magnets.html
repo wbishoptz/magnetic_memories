@@ -41,58 +41,7 @@
       transform: translateX(-2px);
     }
 
-    /* --- Dropzone Grid & Image Fixes --- */
-    #mm-dropzone .dz-preview {
-      width: 110px !important; 
-      height: 110px !important;
-      margin: 8px !important;
-      border-radius: 12px;
-      overflow: hidden; 
-      position: relative;
-    }
-
-    #mm-dropzone .dz-image {
-      width: 100% !important;
-      height: 100% !important;
-      border-radius: 12px !important;
-    }
-
-    #mm-dropzone .dz-image img {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover !important; 
-    }
-
-    /* --- Keep Crop & Remove Buttons Visible --- */
-    #mm-dropzone .dz-crop-btn, 
-    #mm-dropzone .dz-remove {
-      position: absolute !important;
-      z-index: 30 !important;
-      background: rgba(255, 255, 255, 0.95) !important;
-      color: #1f2937 !important;
-      border: none !important;
-      padding: 4px 10px !important;
-      border-radius: 6px !important;
-      font-size: 11px !important;
-      font-weight: bold !important;
-      text-decoration: none !important;
-      cursor: pointer !important;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
-      display: block !important;
-    }
-
-    #mm-dropzone .dz-crop-btn {
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    #mm-dropzone .dz-remove {
-      top: 6px;
-      right: 6px;
-      width: auto !important; 
-    }
-
+    /* Hide Dropzone's default checkmarks so they don't cover our buttons */
     #mm-dropzone .dz-success-mark, 
     #mm-dropzone .dz-error-mark {
       display: none !important;

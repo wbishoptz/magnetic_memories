@@ -46,14 +46,12 @@ const promoInput       = document.getElementById("promo-code");
 const promoBtn         = document.getElementById("apply-promo");
 const promoMsg         = document.getElementById("promo-msg");
 
-// Upgrade/Downgrade modal
 const modal        = document.getElementById("upgrade-modal");
 const modalTitle   = document.getElementById("upgrade-title");
 const modalText    = document.getElementById("upgrade-text");
 const modalConfirm = document.getElementById("upgrade-confirm");
 const modalKeep    = document.getElementById("upgrade-keep");
 
-// WhatsApp Modal Elements
 const waModal = document.getElementById("whatsapp-modal");
 const waClose = document.getElementById("wa-close");
 
@@ -114,7 +112,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                             selectedShipping = data.shippingMethod;
                         }
                     }
-
                     showToast("Cart restored!", "ok");
                 }
             }
@@ -126,15 +123,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
-// --- WhatsApp Modal Handler ---
 if (waClose) {
     waClose.addEventListener("click", () => waModal.classList.add("hidden"));
 }
 
-// --- ABANDONED CART SAVER ---
 async function saveCart() {
     if (!currentOrderId || !customerEmail) return;
-    
     try {
         await fetch("/api/save-cart", {
             method: "POST",
@@ -231,20 +225,20 @@ function updateVisibility() {
     }
 }
 
-// ---- IG WEBVIEW PROOF DROPZONE TEMPLATE ----
+// ---- IG WEBVIEW CRASH FIX: ZERO-MEMORY THUMBNAILS ----
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
-// Both buttons moved to the TOP to avoid the Instagram bottom-bar touch trap.
-// Added a subtle gradient behind them so they always stand out.
+// Absolute positioning guarantees layout stability
 const strictPreviewTemplate = `
   <div class="dz-preview dz-file-preview" style="position:relative; width:110px; height:110px; margin:8px; border-radius:12px; overflow:hidden; display:inline-block; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background:#f9fafb;">
-    <div class="dz-image" style="width:100%; height:100%;">
+    <div class="dz-image" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;">
       <img data-dz-thumbnail style="width:100%; height:100%; object-fit:cover; display:block;" />
     </div>
+    
     <div style="position:absolute; top:0; left:0; right:0; height:44px; background:linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); pointer-events:none; z-index:10;"></div>
     
-    <button type="button" class="dz-crop-custom" style="position:absolute; top:6px; left:6px; background:rgba(255,255,255,0.95); color:#1f2937; border:none; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; cursor:pointer; z-index:30; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">Crop</button>
+    <button type="button" class="dz-crop-custom" style="position:absolute; top:6px; left:6px; background:rgba(255,255,255,0.95); color:#1f2937; border:none; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; cursor:pointer; z-index:30; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display:block;">Crop</button>
 
     <button type="button" class="dz-remove-custom" style="position:absolute; top:6px; right:6px; background:rgba(239, 68, 68, 0.95); color:white; border:none; border-radius:50%; width:26px; height:26px; font-size:14px; font-weight:bold; cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.3); padding:0; line-height:1;">✕</button>
   </div>
@@ -258,9 +252,10 @@ const myDropzone = new Dropzone(dzElement, {
   parallelUploads: 2,
   maxFilesize: 95, 
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
-  createImageThumbnails: true,
-  thumbnailWidth: 250,  
-  thumbnailHeight: 250, 
+  
+  // 🚀 THIS FIXES THE CRASH: Tell Dropzone NOT to process the image memory
+  createImageThumbnails: false, 
+  
   addRemoveLinks: false, 
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
@@ -476,10 +471,19 @@ async function processCropQueue() {
   updatePhotoCount();
 }
 
-// WIRED UP CUSTOM BUTTONS
+// WIRED UP CUSTOM BUTTONS & MANUAL INSTANT THUMBNAILS
 myDropzone.on("addedfile", (file) => {
   const previewEl = file.previewElement;
 
+  // 1. Manually show the image instantly (Bypassing Dropzone's crash-prone canvas)
+  const imgEl = previewEl.querySelector('img[data-dz-thumbnail]');
+  if (imgEl) {
+      const safeUrl = URL.createObjectURL(file);
+      imgEl.src = safeUrl;
+      file._previewUrl = safeUrl; // Save so we can clean it up from memory later
+  }
+
+  // 2. Attach Custom Buttons
   const cropBtn = previewEl.querySelector('.dz-crop-custom');
   if (cropBtn) {
     cropBtn.addEventListener('click', (e) => {
@@ -524,7 +528,10 @@ myDropzone.on("addedfile", (file) => {
   }
 });
 
-myDropzone.on("removedfile", () => {
+myDropzone.on("removedfile", (file) => {
+  // Free up RAM when removed
+  if (file._previewUrl) URL.revokeObjectURL(file._previewUrl);
+  
   showToast("Photo removed", "warn");
   updatePhotoCount();
 });
@@ -780,8 +787,13 @@ function openCropModal(file, done) {
       if (preview) {
         const imgEl = preview.querySelector("img");
         if (imgEl) {
-            if (imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
-            imgEl.src = URL.createObjectURL(blob);
+            // Free the old uncropped memory URL, apply the new cropped one
+            if (currentCropFile._previewUrl) {
+                URL.revokeObjectURL(currentCropFile._previewUrl);
+            }
+            const newUrl = URL.createObjectURL(blob);
+            imgEl.src = newUrl;
+            currentCropFile._previewUrl = newUrl; // save to free later
         }
       }
 
