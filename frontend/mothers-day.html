@@ -206,7 +206,7 @@
       </div>
       
       <div class="grid grid-cols-3 gap-3 mb-6" id="photo-grid"></div>
-      
+
       <div class="p-4 rounded-xl bg-white border border-primary/20 flex justify-between items-center mothers-card">
         <span class="font-medium text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Uploaded</span>
       </div>
@@ -286,8 +286,6 @@
       </button>
     </div>
   </div>
-
-  <input type="file" id="fileInput" multiple accept="image/*" onclick="this.value=null" style="width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; position: absolute; z-index: -1;" />
 
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
@@ -486,12 +484,15 @@
       });
 
       if (state.photos.length < req) {
-        // FIXED: Pure HTML5 label linking to the static hidden fileInput. Flawless on all devices.
+        // FIXED: Physical transparent input strictly layered over the div. onclick="this.value=null" resets it safely without breaking memory.
         html += `
-          <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
-            <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
-            <span class="text-xs font-bold">Add Photo</span>
-          </label>
+          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center hover:bg-secondary text-primary transition-all overflow-hidden cursor-pointer">
+            <input type="file" multiple accept="image/*" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full z-50 cursor-pointer" style="opacity: 0.01;" />
+            <div class="pointer-events-none flex flex-col items-center justify-center">
+              <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
+              <span class="text-xs font-bold">Add Photo</span>
+            </div>
+          </div>
         `;
       }
       document.getElementById('photo-grid').innerHTML = html;
@@ -499,12 +500,12 @@
     }
 
     // --- CROPPER UPLOAD LOGIC (FIXED) ---
-    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    fileInput.addEventListener('change', (e) => {
+    // FIXED: Do not clear e.target.value here. Memory is safe.
+    window.handleFileSelect = (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
         const remaining = req - state.photos.length;
@@ -512,7 +513,7 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
-    });
+    };
 
     async function processQueue(files) {
       for(const f of files) { 
