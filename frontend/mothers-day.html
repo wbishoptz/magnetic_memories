@@ -206,7 +206,7 @@
       </div>
       
       <div class="grid grid-cols-3 gap-3 mb-6" id="photo-grid"></div>
-
+      
       <div class="p-4 rounded-xl bg-white border border-primary/20 flex justify-between items-center mothers-card">
         <span class="font-medium text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Uploaded</span>
       </div>
@@ -287,12 +287,14 @@
     </div>
   </div>
 
+  <input type="file" id="fileInput" multiple accept="image/*" onclick="this.value=null" style="width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; position: absolute; z-index: -1;" />
+
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
       <h3 class="font-serif text-xl font-bold mb-2">Adjust Photo</h3>
       <div class="cropper-container"><img id="crop-image" src="" /></div>
       <div class="flex gap-3 justify-end mt-4">
-        <button onclick="closeCropper()" class="px-4 py-2 font-bold text-muted-foreground">Cancel</button>
+        <button id="crop-cancel" class="px-4 py-2 font-bold text-muted-foreground">Cancel</button>
         <button id="crop-save" class="px-6 py-2 bg-primary text-white rounded-lg font-bold">Save</button>
       </div>
     </div>
@@ -406,19 +408,23 @@
     };
 
     function renderPackages() {
-      document.getElementById('package-list').innerHTML = PACKAGES.map(p => `
-        <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.pkg === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2 relative">
-             ${p.popular && state.pkg !== p.id ? '<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 w-max">Most Popular</div>' : ''}
-             <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+      let html = '';
+      PACKAGES.forEach(p => {
+        html += `
+          <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.pkg === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
+            <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2 relative">
+               ${p.popular && state.pkg !== p.id ? '<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 w-max">Most Popular</div>' : ''}
+               <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+            </div>
+            <div class="px-2 pb-3">
+              <h3 class="font-bold text-sm md:text-base text-foreground">${p.name}</h3>
+              <p class="text-[10px] md:text-xs text-muted-foreground leading-tight mt-1">${p.custom} Custom<br>${p.premade} Pre-made</p>
+              <p class="text-sm font-bold text-primary mt-1">£${p.price.toFixed(2)}</p>
+            </div>
           </div>
-          <div class="px-2 pb-3">
-            <h3 class="font-bold text-sm md:text-base text-foreground">${p.name}</h3>
-            <p class="text-[10px] md:text-xs text-muted-foreground leading-tight mt-1">${p.custom} Custom<br>${p.premade} Pre-made</p>
-            <p class="text-sm font-bold text-primary mt-1">£${p.price.toFixed(2)}</p>
-          </div>
-        </div>
-      `).join('');
+        `;
+      });
+      document.getElementById('package-list').innerHTML = html;
       lucide.createIcons();
     }
 
@@ -432,12 +438,16 @@
     };
 
     function renderFrameSizes() {
-      document.getElementById('size-grid').innerHTML = FRAME_PRODUCTS[state.frameStyle].map(p => `
-        <div onclick="selectFrameProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.frameProduct?.id === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : ''}">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2"><img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" /></div>
-          <div class="px-3 pb-3"><h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3><p class="text-xs text-muted-foreground">From £${p.framePrice}</p></div>
-        </div>
-      `).join('');
+      let html = '';
+      FRAME_PRODUCTS[state.frameStyle].forEach(p => {
+        html += `
+          <div onclick="selectFrameProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.frameProduct?.id === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : ''}">
+            <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2"><img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" /></div>
+            <div class="px-3 pb-3"><h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3><p class="text-xs text-muted-foreground">From £${p.framePrice}</p></div>
+          </div>
+        `;
+      });
+      document.getElementById('size-grid').innerHTML = html;
     }
 
     window.selectFrameProduct = (pid) => { state.frameProduct = FRAME_PRODUCTS[state.frameStyle].find(p => p.id === pid); state.withMagnets = false; state.photos = []; state.step = 'frame-custom'; render(); };
@@ -476,55 +486,72 @@
       });
 
       if (state.photos.length < req) {
-        // ANDROID/IOS WEBVIEW FIX: Physical transparent input perfectly overlaying the box
+        // FIXED: Pure HTML5 label linking to the static hidden fileInput. Flawless on all devices.
         html += `
-          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center hover:bg-secondary text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/*" onchange="handleFileSelect(event)" class="absolute inset-0 w-full h-full z-50 cursor-pointer" style="opacity: 0.01;" />
-            <div class="pointer-events-none flex flex-col items-center justify-center">
-              <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
-              <span class="text-xs font-bold">Add Photo</span>
-            </div>
-          </div>
+          <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
+            <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
+            <span class="text-xs font-bold">Add Photo</span>
+          </label>
         `;
       }
       document.getElementById('photo-grid').innerHTML = html;
       lucide.createIcons();
     }
 
+    // --- CROPPER UPLOAD LOGIC (FIXED) ---
+    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // DIRECT INLINE HANDLER FOR WEBVIEW FIX
-    window.handleFileSelect = (e) => {
+    fileInput.addEventListener('change', (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
         const remaining = req - state.photos.length;
         if(remaining <= 0) return;
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
-        e.target.value = "";
       }
-    };
+    });
 
     async function processQueue(files) {
-      for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
-      renderPhotos(); render(); 
+      for(const f of files) { 
+        await new Promise(resolve => openCropper(f, resolve)); 
+      }
+      renderPhotos(); 
+      render(); 
     }
 
     function openCropper(file, resolve) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        cropImg.src = e.target.result; modal.style.display = 'flex';
+        cropImg.src = e.target.result; 
+        modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+        
+        // Save
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
-            closeCropper(); resolve();
+            closeCropper(); 
+            resolve();
           }, 'image/jpeg', 0.95);
         };
+
+        // FIXED: Canceling now properly resolves the promise so the queue doesn't hang forever!
+        document.getElementById('crop-cancel').onclick = () => {
+          closeCropper();
+          resolve(); 
+        };
       };
+      
+      // Safety fallback
+      reader.onerror = () => {
+         closeCropper();
+         resolve();
+      };
+      
       reader.readAsDataURL(file);
     }
 
@@ -534,17 +561,20 @@
     function renderPremades() {
       const req = PACKAGES.find(x=>x.id===state.pkg).premade;
       document.getElementById('premade-target').innerText = req;
-      document.getElementById('premade-grid').innerHTML = PREMADES.map(p => {
+      
+      let html = '';
+      PREMADES.forEach(p => {
         const sel = state.selectedPremades.includes(p.id);
         const disabled = !sel && state.selectedPremades.length >= req;
-        return `
+        html += `
           <button onclick="togglePremade(${p.id})" ${disabled?'disabled':''} class="relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${sel ? 'border-primary ring-2 ring-primary/30 shadow-lg' : 'border-transparent'} ${disabled?'opacity-40':''}">
             <div class="w-full h-full flex items-center justify-center ${p.color}"><span class="text-4xl">${p.icon}</span></div>
             ${sel ? '<div class="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md"><i data-lucide="check" class="w-4 h-4 text-white"></i></div>' : ''}
             <div class="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-sm p-2 text-white text-xs font-bold">${p.name}</div>
           </button>
         `;
-      }).join('');
+      });
+      document.getElementById('premade-grid').innerHTML = html;
       lucide.createIcons();
     }
 

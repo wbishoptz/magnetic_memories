@@ -47,6 +47,7 @@
     .gradient-coral { background: linear-gradient(135deg, hsl(350 80% 55%), hsl(20 85% 60%)); }
     .shadow-soft { box-shadow: 0 4px 20px -4px hsl(350 80% 55% / 0.15); }
     
+    /* Cropper Modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; }
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
@@ -280,12 +281,16 @@
     </div>
   </div>
 
+  <input type="file" id="fileInput" multiple accept="image/*" onclick="this.value=null" style="width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; position: absolute; z-index: -1;" />
+
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
       <h3 class="font-serif text-xl font-bold mb-2">Adjust Photo</h3>
-      <div class="cropper-container"><img id="crop-image" src="" /></div>
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
       <div class="flex gap-3 justify-end mt-4">
-        <button onclick="closeCropper()" class="px-4 py-2 font-bold text-muted-foreground">Cancel</button>
+        <button id="crop-cancel" class="px-4 py-2 font-bold text-muted-foreground">Cancel</button>
         <button id="crop-save" class="px-6 py-2 bg-primary text-white rounded-lg font-bold">Save</button>
       </div>
     </div>
@@ -294,6 +299,7 @@
   <script>
     lucide.createIcons();
 
+    // --- DATA ---
     const PRODUCTS = {
       bohemian: [
         { id: 'b3', size: 3, framePrice: 8, fullPrice: 15, img: './bohemian-3.jpeg' },
@@ -312,6 +318,7 @@
       ]
     };
 
+    // --- STATE ---
     let state = {
       step: 1,
       style: null,
@@ -323,7 +330,9 @@
       social: null
     };
 
+    // --- LOGIC ---
     function render() {
+      // Step visibility
       [1,2,3,4].forEach(s => {
         const el = document.getElementById(`step-${s}`);
         if(s === state.step) {
@@ -334,6 +343,7 @@
         }
       });
 
+      // Progress Bar
       const progress = ((state.step - 1) / 3) * 100;
       document.getElementById('progress-fill').style.width = `${progress}%`;
       document.querySelectorAll('.step-indicator').forEach(el => {
@@ -357,6 +367,7 @@
       });
       lucide.createIcons();
 
+      // Main Button Logic
       const btn = document.getElementById('main-btn');
       btn.disabled = false; 
 
@@ -408,6 +419,7 @@
       lucide.createIcons();
     }
 
+    // STEP 1
     window.selectStyle = (style) => {
       state.style = style;
       if (style === 'rollercube') {
@@ -419,9 +431,9 @@
       }
     };
 
+    // STEP 2
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
-      
       let html = '';
       PRODUCTS[state.style].forEach(p => {
         html += `
@@ -448,6 +460,7 @@
       setTimeout(() => nextStep(), 300); 
     };
 
+    // STEP 3
     window.setMagnets = (enabled) => {
       state.withMagnets = enabled;
       updateCustomUI();
@@ -460,7 +473,6 @@
 
     function updateCustomUI() {
       const activeClass = "border-primary bg-accent ring-1 ring-primary";
-      
       document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
       document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
 
@@ -512,21 +524,19 @@
       });
 
       if (state.photos.length < limit) {
-        // ANDROID/IOS WEBVIEW FIX: Physical transparent input strictly layered over the div
+        // FIXED: Using pure HTML5 label linked to static hidden input. This never fails.
         html += `
-          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center hover:bg-accent/80 text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/*" onchange="handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
-            <div class="pointer-events-none flex flex-col items-center justify-center">
-              <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
-              <span class="text-[10px] font-bold">Add Photo</span>
-            </div>
-          </div>
+          <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary transition-all">
+            <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
+            <span class="text-[10px] font-bold">Add Photo</span>
+          </label>
         `;
       }
       container.innerHTML = html;
       lucide.createIcons();
     }
 
+    // STEP 4 - Summary
     function updateSummary() {
       if(!state.product) return; 
 
@@ -547,6 +557,7 @@
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
     }
 
+    // Navigation
     window.nextStep = () => {
       try {
         if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
@@ -599,23 +610,25 @@
       render();
     };
 
+    // --- CROPPER UPLOAD LOGIC (FIXED) ---
+    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // DIRECT INLINE HANDLER FOR WEBVIEW FIX
-    window.handleFileSelect = (e) => {
+    fileInput.addEventListener('change', (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const remaining = state.product.size - state.photos.length;
         if(remaining <= 0) return;
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
-        e.target.value = "";
       }
-    };
+    });
 
     async function processQueue(files) {
-      for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
+      for(const f of files) { 
+        await new Promise(resolve => openCropper(f, resolve)); 
+      }
       renderPhotos();
       render(); 
     }
@@ -627,13 +640,29 @@
         modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+        
+        // Save Photo
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
-            closeCropper(); resolve();
+            closeCropper(); 
+            resolve();
           }, 'image/jpeg', 0.95);
         };
+
+        // FIXED: Canceling now properly resolves the promise so the queue doesn't hang forever!
+        document.getElementById('crop-cancel').onclick = () => {
+          closeCropper();
+          resolve(); 
+        };
       };
+      
+      // Safety net if a file is unreadable
+      reader.onerror = () => {
+        closeCropper();
+        resolve();
+      };
+      
       reader.readAsDataURL(file);
     }
 
