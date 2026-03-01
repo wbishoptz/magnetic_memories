@@ -200,6 +200,9 @@
         </label>
         
         <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
+        
+        <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
+        
         <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
       </div>
     </div>
@@ -410,73 +413,30 @@
       if (state.photos.length < limit) {
         // NATIVE HTML FIX: Transparent input safely handles the files without hacking Dropzone mechanics
         html += `
-          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center hover:bg-accent/80 text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
-            <div class="pointer-events-none flex flex-col items-center justify-center">
-              <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
-              <span class="text-[10px] font-bold">Add Photo</span>
-            </div>
-          </div>
+          <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary transition-all">
+            <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
+            <span class="text-[10px] font-bold">Add Photo</span>
+          </label>
         `;
       }
       document.getElementById('photo-grid').innerHTML = html;
       lucide.createIcons();
     }
 
-    function updateSummary() {
-      if(!state.product) return; 
-      const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
-      const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
-      let name = state.style === 'bohemian' ? "Bohemian Frame" : state.style === 'sleek' ? "Sleek Frame" : "Rollercube";
-      document.getElementById('summary-product').innerText = name;
-      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
-      document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
-      document.getElementById('summary-total').innerText = `£${(price + ship).toFixed(2)}`;
-    }
-
-    window.nextStep = () => {
-      try {
-        if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
-        if (state.step === 2 && !state.product) { alert("Please select a frame size."); return; }
-        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) { alert(`Please upload exactly ${state.product.size} photos.`); return; }
-        if (state.step === 4) { if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; } submitOrder(); return; }
-        if (state.step === 1 && state.style === 'rollercube') state.step = 3; else state.step++;
-        if(state.step === 3) updateCustomUI(); if(state.step === 4) updateSummary(); render();
-      } catch(e) { alert("Something went wrong."); }
-    };
-
-    window.goBack = () => {
-      if (state.step === 3 && state.style === 'rollercube') state.step = 1; else state.step--;
-      if (state.step < 1) window.location.href = "/"; else render();
-    };
-
-    window.setShipping = (m) => {
-      state.shipping = m;
-      document.getElementById('ship-collect').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?"border-primary bg-accent ring-1 ring-primary":""}`;
-      document.getElementById('ship-deliver').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?"border-primary bg-accent ring-1 ring-primary":""}`;
-      updateSummary(); render(); 
-    };
-
-    window.setSocial = (v) => {
-      state.social = v;
-      document.getElementById('social-yes').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===true?"border-primary bg-accent ring-1 ring-primary":""}`;
-      document.getElementById('social-no').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===false?"border-primary bg-accent ring-1 ring-primary":""}`;
-      render();
-    };
-
+    // --- CROPPER UPLOAD LOGIC (FIXED) ---
+    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // FIXED QUEUE AND MEMORY LOGIC
-    window.handleFileSelect = (e) => {
+    fileInput.addEventListener('change', (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const remaining = state.product.size - state.photos.length;
         if(remaining <= 0) return;
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
-    };
+    });
 
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
@@ -508,10 +468,62 @@
     window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
     window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); render(); };
 
+    function updateSummary() {
+      if(!state.product) return; 
+
+      const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+      const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
+      const total = price + ship;
+
+      let name = state.style === 'bohemian' ? "Bohemian Frame" : state.style === 'sleek' ? "Sleek Frame" : "Rollercube";
+      document.getElementById('summary-product').innerText = name;
+      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
+      document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
+      document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
+    }
+
+    window.nextStep = () => {
+      try {
+        if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
+        if (state.step === 2 && !state.product) { alert("Please select a frame size."); return; }
+        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) { alert(`Please upload exactly ${state.product.size} photos.`); return; }
+        if (state.step === 4) { if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; } submitOrder(); return; }
+        if (state.step === 1 && state.style === 'rollercube') state.step = 3; else state.step++;
+        if(state.step === 3) updateCustomUI(); if(state.step === 4) updateSummary(); render();
+      } catch(e) { alert("Something went wrong."); }
+    };
+
+    window.goBack = () => {
+      if (state.step === 3 && state.style === 'rollercube') state.step = 1; else state.step--;
+      if (state.step < 1) window.location.href = "/"; else render();
+    };
+
+    window.setShipping = (m) => {
+      state.shipping = m;
+      const c = document.getElementById('ship-collect');
+      const d = document.getElementById('ship-deliver');
+      const active = "border-primary bg-accent ring-1 ring-primary";
+      c.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?active:''}`;
+      d.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?active:''}`;
+      updateSummary(); render(); 
+    };
+
+    window.setSocial = (v) => {
+      state.social = v;
+      const y = document.getElementById('social-yes');
+      const n = document.getElementById('social-no');
+      const active = "border-primary bg-accent ring-1 ring-primary";
+      y.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===true?active:''}`;
+      n.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===false?active:''}`;
+      render();
+    };
+
     window.submitOrder = async () => {
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
       const btn = document.getElementById('main-btn');
+
+      if(!email || !phone) { alert("Please enter email & phone"); return; }
 
       btn.disabled = true; btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
 

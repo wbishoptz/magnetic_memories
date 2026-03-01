@@ -70,7 +70,6 @@
       <label style="margin-bottom: 12px; display:block; color:var(--text-muted); font-size:0.95rem; font-weight:600;">Shipping / Collection Method</label>
       
       <div class="shipping-grid" id="shipping-wrapper">
-        
         <label class="shipping-card">
           <input type="radio" name="shipping" value="GI_COLLECT">
           <div class="shipping-content">
@@ -78,7 +77,6 @@
             <span class="shipping-desc">Pick up from Atlantic Suites</span>
           </div>
         </label>
-
         <label class="shipping-card">
           <input type="radio" name="shipping" value="GI_DELIVER">
           <div class="shipping-content">
@@ -86,7 +84,6 @@
             <span class="shipping-desc">Delivered within 48 hours</span>
           </div>
         </label>
-
         <label class="shipping-card">
           <input type="radio" name="shipping" value="GB">
           <div class="shipping-content">
@@ -94,7 +91,6 @@
             <span class="shipping-desc">Royal Mail Tracked</span>
           </div>
         </label>
-
       </div>
       <p id="shippingError" class="error-text" style="display:none;">Please select a shipping method.</p>
 
@@ -148,20 +144,18 @@
     <section class="card" id="upload-section">
       <h2>Upload your photos</h2>
 
-      <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
-        <div class="dz-message" style="position: relative;">
-          
-          <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" 
-                 onclick="this.value=null" 
-                 onchange="window.handleIgFallback(event)" 
-                 style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.01; z-index: 50; cursor: pointer;" />
-          
-          Tap to select photos<br>
-          <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
-        </div>
+      <input type="file" id="native-upload" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" onchange="window.handleNativeUpload(event)" style="display: none;" />
+      
+      <label for="native-upload" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 24px 16px; background-color: #fff1f2; border: 2px dashed #f43f5e; color: #e11d48; border-radius: 12px; cursor: pointer; margin-bottom: 16px; transition: all 0.2s ease;">
+        <i data-lucide="image-plus" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
+        <span style="font-weight: 700; font-size: 1.1rem;">Tap here to select photos</span>
+      </label>
+
+      <form id="mm-dropzone" class="dropzone" onsubmit="return false;" style="border: none; padding: 0; min-height: auto; background: transparent;">
+        <div class="dz-message" style="display: none !important;"></div>
       </form>
 
-      <div class="upload-meta">
+      <div class="upload-meta" style="margin-top: 16px;">
         <div>
           <div class="counter">
             <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
@@ -247,16 +241,14 @@
   <script>
     lucide.createIcons();
     
-    // SAFE FILE PASSING: This simply passes the raw files into Dropzone's native handler.
-    // It works perfectly on Desktop, iOS, and Android without blocking app.js.
-    window.handleIgFallback = function(e) {
+    // NATIVE FIX: Securely pass the files from the pure HTML input into Dropzone.
+    window.handleNativeUpload = function(e) {
       if(e.target.files && e.target.files.length > 0) {
-         const dz = document.getElementById('mm-dropzone').dropzone;
-         if(dz) dz.handleFiles(e.target.files);
+         const dzElement = document.getElementById('mm-dropzone');
+         if(dzElement && dzElement.dropzone) {
+            Array.from(e.target.files).forEach(file => dzElement.dropzone.addFile(file));
+         }
       }
-      
-      // Delay clear so Android memory doesn't wipe the file before app.js reads it
-      setTimeout(() => { e.target.value = ''; }, 500);
     };
   </script>
 </body>

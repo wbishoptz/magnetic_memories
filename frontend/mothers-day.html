@@ -204,6 +204,8 @@
       </div>
       
       <div class="grid grid-cols-3 gap-3 mb-6" id="photo-grid"></div>
+      
+      <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
 
       <div class="p-4 rounded-xl bg-white border border-primary/20 flex justify-between items-center mothers-card">
         <span class="font-medium text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Uploaded</span>
@@ -479,15 +481,12 @@
       });
 
       if (state.photos.length < req) {
-        // NATIVE HTML FIX: Transparent input safely handles the files without hacking Dropzone mechanics
+        // NATIVE HTML FIX: Safe label connection with no memory hacks.
         html += `
-          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center hover:bg-secondary text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
-            <div class="pointer-events-none flex flex-col items-center justify-center">
-              <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
-              <span class="text-[10px] font-bold">Add Photo</span>
-            </div>
-          </div>
+          <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
+            <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
+            <span class="text-[10px] font-bold">Add Photo</span>
+          </label>
         `;
       }
       document.getElementById('photo-grid').innerHTML = html;
@@ -495,12 +494,13 @@
     }
 
     // --- CROPPER UPLOAD LOGIC (FIXED) ---
+    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
     // FIXED QUEUE AND MEMORY LOGIC
-    window.handleFileSelect = (e) => {
+    fileInput.addEventListener('change', (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
         const remaining = req - state.photos.length;
@@ -508,30 +508,38 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
-    };
+    });
 
     async function processQueue(files) {
-      for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
-      renderPhotos(); render(); 
+      for(const f of files) { 
+        await new Promise(resolve => openCropper(f, resolve)); 
+      }
+      renderPhotos(); 
+      render(); 
     }
 
     function openCropper(file, resolve) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        cropImg.src = e.target.result;
+        cropImg.src = e.target.result; 
         modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
         
+        // Save
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
-            closeCropper(); resolve();
+            closeCropper(); 
+            resolve();
           }, 'image/jpeg', 0.95);
         };
 
         // FIXED: Canceling safely resolves the promise so the queue isn't blocked
-        document.getElementById('crop-cancel').onclick = () => { closeCropper(); resolve(); };
+        document.getElementById('crop-cancel').onclick = () => { 
+          closeCropper(); 
+          resolve(); 
+        };
       };
       reader.onerror = () => { closeCropper(); resolve(); };
       reader.readAsDataURL(file);
