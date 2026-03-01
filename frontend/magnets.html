@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Magnetic Memories</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
   <link rel="stylesheet" href="./styles.css" />
 
   <meta name="description" content="Turn your favorite photos into high-quality square magnets. Printed in the UK." />
@@ -41,10 +41,85 @@
       transform: translateX(-2px);
     }
 
-    /* Hide Dropzone's default checkmarks so they don't cover our buttons */
     #mm-dropzone .dz-success-mark, 
     #mm-dropzone .dz-error-mark {
       display: none !important;
+    }
+
+    /* --- FULL SCREEN CROPPER MODAL (IG WEBVIEW PROOF) --- */
+    #crop-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important; /* The magic property for mobile nav bars */
+      background: #000000 !important;
+      z-index: 99999 !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    #crop-modal.hidden {
+      display: none !important;
+    }
+    
+    .crop-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      background: #111111;
+      border-bottom: 1px solid #333333;
+    }
+    
+    .crop-top-bar button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    
+    #crop-save {
+      background: #25D366; 
+      color: #000;
+      border: none;
+    }
+    
+    #crop-remove {
+      background: transparent;
+      color: #ff6b6b;
+      border: 1px solid #ff6b6b;
+    }
+    
+    .crop-workspace {
+      flex: 1;
+      position: relative;
+      background: #000000;
+      min-height: 0; /* CRITICAL: stops image from pushing buttons off screen */
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .crop-workspace img {
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+    
+    .crop-bottom-bar {
+      padding: 16px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      background: #111111;
+      text-align: center;
+      color: #aaaaaa;
+      font-size: 14px;
+      border-top: 1px solid #333333;
     }
   </style>
 </head>
@@ -206,20 +281,6 @@
     </div>
   </div>
 
-  <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
-    <div class="modal-card cropper-card">
-      <h3 id="crop-title">Crop your photo</h3>
-      <div class="cropper-container">
-        <img id="crop-image" src="" alt="Crop preview" />
-      </div>
-      <p class="hint" style="margin-top:8px;">Adjust to fit the square. This is exactly how it will print.</p>
-      <div class="modal-actions">
-        <button id="crop-save" class="btn-primary" type="button">Save Crop</button>
-        <button id="crop-remove" class="btn-ghost" type="button">Remove photo</button>
-      </div>
-    </div>
-  </div>
-
   <div id="whatsapp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="wa-title">
     <div class="modal-card" style="text-align: center;">
       <h3 id="wa-title" style="color: #59c9a5; margin-bottom: 12px;">File Too Large</h3>
@@ -233,6 +294,19 @@
         +350 54007718
       </a>
       <button id="wa-close" class="btn-ghost" type="button">Close</button>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="crop-top-bar">
+      <button id="crop-remove" type="button">Cancel</button>
+      <button id="crop-save" type="button">Save Crop</button>
+    </div>
+    <div class="crop-workspace">
+      <img id="crop-image" src="" alt="Crop preview" />
+    </div>
+    <div class="crop-bottom-bar">
+      Adjust the box to fit perfectly. This is how it will print.
     </div>
   </div>
 
