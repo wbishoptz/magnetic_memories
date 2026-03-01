@@ -200,9 +200,6 @@
         </label>
         
         <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
-        
-        <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
-        
         <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
       </div>
     </div>
@@ -281,6 +278,8 @@
       </button>
     </div>
   </div>
+
+  <input type="file" id="fileInput" multiple accept="image/*" style="position: absolute; top: -9999px; left: -9999px; opacity: 0; z-index: -1;" />
 
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
@@ -397,6 +396,7 @@
     }
 
     function renderPhotos() {
+      const container = document.getElementById('photo-grid');
       const limit = state.product.size;
       document.getElementById('photo-count').innerText = state.photos.length;
 
@@ -411,7 +411,7 @@
       });
 
       if (state.photos.length < limit) {
-        // NATIVE HTML FIX: Transparent input safely handles the files without hacking Dropzone mechanics
+        // NATIVE HTML FIX: Safe label connection with no DOM hacks.
         html += `
           <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary transition-all">
             <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
@@ -419,7 +419,7 @@
           </label>
         `;
       }
-      document.getElementById('photo-grid').innerHTML = html;
+      container.innerHTML = html;
       lucide.createIcons();
     }
 
@@ -436,6 +436,8 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
+      // SAFE CLEAR: Clears AFTER reading, allowing user to pick the same image twice if needed
+      e.target.value = '';
     });
 
     async function processQueue(files) {
@@ -446,7 +448,7 @@
     function openCropper(file, resolve) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        cropImg.src = e.target.result;
+        cropImg.src = e.target.result; 
         modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });

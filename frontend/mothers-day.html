@@ -47,7 +47,6 @@
     
     .bg-deco { position: fixed; pointer-events: none; z-index: -1; opacity: 0.4; }
 
-    /* Cropper Modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; }
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
@@ -204,8 +203,6 @@
       </div>
       
       <div class="grid grid-cols-3 gap-3 mb-6" id="photo-grid"></div>
-      
-      <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
 
       <div class="p-4 rounded-xl bg-white border border-primary/20 flex justify-between items-center mothers-card">
         <span class="font-medium text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Uploaded</span>
@@ -286,6 +283,8 @@
       </button>
     </div>
   </div>
+
+  <input type="file" id="fileInput" multiple accept="image/*" style="position: absolute; top: -9999px; left: -9999px; opacity: 0; z-index: -1;" />
 
   <div id="crop-modal" class="modal-overlay">
     <div class="modal-content animate-fade-in">
@@ -462,6 +461,11 @@
 
       const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
       for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; }
+
+      const uploadSec = document.getElementById('upload-section');
+      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.product.size; renderPhotos(); } 
+      else { uploadSec.classList.add('hidden'); }
+      render(); 
     }
 
     function renderPhotos() {
@@ -481,7 +485,7 @@
       });
 
       if (state.photos.length < req) {
-        // NATIVE HTML FIX: Safe label connection with no memory hacks.
+        // NATIVE HTML FIX: Simple `<label>` connecting to the static input. Never breaks.
         html += `
           <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
             <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
@@ -499,7 +503,6 @@
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // FIXED QUEUE AND MEMORY LOGIC
     fileInput.addEventListener('change', (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
@@ -508,6 +511,8 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
+      // SAFE CLEAR: This clears the field AFTER processing begins, avoiding memory issues
+      e.target.value = '';
     });
 
     async function processQueue(files) {
@@ -526,7 +531,6 @@
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
         
-        // Save
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
@@ -535,7 +539,7 @@
           }, 'image/jpeg', 0.95);
         };
 
-        // FIXED: Canceling safely resolves the promise so the queue isn't blocked
+        // FIXED: Canceling resolves the promise so it moves to the next photo
         document.getElementById('crop-cancel').onclick = () => { 
           closeCropper(); 
           resolve(); 

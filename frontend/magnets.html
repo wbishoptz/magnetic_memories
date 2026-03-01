@@ -77,6 +77,7 @@
             <span class="shipping-desc">Pick up from Atlantic Suites</span>
           </div>
         </label>
+
         <label class="shipping-card">
           <input type="radio" name="shipping" value="GI_DELIVER">
           <div class="shipping-content">
@@ -84,6 +85,7 @@
             <span class="shipping-desc">Delivered within 48 hours</span>
           </div>
         </label>
+
         <label class="shipping-card">
           <input type="radio" name="shipping" value="GB">
           <div class="shipping-content">
@@ -115,7 +117,6 @@
         </div>
         <p id="socialError" class="error-text" style="display:none;">Please select an option.</p>
       </div>
-
     </section>
 
     <section class="card">
@@ -144,18 +145,16 @@
     <section class="card" id="upload-section">
       <h2>Upload your photos</h2>
 
-      <input type="file" id="native-upload" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" onchange="window.handleNativeUpload(event)" style="display: none;" />
-      
-      <label for="native-upload" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 24px 16px; background-color: #fff1f2; border: 2px dashed #f43f5e; color: #e11d48; border-radius: 12px; cursor: pointer; margin-bottom: 16px; transition: all 0.2s ease;">
-        <i data-lucide="image-plus" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
-        <span style="font-weight: 700; font-size: 1.1rem;">Tap here to select photos</span>
-      </label>
-
-      <form id="mm-dropzone" class="dropzone" onsubmit="return false;" style="border: none; padding: 0; min-height: auto; background: transparent;">
-        <div class="dz-message" style="display: none !important;"></div>
+      <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
+        <div class="dz-message">
+          Tap to select photos<br>
+          <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
+        </div>
       </form>
 
-      <div class="upload-meta" style="margin-top: 16px;">
+      <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
+
+      <div class="upload-meta">
         <div>
           <div class="counter">
             <strong><span id="photo-count">0</span>/<span id="required-count">3</span></strong> photos selected
@@ -227,7 +226,6 @@
         <span style="font-size:1.4rem; vertical-align:middle; margin-right:8px;">📱</span> 
         +350 54007718
       </a>
-
       <button id="wa-close" class="btn-ghost" type="button">Close</button>
     </div>
   </div>
@@ -241,15 +239,32 @@
   <script>
     lucide.createIcons();
     
-    // NATIVE FIX: Securely pass the files from the pure HTML input into Dropzone.
-    window.handleNativeUpload = function(e) {
-      if(e.target.files && e.target.files.length > 0) {
-         const dzElement = document.getElementById('mm-dropzone');
-         if(dzElement && dzElement.dropzone) {
-            Array.from(e.target.files).forEach(file => dzElement.dropzone.addFile(file));
-         }
-      }
-    };
+    // SAFE INSTAGRAM BROWSER FIX
+    // Wait for Dropzone to initialize via app.js, then wrap the "dz-message" securely.
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const dzForm = document.getElementById('mm-dropzone');
+        if (!dzForm || !dzForm.dropzone) return;
+        
+        const input = dzForm.dropzone.hiddenFileInput;
+        const msg = dzForm.querySelector('.dz-message');
+        
+        // Only apply this fix on touch devices (phones/tablets)
+        if (input && msg && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+          msg.style.position = 'relative';
+          msg.appendChild(input);
+          
+          input.style.position = 'absolute';
+          input.style.top = '0';
+          input.style.left = '0';
+          input.style.width = '100%';
+          input.style.height = '100%';
+          input.style.opacity = '0.01';
+          input.style.zIndex = '50';
+          input.style.cursor = 'pointer';
+        }
+      }, 1000);
+    });
   </script>
 </body>
 </html>
