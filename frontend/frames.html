@@ -47,7 +47,6 @@
     .gradient-coral { background: linear-gradient(135deg, hsl(350 80% 55%), hsl(20 85% 60%)); }
     .shadow-soft { box-shadow: 0 4px 20px -4px hsl(350 80% 55% / 0.15); }
     
-    /* Cropper Modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; }
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
@@ -202,9 +201,6 @@
         </label>
         
         <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
-        
-        <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
-        
         <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
       </div>
     </div>
@@ -298,7 +294,6 @@
   <script>
     lucide.createIcons();
 
-    // --- DATA ---
     const PRODUCTS = {
       bohemian: [
         { id: 'b3', size: 3, framePrice: 8, fullPrice: 15, img: './bohemian-3.jpeg' },
@@ -317,7 +312,6 @@
       ]
     };
 
-    // --- STATE ---
     let state = {
       step: 1,
       style: null,
@@ -329,21 +323,17 @@
       social: null
     };
 
-    // --- LOGIC ---
-    
     function render() {
-      // Step visibility
       [1,2,3,4].forEach(s => {
         const el = document.getElementById(`step-${s}`);
         if(s === state.step) {
           el.classList.remove('hidden');
-          setTimeout(() => window.scrollTo(0,0), 50); // Scroll top
+          setTimeout(() => window.scrollTo(0,0), 50); 
         } else {
           el.classList.add('hidden');
         }
       });
 
-      // Progress Bar
       const progress = ((state.step - 1) / 3) * 100;
       document.getElementById('progress-fill').style.width = `${progress}%`;
       document.querySelectorAll('.step-indicator').forEach(el => {
@@ -351,15 +341,15 @@
         const circle = el.querySelector('div');
         const text = el.querySelector('span');
         
-        if (s < state.step) { // Completed
+        if (s < state.step) { 
           circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all";
           circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>';
           text.className = "text-[10px] mt-1 font-medium text-primary";
-        } else if (s === state.step) { // Current
+        } else if (s === state.step) { 
           circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all";
           circle.innerText = s;
           text.className = "text-[10px] mt-1 font-medium text-primary";
-        } else { // Future
+        } else { 
           circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all";
           circle.innerText = s;
           text.className = "text-[10px] mt-1 font-medium text-muted-foreground";
@@ -367,7 +357,6 @@
       });
       lucide.createIcons();
 
-      // Main Button Logic
       const btn = document.getElementById('main-btn');
       btn.disabled = false; 
 
@@ -406,7 +395,6 @@
         }
       }
 
-      // Visual Disable
       if (!valid) {
         btn.classList.add('opacity-50', 'cursor-not-allowed');
         if(state.step===4) text = "Complete Options";
@@ -420,7 +408,6 @@
       lucide.createIcons();
     }
 
-    // STEP 1
     window.selectStyle = (style) => {
       state.style = style;
       if (style === 'rollercube') {
@@ -432,7 +419,6 @@
       }
     };
 
-    // STEP 2
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
       
@@ -462,7 +448,6 @@
       setTimeout(() => nextStep(), 300); 
     };
 
-    // STEP 3
     window.setMagnets = (enabled) => {
       state.withMagnets = enabled;
       updateCustomUI();
@@ -474,22 +459,17 @@
     };
 
     function updateCustomUI() {
-      // Highlights
-      const optF = document.getElementById('opt-frame');
-      const optM = document.getElementById('opt-magnets');
       const activeClass = "border-primary bg-accent ring-1 ring-primary";
       
-      optF.className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
-      optM.className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
+      document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
+      document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
 
-      // Prices
       if(state.product) {
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
         document.getElementById('price-magnets').innerText = `£${state.product.fullPrice.toFixed(2)}`;
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
       }
 
-      // Color Highlights
       const colors = {
         'White': 'col-white',
         'Black': 'col-black',
@@ -505,7 +485,6 @@
         }
       }
 
-      // Photo Section
       const uploadSec = document.getElementById('upload-section');
       if (state.withMagnets) {
         uploadSec.classList.remove('hidden');
@@ -533,19 +512,21 @@
       });
 
       if (state.photos.length < limit) {
-        // IG FIX: Replaced DIV with LABEL targeting the fileInput ID
+        // ANDROID/IOS WEBVIEW FIX: Physical transparent input strictly layered over the div
         html += `
-          <label for="fileInput" class="w-full h-full m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            <span class="text-[10px] font-bold mt-1">Add Photo</span>
-          </label>
+          <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center hover:bg-accent/80 text-primary transition-all overflow-hidden cursor-pointer">
+            <input type="file" multiple accept="image/*" onchange="handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
+            <div class="pointer-events-none flex flex-col items-center justify-center">
+              <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
+              <span class="text-[10px] font-bold">Add Photo</span>
+            </div>
+          </div>
         `;
       }
       container.innerHTML = html;
       lucide.createIcons();
     }
 
-    // STEP 4 - Summary
     function updateSummary() {
       if(!state.product) return; 
 
@@ -566,7 +547,6 @@
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
     }
 
-    // Navigation
     window.nextStep = () => {
       try {
         if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
@@ -619,21 +599,20 @@
       render();
     };
 
-    // Cropper & Upload Logic
-    const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    fileInput.addEventListener('change', (e) => {
-      if(e.target.files.length) {
+    // DIRECT INLINE HANDLER FOR WEBVIEW FIX
+    window.handleFileSelect = (e) => {
+      if(e.target.files && e.target.files.length > 0) {
         const remaining = state.product.size - state.photos.length;
         if(remaining <= 0) return;
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
-        fileInput.value = "";
+        e.target.value = "";
       }
-    });
+    };
 
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
