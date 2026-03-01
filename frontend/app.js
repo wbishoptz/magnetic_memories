@@ -15,8 +15,8 @@ let emailTouched = false;
 let phoneTouched = false;
 let voucherApplied = 0;
 let voucherCode = "";
-let socialPermission = null; // null, true, or false
-let selectedShipping = null; // NEW: null, 'GI_COLLECT', 'GI_DELIVER', 'GB'
+let socialPermission = null; 
+let selectedShipping = null; 
 
 const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 const PACKS = [3, 6, 9, 12, 15];
@@ -73,7 +73,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (res.ok) {
                 const data = await res.json();
                 if (data.status === 'draft' || data.status === 'abandoned') {
-                    // Restore Fields
                     if (data.email) {
                         emailInput.value = data.email;
                         customerEmail = data.email;
@@ -87,7 +86,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         setPhoneValidityUI(true);
                     }
                     
-                    // Restore Pack Selection
                     let radioVal = "";
                     if (data.packSize && String(data.packSize).startsWith("voucher_")) {
                         radioVal = data.packSize;
@@ -100,7 +98,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         radio.dispatchEvent(new Event("change")); 
                     }
 
-                    // Restore Social Selection
                     if (typeof data.socialPermission === 'boolean') {
                         const val = data.socialPermission ? 'yes' : 'no';
                         const socRadio = document.querySelector(`input[name="socials"][value="${val}"]`);
@@ -110,7 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         }
                     }
 
-                    // Restore Shipping Selection
                     if (data.shippingMethod) {
                         const shipRadio = document.querySelector(`input[name="shipping"][value="${data.shippingMethod}"]`);
                         if (shipRadio) {
@@ -157,7 +153,6 @@ async function saveCart() {
     } catch(e) {}
 }
 
-// --- Safety Net ---
 window.addEventListener("beforeunload", (e) => {
   if (myDropzone.files.length > 0 && !payBtn.disabled) {
     e.preventDefault();
@@ -165,7 +160,6 @@ window.addEventListener("beforeunload", (e) => {
   }
 });
 
-// ---- Toasts ----
 let toastTimer = null;
 function showToast(message, type = "ok") {
   toastEl.textContent = message;
@@ -176,13 +170,8 @@ function showToast(message, type = "ok") {
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
 }
 
-// ---- Validation Logic ----
-function isEmailValid() {
-  return /\S+@\S+\.\S+/.test(customerEmail);
-}
-function isPhoneValid() {
-  return customerPhone.length >= 6;
-}
+function isEmailValid() { return /\S+@\S+\.\S+/.test(customerEmail); }
+function isPhoneValid() { return customerPhone.length >= 6; }
 function isCountValid() {
   if (selectedPackType === 'voucher') return true; 
   return myDropzone.files.length === requiredCount;
@@ -191,21 +180,15 @@ function isAllCropped() {
   if (selectedPackType === 'voucher') return true;
   return getUncroppedFiles().length === 0 && myDropzone.files.length > 0;
 }
-function isSocialSelected() {
-    return socialPermission !== null;
-}
-function isShippingSelected() {
-    return selectedShipping !== null;
-}
+function isSocialSelected() { return socialPermission !== null; }
+function isShippingSelected() { return selectedShipping !== null; }
 
-// ---- UI Feedback (Jiggle) ----
 function shakeElement(el) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.classList.add("shake");
   setTimeout(() => el.classList.remove("shake"), 500);
 }
 
-// ---- UI State Update ----
 function setEmailValidityUI(isValid) {
   const errEl = document.getElementById("emailError");
   if (!emailTouched) {
@@ -240,7 +223,6 @@ function updatePayButtonAppearance() {
   }
 }
 
-// ---- Helper: Show/Hide Elements ----
 function updateVisibility() {
     if (selectedPackType === 'voucher') {
         uploadSection.style.display = "none";
@@ -249,9 +231,20 @@ function updateVisibility() {
     }
 }
 
-// ---- Dropzone ----
+// ---- Dropzone Fixes ----
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
+
+// The STRICT custom template that cannot be overridden by Dropzone
+const strictPreviewTemplate = `
+  <div class="dz-preview dz-file-preview" style="position:relative; width:110px; height:110px; margin:8px; border-radius:12px; overflow:hidden; display:inline-block; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background:#f9fafb;">
+    <div class="dz-image" style="width:100%; height:100%;">
+      <img data-dz-thumbnail style="width:100%; height:100%; object-fit:cover; display:block;" />
+    </div>
+    <button type="button" class="dz-remove-custom" style="position:absolute; top:4px; right:4px; background:rgba(239, 68, 68, 0.9); color:white; border:none; border-radius:50%; width:24px; height:24px; font-size:12px; font-weight:bold; cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.2);">✕</button>
+    <button type="button" class="dz-crop-custom" style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); color:#1f2937; border:none; border-radius:6px; padding:4px 12px; font-size:11px; font-weight:bold; cursor:pointer; z-index:30; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Crop</button>
+  </div>
+`;
 
 const myDropzone = new Dropzone(dzElement, {
   url: "/api/upload",
@@ -262,13 +255,14 @@ const myDropzone = new Dropzone(dzElement, {
   maxFilesize: 95, 
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  addRemoveLinks: true,
+  thumbnailWidth: 250,  // Force Dropzone to make square, high-res thumbnails
+  thumbnailHeight: 250, // Force Dropzone to make square, high-res thumbnails
+  addRemoveLinks: false, // Turn OFF default weird text links
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
-  dictRemoveFile: "Remove",
+  previewTemplate: strictPreviewTemplate // Enforce our layout
 });
 
-// Handle Files Too Big
 myDropzone.on("error", (file, message) => {
   if (typeof message === "string" && message.includes("too big")) {
     myDropzone.removeFile(file); 
@@ -335,7 +329,6 @@ function updatePhotoCount() {
   updatePayButtonAppearance();
 }
 
-// ---- Promo Code Logic ----
 promoBtn.addEventListener("click", async () => {
     const code = promoInput.value.trim();
     if (!code) return;
@@ -371,7 +364,6 @@ promoBtn.addEventListener("click", async () => {
     }
 });
 
-// ---- Pack selector ----
 document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   radio.addEventListener("change", () => {
     const newVal = radio.value;
@@ -419,7 +411,6 @@ document.querySelectorAll('input[name="pack"]').forEach((radio) => {
   });
 });
 
-// ---- Social Media Listeners ----
 socialRadios.forEach(radio => {
     radio.addEventListener('change', () => {
         if (radio.checked) {
@@ -431,7 +422,6 @@ socialRadios.forEach(radio => {
     });
 });
 
-// ---- Shipping Listeners ----
 shippingRadios.forEach(radio => {
     radio.addEventListener('change', () => {
         if (radio.checked) {
@@ -443,7 +433,6 @@ shippingRadios.forEach(radio => {
     });
 });
 
-// ---- Inputs ----
 emailInput.addEventListener("blur", () => {
   emailTouched  = true;
   customerEmail = emailInput.value.trim();
@@ -461,7 +450,6 @@ phoneInput.addEventListener("blur", () => {
 setEmailValidityUI(false);
 setPhoneValidityUI(false);
 
-// ---- Dropzone Logic ----
 const cropQueue = [];
 let croppingActive = false;
 
@@ -484,8 +472,31 @@ async function processCropQueue() {
   updatePhotoCount();
 }
 
+// WIRED UP CUSTOM BUTTONS
 myDropzone.on("addedfile", (file) => {
-  addCropButton(file);
+  const previewEl = file.previewElement;
+
+  // Manually attach event to the custom Crop button
+  const cropBtn = previewEl.querySelector('.dz-crop-custom');
+  if (cropBtn) {
+    cropBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      enqueueForCrop(file);
+      processCropQueue();
+    });
+  }
+
+  // Manually attach event to the custom Remove button
+  const removeBtn = previewEl.querySelector('.dz-remove-custom');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      myDropzone.removeFile(file);
+    });
+  }
+
   showToast("Photo added", "ok");
 
   file._cropped = false;
@@ -495,7 +506,6 @@ myDropzone.on("addedfile", (file) => {
   const total = myDropzone.files.length;
   
   if (selectedPackType !== 'voucher' && total > requiredCount) {
-    // Only Standard type exists now
     const suggested = PACKS.find((p) => p >= total) ?? PACKS[PACKS.length - 1];
     pendingTargetValue = `standard_${suggested}`;
     
@@ -517,7 +527,6 @@ myDropzone.on("removedfile", () => {
   updatePhotoCount();
 });
 
-// ---- Upgrade/Downgrade ----
 modalConfirm.addEventListener("click", () => {
   modalKeep.style.display = "inline-block";
   
@@ -569,7 +578,6 @@ myDropzone.on("totaluploadprogress", (progress) => {
   progressBar.style.width = `${progress}%`;
 });
 
-// ---- PAY BUTTON CLICK (Smart Validation) ----
 payBtn.addEventListener("click", async () => {
   if (!isEmailValid()) {
     emailTouched = true;
@@ -587,7 +595,6 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
-  // New Shipping Validation
   if (!isShippingSelected()) {
       shakeElement(shippingWrapper);
       document.getElementById('shippingError').style.display = 'block';
@@ -595,7 +602,6 @@ payBtn.addEventListener("click", async () => {
       return;
   }
 
-  // New Social Validation
   if (!isSocialSelected()) {
       shakeElement(socialWrapper);
       document.getElementById('socialError').style.display = 'block';
@@ -619,7 +625,6 @@ payBtn.addEventListener("click", async () => {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";
     
-    // GET SHIPPING SELECTION
     const country = document.querySelector('input[name="shipping"]:checked').value;
     
     const packSizePayload = (selectedPackType === 'voucher') 
@@ -628,7 +633,6 @@ payBtn.addEventListener("click", async () => {
 
     statusEl.textContent = "Creating order…";
 
-    // 1. SAVE ORDER (Includes shippingMethod for Admin)
     const orderRes = await fetch("/api/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -647,7 +651,6 @@ payBtn.addEventListener("click", async () => {
     const { orderId } = await orderRes.json();
     currentOrderId = orderId; 
 
-    // 2. UPLOAD PHOTOS (Only if not voucher)
     if (selectedPackType !== 'voucher') {
         statusEl.textContent = "Uploading photos…";
         progressWrap.style.display = "block";
@@ -670,7 +673,6 @@ payBtn.addEventListener("click", async () => {
         progressBar.style.width = "100%";
     }
 
-    // 3. CREATE CHECKOUT (Passes country for Stripe Logic)
     statusEl.textContent = `Creating checkout…`;
     const ckRes = await fetch("/api/checkout", {
       method: "POST",
@@ -680,7 +682,7 @@ payBtn.addEventListener("click", async () => {
         email: customerEmail,
         packSize: packSizePayload, 
         packType: selectedPackType,
-        country: country, // <--- UPDATED FROM RADIO
+        country: country,
         voucherCode: voucherCode
       }),
     });
@@ -711,27 +713,6 @@ payBtn.addEventListener("click", async () => {
 let currentCropFile = null;
 let cropperInstance = null;
 
-function addCropButton(_file) {
-  const preview = _file.previewElement;
-  if (!preview || preview.querySelector(".dz-crop-btn")) return;
-
-  const cropBtn = document.createElement("button");
-  cropBtn.type = "button";
-  cropBtn.textContent = "Crop";
-  cropBtn.className = "dz-crop-btn";
-  cropBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const previewEl = e.currentTarget.closest(".dz-preview");
-    const file = myDropzone.files.find((f) => f.previewElement === previewEl);
-    if (file) {
-      enqueueForCrop(file);
-      processCropQueue();
-    }
-  });
-  preview.appendChild(cropBtn);
-}
-
 const cropModal   = document.getElementById("crop-modal");
 const cropImg     = document.getElementById("crop-image");
 const cropSave    = document.getElementById("crop-save");
@@ -747,14 +728,11 @@ function openCropModal(file, done) {
   currentCropFile = file;
   let ratio = 1;
 
-  // Clean up previous cropper instance if it got stuck
   if (cropperInstance) {
       cropperInstance.destroy();
       cropperInstance = null;
   }
 
-  // MEMORY FIX: Use object URL instead of FileReader. 
-  // This prevents iOS/IG WebView from crashing on large photo uploads.
   const objectUrl = URL.createObjectURL(file);
   cropImg.src = objectUrl;
   cropModal.classList.remove("hidden");
@@ -771,7 +749,6 @@ function openCropModal(file, done) {
     dragMode: "move",
   });
 
-  // Helper to safely destroy everything and free the memory
   const cleanup = () => {
       if (cropperInstance) {
           cropperInstance.destroy();
@@ -802,7 +779,6 @@ function openCropModal(file, done) {
       if (preview) {
         const imgEl = preview.querySelector("img");
         if (imgEl) {
-            // Free the old preview memory before assigning the new one
             if (imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
             imgEl.src = URL.createObjectURL(blob);
         }
