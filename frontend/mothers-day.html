@@ -206,7 +206,8 @@
       </div>
       
       <div class="grid grid-cols-3 gap-3 mb-6" id="photo-grid"></div>
-      <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
+      
+      <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
 
       <div class="p-4 rounded-xl bg-white border border-primary/20 flex justify-between items-center mothers-card">
         <span class="font-medium text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Uploaded</span>
@@ -341,26 +342,19 @@
     let state = {
       step: 'landing', 
       line: null, 
-      
-      // Magnets
       pkg: null,
       selectedPremades: [],
-      
-      // Frames
       frameStyle: null,
       frameProduct: null,
       frameColor: 'White',
       withMagnets: false,
-
-      // Shared
       photos: [], 
       shipping: 'GI_COLLECT',
-      social: null // NEW: Null by default to force selection
+      social: null 
     };
 
     // --- RENDER ROUTER ---
     function render() {
-      // Hide all steps
       ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'].forEach(s => {
         document.getElementById(`step-${s}`).style.display = (state.step === s) ? 'block' : 'none';
       });
@@ -369,30 +363,22 @@
       let valid = false;
       let text = "Continue";
 
-      if(state.step === 'landing') {
-        valid = !!state.line;
-      } else if (state.step === 'packages') {
-        valid = !!state.pkg;
-      } else if (state.step === 'frame-style') {
-        valid = !!state.frameStyle;
-      } else if (state.step === 'frame-size') {
-        valid = !!state.frameProduct;
-      } else if (state.step === 'frame-custom') {
-        valid = true;
-        text = state.withMagnets ? "Upload Photos" : "Review Order";
-      } else if (state.step === 'photos') {
+      if(state.step === 'landing') { valid = !!state.line; } 
+      else if (state.step === 'packages') { valid = !!state.pkg; } 
+      else if (state.step === 'frame-style') { valid = !!state.frameStyle; } 
+      else if (state.step === 'frame-size') { valid = !!state.frameProduct; } 
+      else if (state.step === 'frame-custom') { valid = true; text = state.withMagnets ? "Upload Photos" : "Review Order"; } 
+      else if (state.step === 'photos') {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
         valid = state.photos.length === req;
-      } else if (state.step === 'premade') {
+      } 
+      else if (state.step === 'premade') {
         const req = PACKAGES.find(x=>x.id===state.pkg).premade;
         valid = state.selectedPremades.length === req;
-      } else if (state.step === 'checkout') {
-        valid = state.social !== null; // Social MUST be selected
-        
-        let price = 0;
-        if(state.line === 'magnets') price = PACKAGES.find(x=>x.id===state.pkg).price;
-        else price = state.withMagnets ? state.frameProduct.fullPrice : state.frameProduct.framePrice;
-        
+      } 
+      else if (state.step === 'checkout') {
+        valid = state.social !== null; 
+        let price = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).price : (state.withMagnets ? state.frameProduct.fullPrice : state.frameProduct.framePrice);
         const ship = state.shipping === 'GI_DELIVER' ? 3 : 0;
         text = valid ? `Pay £${(price + ship).toFixed(2)}` : "Complete Options";
       }
@@ -400,7 +386,6 @@
       btn.disabled = !valid;
       btn.style.opacity = valid ? '1' : '0.5';
       
-      // Visual update to button text
       if (state.step === 'checkout' && valid) {
         btn.innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}`;
       } else {
@@ -408,7 +393,6 @@
       }
       lucide.createIcons();
 
-      // Trigger specific renders
       if(state.step === 'packages') renderPackages();
       if(state.step === 'frame-size') renderFrameSizes();
       if(state.step === 'frame-custom') updateCustomUI();
@@ -417,14 +401,12 @@
       if(state.step === 'checkout') renderCheckout();
     }
 
-    // --- LOGIC ---
     window.selectLine = (line) => {
       state.line = line;
       state.step = line === 'magnets' ? 'packages' : 'frame-style';
       render();
     };
 
-    // Magnets
     function renderPackages() {
       document.getElementById('package-list').innerHTML = PACKAGES.map(p => `
         <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.pkg === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
@@ -442,55 +424,30 @@
       lucide.createIcons();
     }
 
-    window.selectPackage = (pid) => {
-        state.pkg = pid;
-        state.photos = [];
-        state.selectedPremades = [];
-        state.step = 'photos';
-        render();
-    };
+    window.selectPackage = (pid) => { state.pkg = pid; state.photos = []; state.selectedPremades = []; state.step = 'photos'; render(); };
 
-    // Frames
     window.selectFrameStyle = (style) => {
       state.frameStyle = style;
-      if (style === 'rollercube') {
-        state.frameProduct = FRAME_PRODUCTS.rollercube[0]; 
-        state.step = 'frame-custom';
-        state.withMagnets = false;
-      } else {
-        state.step = 'frame-size';
-      }
+      if (style === 'rollercube') { state.frameProduct = FRAME_PRODUCTS.rollercube[0]; state.step = 'frame-custom'; state.withMagnets = false; } 
+      else { state.step = 'frame-size'; }
       render();
     };
 
     function renderFrameSizes() {
       document.getElementById('size-grid').innerHTML = FRAME_PRODUCTS[state.frameStyle].map(p => `
         <div onclick="selectFrameProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.frameProduct?.id === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : ''}">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
-             <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
-          </div>
-          <div class="px-3 pb-3">
-            <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
-            <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
-          </div>
+          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2"><img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" /></div>
+          <div class="px-3 pb-3"><h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3><p class="text-xs text-muted-foreground">From £${p.framePrice}</p></div>
         </div>
       `).join('');
     }
 
-    window.selectFrameProduct = (pid) => {
-      state.frameProduct = FRAME_PRODUCTS[state.frameStyle].find(p => p.id === pid);
-      state.withMagnets = false;
-      state.photos = [];
-      state.step = 'frame-custom';
-      render(); 
-    };
-
+    window.selectFrameProduct = (pid) => { state.frameProduct = FRAME_PRODUCTS[state.frameStyle].find(p => p.id === pid); state.withMagnets = false; state.photos = []; state.step = 'frame-custom'; render(); };
     window.setMagnets = (enabled) => { state.withMagnets = enabled; updateCustomUI(); };
     window.setColor = (col) => { state.frameColor = col; updateCustomUI(); };
 
     function updateCustomUI() {
       const activeClass = "border-primary bg-secondary ring-1 ring-primary";
-      
       document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
       document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
 
@@ -501,13 +458,9 @@
       }
 
       const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
-      for (const [name, id] of Object.entries(colors)) {
-        const el = document.getElementById(id);
-        if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`;
-      }
+      for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; }
     }
 
-    // Shared Photos
     function renderPhotos() {
       const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
       document.getElementById('photo-target').innerText = req;
@@ -525,18 +478,18 @@
       });
 
       if (state.photos.length < req) {
+        // IG BROWSER FIX: Using a <label> to seamlessly trigger the hidden input.
         html += `
-          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
+          <label for="fileInput" class="w-full h-full m-0 aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary text-primary transition-all">
             <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
             <span class="text-xs font-bold">Add Photo</span>
-          </div>
+          </label>
         `;
       }
       document.getElementById('photo-grid').innerHTML = html;
       lucide.createIcons();
     }
 
-    // Cropper Logic
     const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
@@ -555,15 +508,13 @@
 
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
-      renderPhotos();
-      render(); 
+      renderPhotos(); render(); 
     }
 
     function openCropper(file, resolve) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        cropImg.src = e.target.result;
-        modal.style.display = 'flex';
+        cropImg.src = e.target.result; modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
         document.getElementById('crop-save').onclick = () => {
@@ -579,7 +530,6 @@
     window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
     window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); render(); };
 
-    // Premade
     function renderPremades() {
       const req = PACKAGES.find(x=>x.id===state.pkg).premade;
       document.getElementById('premade-target').innerText = req;
@@ -599,15 +549,11 @@
 
     window.togglePremade = (id) => {
       const req = PACKAGES.find(x=>x.id===state.pkg).premade;
-      if(state.selectedPremades.includes(id)) {
-        state.selectedPremades = state.selectedPremades.filter(x => x !== id);
-      } else if (state.selectedPremades.length < req) {
-        state.selectedPremades.push(id);
-      }
+      if(state.selectedPremades.includes(id)) { state.selectedPremades = state.selectedPremades.filter(x => x !== id); } 
+      else if (state.selectedPremades.length < req) { state.selectedPremades.push(id); }
       render();
     };
 
-    // Checkout
     window.setShipping = (m) => {
       state.shipping = m;
       document.getElementById('ship-collect').className = `border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT' ? 'border-primary bg-secondary' : 'bg-white'}`;
@@ -615,7 +561,6 @@
       render();
     };
 
-    // Socials
     window.setSocial = (v) => {
       state.social = v;
       document.getElementById('social-yes').className = `border-2 rounded-xl p-3 text-center transition-all ${v===true ? 'border-primary bg-secondary' : 'bg-white'}`;
@@ -627,9 +572,7 @@
       let name, desc, price;
       if(state.line === 'magnets') {
         const p = PACKAGES.find(x => x.id === state.pkg);
-        name = p.name;
-        desc = `${p.custom} Custom + ${p.premade} Pre-made`;
-        price = p.price;
+        name = p.name; desc = `${p.custom} Custom + ${p.premade} Pre-made`; price = p.price;
       } else {
         const styleName = state.frameStyle.charAt(0).toUpperCase() + state.frameStyle.slice(1);
         name = `${styleName} Frame (${state.frameColor})`;
@@ -641,21 +584,15 @@
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
     }
 
-    // --- NAVIGATION ---
     window.handleNext = async () => {
       if (state.step === 'landing') state.step = state.line === 'magnets' ? 'packages' : 'frame-style';
       else if (state.step === 'packages') state.step = 'photos';
-      // frame-style and frame-size managed by direct clicks
-      else if (state.step === 'frame-custom') {
-        state.step = state.withMagnets ? 'photos' : 'checkout';
-      }
+      else if (state.step === 'frame-custom') state.step = state.withMagnets ? 'photos' : 'checkout';
       else if (state.step === 'photos') {
         if (state.line === 'magnets') {
             const p = PACKAGES.find(x => x.id === state.pkg);
-            state.step = p.premade > 0 ? 'premade' : 'checkout'; // Skip premade selection if pkg has 0 premade
-        } else {
-            state.step = 'checkout';
-        }
+            state.step = p.premade > 0 ? 'premade' : 'checkout'; 
+        } else { state.step = 'checkout'; }
       }
       else if (state.step === 'premade') state.step = 'checkout';
       else if (state.step === 'checkout') await submitOrder();
@@ -672,10 +609,8 @@
          if (state.line === 'magnets') {
              const p = PACKAGES.find(x => x.id === state.pkg);
              state.step = p.premade > 0 ? 'premade' : 'photos';
-         }
-         else state.step = state.withMagnets ? 'photos' : 'frame-custom';
-      }
-      else window.location.href = '/';
+         } else state.step = state.withMagnets ? 'photos' : 'frame-custom';
+      } else window.location.href = '/';
       render();
     };
 
@@ -687,39 +622,32 @@
       if(state.social === null) return alert("Please let us know if we can share your photos on social media.");
 
       const btn = document.getElementById('main-btn');
-      btn.disabled = true;
-      btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+      btn.disabled = true; btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
 
       try {
         const payload = {
-          email, phone, event: "MOTHERS_DAY",
-          shippingMethod: state.shipping,
-          socialPermission: state.social, // Passing social choice to admin
-          productType: state.line === 'magnets' ? 'standard' : 'frames'
+          email, phone, event: "MOTHERS_DAY", shippingMethod: state.shipping,
+          socialPermission: state.social, productType: state.line === 'magnets' ? 'standard' : 'frames'
         };
 
         if (state.line === 'magnets') {
           const p = PACKAGES.find(x => x.id === state.pkg);
-          payload.packSize = p.custom + p.premade; // Total magnets
+          payload.packSize = p.custom + p.premade;
           payload.premadeSelections = state.selectedPremades.map(id => PREMADES.find(x=>x.id===id).name);
           payload.mothersPackage = p.name;
         } else {
-          payload.frameStyle = state.frameStyle;
-          payload.frameSize = state.frameProduct.size;
-          payload.frameColor = state.frameColor;
-          payload.includeMagnets = state.withMagnets;
+          payload.frameStyle = state.frameStyle; payload.frameSize = state.frameProduct.size;
+          payload.frameColor = state.frameColor; payload.includeMagnets = state.withMagnets;
         }
 
         const res = await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if(!res.ok) throw new Error("Order error");
         const { orderId } = await res.json();
 
-        // Upload photos (handling blobs from cropper)
         if (state.photos.length > 0) {
             btn.innerText = "Uploading photos...";
             for(let i=0; i<state.photos.length; i++) {
-                const fd = new FormData();
-                fd.append("file", state.photos[i].blob, `photo-${i}.jpg`);
+                const fd = new FormData(); fd.append("file", state.photos[i].blob, `photo-${i}.jpg`);
                 await fetch(`/api/upload?orderId=${orderId}`, { method: "POST", body: fd });
             }
         }
@@ -728,13 +656,7 @@
         const ck = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email, country: state.shipping }) });
         const { checkoutUrl } = await ck.json();
         window.location.href = checkoutUrl;
-
-      } catch(e) {
-        console.error(e);
-        alert("Something went wrong. Please try again.");
-        btn.disabled = false;
-        render();
-      }
+      } catch(e) { console.error(e); alert("Something went wrong. Please try again."); btn.disabled = false; render(); }
     }
 
     render();

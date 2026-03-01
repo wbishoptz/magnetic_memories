@@ -202,7 +202,8 @@
         </label>
         
         <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
-        <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
+        
+        <input type="file" id="fileInput" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp, image/*" style="opacity: 0; position: absolute; z-index: -1; width: 1px; height: 1px;" />
         
         <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
       </div>
@@ -434,17 +435,22 @@
     // STEP 2
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
-      container.innerHTML = PRODUCTS[state.style].map(p => `
-        <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
-             <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+      
+      let html = '';
+      PRODUCTS[state.style].forEach(p => {
+        html += `
+          <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
+            <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
+               <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+            </div>
+            <div class="px-3 pb-3">
+              <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
+              <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
+            </div>
           </div>
-          <div class="px-3 pb-3">
-            <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
-            <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
-          </div>
-        </div>
-      `).join('');
+        `;
+      });
+      container.innerHTML = html;
     }
 
     window.selectProduct = (pid) => {
@@ -527,11 +533,12 @@
       });
 
       if (state.photos.length < limit) {
+        // IG FIX: Replaced DIV with LABEL targeting the fileInput ID
         html += `
-          <div onclick="document.getElementById('fileInput').click()" class="aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary">
+          <label for="fileInput" class="w-full h-full m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary">
             <i data-lucide="plus" class="w-5 h-5"></i>
-            <span class="text-[10px] font-bold mt-1">Add</span>
-          </div>
+            <span class="text-[10px] font-bold mt-1">Add Photo</span>
+          </label>
         `;
       }
       container.innerHTML = html;
@@ -612,6 +619,7 @@
       render();
     };
 
+    // Cropper & Upload Logic
     const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
