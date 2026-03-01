@@ -231,18 +231,22 @@ function updateVisibility() {
     }
 }
 
-// ---- Dropzone Fixes ----
+// ---- IG WEBVIEW PROOF DROPZONE TEMPLATE ----
 Dropzone.autoDiscover = false;
 const dzElement = document.getElementById("mm-dropzone");
 
-// The STRICT custom template that cannot be overridden by Dropzone
+// Both buttons moved to the TOP to avoid the Instagram bottom-bar touch trap.
+// Added a subtle gradient behind them so they always stand out.
 const strictPreviewTemplate = `
   <div class="dz-preview dz-file-preview" style="position:relative; width:110px; height:110px; margin:8px; border-radius:12px; overflow:hidden; display:inline-block; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background:#f9fafb;">
     <div class="dz-image" style="width:100%; height:100%;">
       <img data-dz-thumbnail style="width:100%; height:100%; object-fit:cover; display:block;" />
     </div>
-    <button type="button" class="dz-remove-custom" style="position:absolute; top:4px; right:4px; background:rgba(239, 68, 68, 0.9); color:white; border:none; border-radius:50%; width:24px; height:24px; font-size:12px; font-weight:bold; cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.2);">✕</button>
-    <button type="button" class="dz-crop-custom" style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); color:#1f2937; border:none; border-radius:6px; padding:4px 12px; font-size:11px; font-weight:bold; cursor:pointer; z-index:30; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Crop</button>
+    <div style="position:absolute; top:0; left:0; right:0; height:44px; background:linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); pointer-events:none; z-index:10;"></div>
+    
+    <button type="button" class="dz-crop-custom" style="position:absolute; top:6px; left:6px; background:rgba(255,255,255,0.95); color:#1f2937; border:none; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; cursor:pointer; z-index:30; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">Crop</button>
+
+    <button type="button" class="dz-remove-custom" style="position:absolute; top:6px; right:6px; background:rgba(239, 68, 68, 0.95); color:white; border:none; border-radius:50%; width:26px; height:26px; font-size:14px; font-weight:bold; cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.3); padding:0; line-height:1;">✕</button>
   </div>
 `;
 
@@ -255,12 +259,12 @@ const myDropzone = new Dropzone(dzElement, {
   maxFilesize: 95, 
   acceptedFiles: "image/jpeg,image/png,image/heic,image/heif",
   createImageThumbnails: true,
-  thumbnailWidth: 250,  // Force Dropzone to make square, high-res thumbnails
-  thumbnailHeight: 250, // Force Dropzone to make square, high-res thumbnails
-  addRemoveLinks: false, // Turn OFF default weird text links
+  thumbnailWidth: 250,  
+  thumbnailHeight: 250, 
+  addRemoveLinks: false, 
   clickable: ["#mm-dropzone", "#fileInput"],
   dictDefaultMessage: "Drag & drop photos here, or click to choose",
-  previewTemplate: strictPreviewTemplate // Enforce our layout
+  previewTemplate: strictPreviewTemplate 
 });
 
 myDropzone.on("error", (file, message) => {
@@ -476,7 +480,6 @@ async function processCropQueue() {
 myDropzone.on("addedfile", (file) => {
   const previewEl = file.previewElement;
 
-  // Manually attach event to the custom Crop button
   const cropBtn = previewEl.querySelector('.dz-crop-custom');
   if (cropBtn) {
     cropBtn.addEventListener('click', (e) => {
@@ -487,7 +490,6 @@ myDropzone.on("addedfile", (file) => {
     });
   }
 
-  // Manually attach event to the custom Remove button
   const removeBtn = previewEl.querySelector('.dz-remove-custom');
   if (removeBtn) {
     removeBtn.addEventListener('click', (e) => {
@@ -705,7 +707,6 @@ payBtn.addEventListener("click", async () => {
     }, 500);
   }
 });
-
 
 // =====================
 //  Cropper Integration
