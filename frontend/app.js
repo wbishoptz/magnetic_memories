@@ -745,75 +745,86 @@ function openCropModalAndAwait(file) {
 
 function openCropModal(file, done) {
   currentCropFile = file;
+  let ratio = 1;
 
-  // Always square aspect ratio (1:1) now
-  let ratio = 1; 
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    cropImg.src = e.target.result;
-    cropModal.classList.remove("hidden");
-
-    cropperInstance = new Cropper(cropImg, {
-      aspectRatio: ratio,
-      viewMode: 1,
-      guides: true,
-      autoCropArea: 1,
-      movable: true,
-      zoomable: true,
-      background: false,
-      modal: true,
-      dragMode: "move",
-    });
-
-    cropSave.onclick = (ev) => {
-      ev.preventDefault();
-      if (!cropperInstance || !currentCropFile) return;
-
-      const canvas = cropperInstance.getCroppedCanvas({
-        maxWidth: 3000,
-        maxHeight: 3000,
-        imageSmoothingQuality: "high",
-      });
-
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-
-        currentCropFile._cropped = true;
-        currentCropFile._croppedBlob = blob;
-
-        const preview = currentCropFile.previewElement;
-        if (preview) {
-          const imgEl = preview.querySelector("img");
-          if (imgEl) imgEl.src = URL.createObjectURL(blob);
-        }
-
-        cropperInstance.destroy();
-        cropperInstance = null;
-        cropModal.classList.add("hidden");
-        currentCropFile = null;
-
-        updatePhotoCount();
-        showToast("Crop saved", "ok");
-        if (done) done();
-      }, "image/jpeg", 0.95);
-    };
-
-    cropRemove.onclick = (ev) => {
-      ev.preventDefault();
-      if (currentCropFile) {
-        myDropzone.removeFile(currentCropFile);
-      }
-      if (cropperInstance) cropperInstance.destroy();
+  // Clean up previous cropper instance if it got stuck
+  if (cropperInstance) {
+      cropperInstance.destroy();
       cropperInstance = null;
+  }
+
+  // MEMORY FIX: Use object URL instead of FileReader. 
+  // This prevents iOS/IG WebView from crashing on large photo uploads.
+  const objectUrl = URL.createObjectURL(file);
+  cropImg.src = objectUrl;
+  cropModal.classList.remove("hidden");
+
+  cropperInstance = new Cropper(cropImg, {
+    aspectRatio: ratio,
+    viewMode: 1,
+    guides: true,
+    autoCropArea: 1,
+    movable: true,
+    zoomable: true,
+    background: false,
+    modal: true,
+    dragMode: "move",
+  });
+
+  // Helper to safely destroy everything and free the memory
+  const cleanup = () => {
+      if (cropperInstance) {
+          cropperInstance.destroy();
+          cropperInstance = null;
+      }
       cropModal.classList.add("hidden");
       currentCropFile = null;
-      updatePhotoCount();
-      showToast("Photo removed", "warn");
-      if (done) done();
-    };
+      URL.revokeObjectURL(objectUrl); 
   };
-  reader.readAsDataURL(file);
+
+  cropSave.onclick = (ev) => {
+    ev.preventDefault();
+    if (!cropperInstance || !currentCropFile) return;
+
+    const canvas = cropperInstance.getCroppedCanvas({
+      maxWidth: 3000,
+      maxHeight: 3000,
+      imageSmoothingQuality: "high",
+    });
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      currentCropFile._cropped = true;
+      currentCropFile._croppedBlob = blob;
+
+      const preview = currentCropFile.previewElement;
+      if (preview) {
+        const imgEl = preview.querySelector("img");
+        if (imgEl) {
+            // Free the old preview memory before assigning the new one
+            if (imgEl.src.startsWith('blob:')) URL.revokeObjectURL(imgEl.src);
+            imgEl.src = URL.createObjectURL(blob);
+        }
+      }
+
+      cleanup();
+      updatePhotoCount();
+      showToast("Crop saved", "ok");
+      if (done) done();
+    }, "image/jpeg", 0.95);
+  };
+
+  cropRemove.onclick = (ev) => {
+    ev.preventDefault();
+    if (currentCropFile) {
+      myDropzone.removeFile(currentCropFile);
+    }
+    cleanup();
+    updatePhotoCount();
+    showToast("Photo removed", "warn");
+    if (done) done();
+  };
 }
 
 updatePayButtonAppearance();
