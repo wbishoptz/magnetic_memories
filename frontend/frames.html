@@ -81,8 +81,12 @@
           <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">3</div>
           <span class="text-[10px] mt-1 font-medium text-muted-foreground">Custom</span>
         </div>
-        <div class="flex flex-col items-center step-indicator" data-step="4">
+        <div id="nav-step-upload" class="flex flex-col items-center step-indicator" data-step="4">
           <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">4</div>
+          <span class="text-[10px] mt-1 font-medium text-muted-foreground">Upload</span>
+        </div>
+        <div class="flex flex-col items-center step-indicator" data-step="5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all">5</div>
           <span class="text-[10px] mt-1 font-medium text-muted-foreground">Pay</span>
         </div>
       </div>
@@ -193,18 +197,25 @@
           </div>
         </div>
       </div>
-
-      <div id="upload-section" class="hidden animate-slide-up">
-        <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-          Upload Photos (<span id="photo-count">0</span>/<span id="photo-target">0</span>)
-        </label>
-        
-        <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
-        <p class="text-xs text-muted-foreground mt-3 text-center">Tip: Use high-quality photos</p>
-      </div>
     </div>
 
     <div id="step-4" class="hidden animate-fade-in">
+      <div class="text-center mb-6">
+        <h2 class="font-serif text-2xl font-bold mb-1">Upload Photos</h2>
+        <p class="text-sm text-muted-foreground">Select <span id="photo-target">0</span> memories for your frame</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-border shadow-sm p-4">
+        <div class="grid grid-cols-3 gap-3" id="photo-grid"></div>
+        
+        <div class="mt-4 p-3 rounded-xl bg-accent/50 border border-primary/20 flex justify-between items-center">
+            <span class="text-xs font-bold text-primary"><span id="photo-count">0</span> / <span id="photo-req">0</span> Selected</span>
+        </div>
+        <p class="text-xs text-muted-foreground mt-4 text-center italic">Tap the '+' to add and crop your photos</p>
+      </div>
+    </div>
+
+    <div id="step-5" class="hidden animate-fade-in">
       <div class="text-center mb-6">
         <h2 class="font-serif text-2xl font-bold mb-1">Confirm Order</h2>
         <p class="text-sm text-muted-foreground">Final details</p>
@@ -319,39 +330,78 @@
     };
 
     function render() {
-      [1,2,3,4].forEach(s => {
+      // Logic for Upload step visibility in navigation bar
+      const uploadStepNav = document.getElementById('nav-step-upload');
+      if (state.withMagnets) {
+          uploadStepNav.classList.remove('hidden');
+      } else {
+          uploadStepNav.classList.add('hidden');
+      }
+
+      [1,2,3,4,5].forEach(s => {
         const el = document.getElementById(`step-${s}`);
         if(s === state.step) { el.classList.remove('hidden'); setTimeout(() => window.scrollTo(0,0), 50); } 
         else { el.classList.add('hidden'); }
       });
 
-      const progress = ((state.step - 1) / 3) * 100;
+      // Update Progress Bar
+      const totalSteps = state.withMagnets ? 5 : 4;
+      const currentProgressStep = state.step;
+      const progress = ((currentProgressStep - 1) / (totalSteps - 1)) * 100;
       document.getElementById('progress-fill').style.width = `${progress}%`;
+
+      // Update Step Indicators
       document.querySelectorAll('.step-indicator').forEach(el => {
         const s = parseInt(el.dataset.step);
         const circle = el.querySelector('div');
         const text = el.querySelector('span');
         
-        if (s < state.step) { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all"; circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>'; text.className = "text-[10px] mt-1 font-medium text-primary"; } 
-        else if (s === state.step) { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all"; circle.innerText = s; text.className = "text-[10px] mt-1 font-medium text-primary"; } 
-        else { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all"; circle.innerText = s; text.className = "text-[10px] mt-1 font-medium text-muted-foreground"; }
+        // Map 1-5 logic to visual 1-4 logic if magnets are off
+        let visualStep = s;
+        if (!state.withMagnets && s > 3) visualStep = s - 1;
+
+        if (s < state.step) { 
+            circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all"; 
+            circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>'; 
+            text.className = "text-[10px] mt-1 font-medium text-primary"; 
+        } 
+        else if (s === state.step) { 
+            circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all"; 
+            circle.innerText = visualStep; 
+            text.className = "text-[10px] mt-1 font-medium text-primary"; 
+        } 
+        else { 
+            circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all"; 
+            circle.innerText = visualStep; 
+            text.className = "text-[10px] mt-1 font-medium text-muted-foreground"; 
+        }
       });
-      lucide.createIcons();
 
       const btn = document.getElementById('main-btn');
-      btn.disabled = false; 
-
       let valid = false; let text = "Continue"; let priceLabel = "";
 
-      if (state.step === 1) { valid = !!state.style; text = "Continue"; priceLabel = ""; } 
-      else if (state.step === 2) { valid = !!state.product; text = "Customize"; if (state.product) { priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; } } 
-      else if (state.step === 3) { valid = true; if (state.withMagnets && state.photos.length !== state.product.size) valid = false; text = "Proceed to Pay"; if (state.product) { priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; } } 
-      else if (state.step === 4) { valid = state.shipping && state.social !== null; if(state.product) { const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice; const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0; const total = p + ship; text = `Pay £${total.toFixed(2)}`; } else { text = "Complete Order"; } }
+      if (state.step === 1) { valid = !!state.style; } 
+      else if (state.step === 2) { valid = !!state.product; } 
+      else if (state.step === 3) { valid = true; text = state.withMagnets ? "Go to Upload" : "Confirm Details"; } 
+      else if (state.step === 4) { valid = state.photos.length === state.product.size; text = "Confirm Details"; } 
+      else if (state.step === 5) { 
+        valid = state.shipping && state.social !== null; 
+        if(state.product) { 
+            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice; 
+            const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0; 
+            text = `Pay £${(p + ship).toFixed(2)}`; 
+        } 
+      }
 
-      if (!valid) { btn.classList.add('opacity-50', 'cursor-not-allowed'); if(state.step===4) text = "Complete Options"; } 
-      else { btn.classList.remove('opacity-50', 'cursor-not-allowed'); }
+      if (state.product) { 
+          priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; 
+      }
 
-      btn.innerHTML = state.step === 4 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${priceLabel} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+      btn.disabled = !valid;
+      btn.classList.toggle('opacity-50', !valid);
+      btn.classList.toggle('cursor-not-allowed', !valid);
+
+      btn.innerHTML = state.step === 5 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${state.step < 5 ? priceLabel : ''} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
       lucide.createIcons();
     }
 
@@ -371,8 +421,8 @@
       container.innerHTML = html;
     }
 
-    window.selectProduct = (pid) => { state.product = PRODUCTS[state.style].find(p => p.id === pid); state.withMagnets = false; state.photos = []; updateCustomUI(); renderSizeGrid(); setTimeout(() => nextStep(), 300); };
-    window.setMagnets = (enabled) => { state.withMagnets = enabled; updateCustomUI(); };
+    window.selectProduct = (pid) => { state.product = PRODUCTS[state.style].find(p => p.id === pid); state.photos = []; updateCustomUI(); renderSizeGrid(); setTimeout(() => nextStep(), 300); };
+    window.setMagnets = (enabled) => { state.withMagnets = enabled; if(!enabled) state.photos = []; updateCustomUI(); };
     window.setColor = (col) => { state.color = col; updateCustomUI(); };
 
     function updateCustomUI() {
@@ -384,14 +434,12 @@
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
         document.getElementById('price-magnets').innerText = `£${state.product.fullPrice.toFixed(2)}`;
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
+        document.getElementById('photo-target').innerText = state.product.size;
+        document.getElementById('photo-req').innerText = state.product.size;
       }
 
       const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
       for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`; }
-
-      const uploadSec = document.getElementById('upload-section');
-      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.product.size; renderPhotos(); } 
-      else { uploadSec.classList.add('hidden'); }
       render(); 
     }
 
@@ -411,19 +459,18 @@
       });
 
       if (state.photos.length < limit) {
-        // NATIVE HTML FIX: Safe label connection with no DOM hacks.
         html += `
           <label for="fileInput" class="m-0 aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center cursor-pointer hover:bg-accent/80 text-primary transition-all">
-            <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
+            <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
             <span class="text-[10px] font-bold">Add Photo</span>
           </label>
         `;
       }
       container.innerHTML = html;
       lucide.createIcons();
+      render(); 
     }
 
-    // --- CROPPER UPLOAD LOGIC (FIXED) ---
     const fileInput = document.getElementById('fileInput');
     const modal = document.getElementById('crop-modal');
     const cropImg = document.getElementById('crop-image');
@@ -436,13 +483,12 @@
         const files = Array.from(e.target.files).slice(0, remaining);
         processQueue(files);
       }
-      // SAFE CLEAR: Clears AFTER reading, allowing user to pick the same image twice if needed
       e.target.value = '';
     });
 
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
-      renderPhotos(); render(); 
+      renderPhotos();
     }
 
     function openCropper(file, resolve) {
@@ -459,45 +505,60 @@
             closeCropper(); resolve();
           }, 'image/jpeg', 0.95);
         };
-
-        // FIXED: Canceling safely resolves the promise so the queue isn't blocked
         document.getElementById('crop-cancel').onclick = () => { closeCropper(); resolve(); };
       };
-      reader.onerror = () => { closeCropper(); resolve(); };
       reader.readAsDataURL(file);
     }
 
     window.closeCropper = () => { modal.style.display = 'none'; if(cropper) cropper.destroy(); };
-    window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); render(); };
+    window.removePhoto = (i) => { state.photos.splice(i, 1); renderPhotos(); };
 
     function updateSummary() {
       if(!state.product) return; 
-
       const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
       const total = price + ship;
-
       let name = state.style === 'bohemian' ? "Bohemian Frame" : state.style === 'sleek' ? "Sleek Frame" : "Rollercube";
       document.getElementById('summary-product').innerText = name;
-      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
+      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet Slots • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
     }
 
     window.nextStep = () => {
-      try {
-        if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
-        if (state.step === 2 && !state.product) { alert("Please select a frame size."); return; }
-        if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) { alert(`Please upload exactly ${state.product.size} photos.`); return; }
-        if (state.step === 4) { if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; } submitOrder(); return; }
-        if (state.step === 1 && state.style === 'rollercube') state.step = 3; else state.step++;
-        if(state.step === 3) updateCustomUI(); if(state.step === 4) updateSummary(); render();
-      } catch(e) { alert("Something went wrong."); }
+      if (state.step === 1 && !state.style) return;
+      if (state.step === 2 && !state.product) return;
+      
+      if (state.step === 3) {
+          if (state.withMagnets) state.step = 4;
+          else state.step = 5;
+      }
+      else if (state.step === 4) {
+          if (state.photos.length !== state.product.size) {
+              alert(`Please upload all ${state.product.size} photos first!`);
+              return;
+          }
+          state.step = 5;
+      }
+      else if (state.step === 5) {
+          submitOrder();
+          return;
+      } else {
+          state.step++;
+      }
+      
+      if(state.step === 4) renderPhotos();
+      if(state.step === 5) updateSummary();
+      render();
     };
 
     window.goBack = () => {
-      if (state.step === 3 && state.style === 'rollercube') state.step = 1; else state.step--;
-      if (state.step < 1) window.location.href = "/"; else render();
+      if (state.step === 5 && !state.withMagnets) state.step = 3;
+      else if (state.step === 3 && state.style === 'rollercube') state.step = 1;
+      else state.step--;
+
+      if (state.step < 1) window.location.href = "/";
+      else render();
     };
 
     window.setShipping = (m) => {
@@ -526,16 +587,13 @@
       const btn = document.getElementById('main-btn');
 
       if(!email || !phone) { alert("Please enter email & phone"); return; }
-
-      btn.disabled = true; btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+      btn.disabled = true; btn.innerHTML = `<span class=\"animate-pulse\">Processing...</span>`;
 
       try {
         const res = await fetch("/api/order", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, phone, event: "FRAMES", productType: "frame", frameStyle: state.style, frameSize: state.product.size, frameColor: state.color, includeMagnets: state.withMagnets, shippingMethod: state.shipping, socialPermission: state.social })
         });
-        
-        if(!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
         if(state.withMagnets && state.photos.length > 0) {
