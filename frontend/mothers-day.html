@@ -54,6 +54,9 @@
 
     /* Fix for image grid ratios */
     .premade-img { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* Optimization: prevent layout shifts */
+    #main-btn:disabled { cursor: not-allowed; }
   </style>
 </head>
 <body class="pb-24">
@@ -356,9 +359,12 @@
       social: null 
     };
 
+    // Optimization: Simplified render function
     function render() {
-      ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'].forEach(s => {
-        document.getElementById(`step-${s}`).style.display = (state.step === s) ? 'block' : 'none';
+      const steps = ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'];
+      steps.forEach(s => {
+        const el = document.getElementById(`step-${s}`);
+        if (el) el.style.display = (state.step === s) ? 'block' : 'none';
       });
 
       const btn = document.getElementById('main-btn');
@@ -369,7 +375,10 @@
       else if (state.step === 'packages') { valid = !!state.pkg; } 
       else if (state.step === 'frame-style') { valid = !!state.frameStyle; } 
       else if (state.step === 'frame-size') { valid = !!state.frameProduct; } 
-      else if (state.step === 'frame-custom') { valid = true; text = state.withMagnets ? "Upload Photos" : "Review Order"; } 
+      else if (state.step === 'frame-custom') { 
+        valid = true; 
+        text = state.withMagnets ? "Upload Photos" : "Review Order"; 
+      } 
       else if (state.step === 'photos') {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
         valid = state.photos.length === req;
@@ -387,17 +396,15 @@
 
       btn.disabled = !valid;
       btn.style.opacity = valid ? '1' : '0.5';
+      btn.innerHTML = state.step === 'checkout' && valid 
+        ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}`
+        : `${text} ${valid ? '<i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>' : ''}`;
       
-      if (state.step === 'checkout' && valid) {
-        btn.innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}`;
-      } else {
-        btn.innerHTML = `${text} ${valid ? '<i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>' : ''}`;
-      }
       lucide.createIcons();
 
+      // Only run expensive renders if relevant
       if(state.step === 'packages') renderPackages();
       if(state.step === 'frame-size') renderFrameSizes();
-      if(state.step === 'frame-custom') updateCustomUI();
       if(state.step === 'photos') renderPhotos();
       if(state.step === 'premade') renderPremades();
       if(state.step === 'checkout') renderCheckout();
@@ -412,10 +419,11 @@
     function renderPackages() {
       let html = '';
       PACKAGES.forEach(p => {
+        const isSel = state.pkg === p.id;
         html += `
-          <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.pkg === p.id ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
+          <div onclick="selectPackage(${p.id})" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${isSel ? 'border-primary ring-1 ring-primary bg-secondary' : 'border-transparent mothers-card hover:border-primary/30'}">
             <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2 relative">
-               ${p.popular && state.pkg !== p.id ? '<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 w-max">Most Popular</div>' : ''}
+               ${p.popular && !isSel ? '<div class="absolute top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md z-10 w-max">Most Popular</div>' : ''}
                <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
             </div>
             <div class="px-2 pb-3">
@@ -427,15 +435,19 @@
         `;
       });
       document.getElementById('package-list').innerHTML = html;
-      lucide.createIcons();
     }
 
     window.selectPackage = (pid) => { state.pkg = pid; state.photos = []; state.selectedPremades = []; state.step = 'photos'; render(); };
 
     window.selectFrameStyle = (style) => {
       state.frameStyle = style;
-      if (style === 'rollercube') { state.frameProduct = FRAME_PRODUCTS.rollercube[0]; state.step = 'frame-custom'; state.withMagnets = false; } 
-      else { state.step = 'frame-size'; }
+      if (style === 'rollercube') { 
+        state.frameProduct = FRAME_PRODUCTS.rollercube[0]; 
+        state.step = 'frame-custom'; 
+        state.withMagnets = false; 
+      } else { 
+        state.step = 'frame-size'; 
+      }
       render();
     };
 
@@ -452,14 +464,32 @@
       document.getElementById('size-grid').innerHTML = html;
     }
 
-    window.selectFrameProduct = (pid) => { state.frameProduct = FRAME_PRODUCTS[state.frameStyle].find(p => p.id === pid); state.withMagnets = false; state.photos = []; state.step = 'frame-custom'; render(); };
-    window.setMagnets = (enabled) => { state.withMagnets = enabled; updateCustomUI(); };
-    window.setColor = (col) => { state.frameColor = col; updateCustomUI(); };
+    window.selectFrameProduct = (pid) => { 
+      state.frameProduct = FRAME_PRODUCTS[state.frameStyle].find(p => p.id === pid); 
+      state.withMagnets = false; 
+      state.photos = []; 
+      state.step = 'frame-custom'; 
+      render(); 
+      updateCustomUI();
+    };
 
+    window.setMagnets = (enabled) => { 
+      state.withMagnets = enabled; 
+      updateCustomUI(); 
+    };
+
+    window.setColor = (col) => { 
+      state.frameColor = col; 
+      updateCustomUI(); 
+    };
+
+    // Optimization: Separated Custom UI update to prevent full loop lag
     function updateCustomUI() {
       const activeClass = "border-primary bg-secondary ring-1 ring-primary";
-      document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
-      document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
+      const inactiveClass = "cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all";
+      
+      document.getElementById('opt-frame').className = `${inactiveClass} ${!state.withMagnets ? activeClass : ''}`;
+      document.getElementById('opt-magnets').className = `${inactiveClass} ${state.withMagnets ? activeClass : ''}`;
 
       if(state.frameProduct) {
         document.getElementById('price-frame').innerText = `£${state.frameProduct.framePrice.toFixed(2)}`;
@@ -468,11 +498,11 @@
       }
 
       const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
-      for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; }
-
-      const uploadSec = document.getElementById('step-photos');
-      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.frameProduct.size; renderPhotos(); } 
-      else { uploadSec.classList.add('hidden'); }
+      for (const [name, id] of Object.entries(colors)) { 
+        const el = document.getElementById(id); 
+        if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; 
+      }
+      
       render(); 
     }
 
