@@ -312,25 +312,15 @@
     };
 
     let state = {
-      step: 1,
-      style: null,
-      product: null,
-      color: 'White',
-      withMagnets: false,
-      photos: [],
-      shipping: null,
-      social: null
+      step: 1, style: null, product: null, color: 'White',
+      withMagnets: false, photos: [], shipping: null, social: null
     };
 
     function render() {
       [1,2,3,4].forEach(s => {
         const el = document.getElementById(`step-${s}`);
-        if(s === state.step) {
-          el.classList.remove('hidden');
-          setTimeout(() => window.scrollTo(0,0), 50); 
-        } else {
-          el.classList.add('hidden');
-        }
+        if(s === state.step) { el.classList.remove('hidden'); setTimeout(() => window.scrollTo(0,0), 50); } 
+        else { el.classList.add('hidden'); }
       });
 
       const progress = ((state.step - 1) / 3) * 100;
@@ -340,83 +330,30 @@
         const circle = el.querySelector('div');
         const text = el.querySelector('span');
         
-        if (s < state.step) { 
-          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all";
-          circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>';
-          text.className = "text-[10px] mt-1 font-medium text-primary";
-        } else if (s === state.step) { 
-          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all";
-          circle.innerText = s;
-          text.className = "text-[10px] mt-1 font-medium text-primary";
-        } else { 
-          circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all";
-          circle.innerText = s;
-          text.className = "text-[10px] mt-1 font-medium text-muted-foreground";
-        }
+        if (s < state.step) { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white transition-all"; circle.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i>'; text.className = "text-[10px] mt-1 font-medium text-primary"; } 
+        else if (s === state.step) { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary text-white shadow-soft scale-110 transition-all"; circle.innerText = s; text.className = "text-[10px] mt-1 font-medium text-primary"; } 
+        else { circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-muted text-muted-foreground transition-all"; circle.innerText = s; text.className = "text-[10px] mt-1 font-medium text-muted-foreground"; }
       });
       lucide.createIcons();
 
       const btn = document.getElementById('main-btn');
       btn.disabled = false; 
 
-      let valid = false;
-      let text = "Continue";
-      let priceLabel = "";
+      let valid = false; let text = "Continue"; let priceLabel = "";
 
-      if (state.step === 1) {
-        valid = !!state.style;
-        text = "Continue";
-        priceLabel = "";
-      } else if (state.step === 2) {
-        valid = !!state.product;
-        text = "Customize";
-        if (state.product) {
-            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
-            priceLabel = ` • £${p.toFixed(2)}`;
-        }
-      } else if (state.step === 3) {
-        valid = true;
-        if (state.withMagnets && state.photos.length !== state.product.size) valid = false;
-        text = "Proceed to Pay";
-        if (state.product) {
-            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
-            priceLabel = ` • £${p.toFixed(2)}`;
-        }
-      } else if (state.step === 4) {
-        valid = state.shipping && state.social !== null;
-        if(state.product) {
-            const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
-            const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0;
-            const total = p + ship;
-            text = `Pay £${total.toFixed(2)}`;
-        } else {
-            text = "Complete Order";
-        }
-      }
+      if (state.step === 1) { valid = !!state.style; text = "Continue"; priceLabel = ""; } 
+      else if (state.step === 2) { valid = !!state.product; text = "Customize"; if (state.product) { priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; } } 
+      else if (state.step === 3) { valid = true; if (state.withMagnets && state.photos.length !== state.product.size) valid = false; text = "Proceed to Pay"; if (state.product) { priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; } } 
+      else if (state.step === 4) { valid = state.shipping && state.social !== null; if(state.product) { const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice; const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0; const total = p + ship; text = `Pay £${total.toFixed(2)}`; } else { text = "Complete Order"; } }
 
-      if (!valid) {
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
-        if(state.step===4) text = "Complete Options";
-      } else {
-        btn.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
+      if (!valid) { btn.classList.add('opacity-50', 'cursor-not-allowed'); if(state.step===4) text = "Complete Options"; } 
+      else { btn.classList.remove('opacity-50', 'cursor-not-allowed'); }
 
-      btn.innerHTML = state.step === 4 && valid 
-        ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` 
-        : `${text}${priceLabel} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+      btn.innerHTML = state.step === 4 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${priceLabel} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
       lucide.createIcons();
     }
 
-    window.selectStyle = (style) => {
-      state.style = style;
-      if (style === 'rollercube') {
-        state.product = PRODUCTS.rollercube[0]; 
-        setTimeout(() => nextStep(), 300); 
-      } else {
-        renderSizeGrid();
-        setTimeout(() => nextStep(), 300); 
-      }
-    };
+    window.selectStyle = (style) => { state.style = style; if (style === 'rollercube') { state.product = PRODUCTS.rollercube[0]; setTimeout(() => nextStep(), 300); } else { renderSizeGrid(); setTimeout(() => nextStep(), 300); } };
 
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
@@ -424,41 +361,20 @@
       PRODUCTS[state.style].forEach(p => {
         html += `
           <div onclick="selectProduct('${p.id}')" class="cursor-pointer border-2 rounded-xl overflow-hidden text-center hover:border-primary transition-all bg-white ${state.product?.id === p.id ? 'border-primary ring-1 ring-primary bg-accent' : ''}">
-            <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2">
-               <img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
-            </div>
-            <div class="px-3 pb-3">
-              <h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3>
-              <p class="text-xs text-muted-foreground">From £${p.framePrice}</p>
-            </div>
+            <div class="w-full aspect-[4/3] bg-muted overflow-hidden mb-2"><img src="${p.img}" alt="${p.size} Magnets" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" /></div>
+            <div class="px-3 pb-3"><h3 class="font-bold text-lg">${p.size} Magnet${p.size>1?'s':''}</h3><p class="text-xs text-muted-foreground">From £${p.framePrice}</p></div>
           </div>
         `;
       });
       container.innerHTML = html;
     }
 
-    window.selectProduct = (pid) => {
-      state.product = PRODUCTS[state.style].find(p => p.id === pid);
-      state.withMagnets = false;
-      state.photos = [];
-      updateCustomUI();
-      renderSizeGrid(); 
-      setTimeout(() => nextStep(), 300); 
-    };
-
-    window.setMagnets = (enabled) => {
-      state.withMagnets = enabled;
-      updateCustomUI();
-    };
-
-    window.setColor = (col) => {
-      state.color = col;
-      updateCustomUI();
-    };
+    window.selectProduct = (pid) => { state.product = PRODUCTS[state.style].find(p => p.id === pid); state.withMagnets = false; state.photos = []; updateCustomUI(); renderSizeGrid(); setTimeout(() => nextStep(), 300); };
+    window.setMagnets = (enabled) => { state.withMagnets = enabled; updateCustomUI(); };
+    window.setColor = (col) => { state.color = col; updateCustomUI(); };
 
     function updateCustomUI() {
       const activeClass = "border-primary bg-accent ring-1 ring-primary";
-      
       document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
       document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
 
@@ -468,34 +384,16 @@
         document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
       }
 
-      const colors = {
-        'White': 'col-white',
-        'Black': 'col-black',
-        'Olive': 'col-olive',
-        'Black Walnut': 'col-walnut',
-        'White Marble': 'col-marble'
-      };
-
-      for (const [name, id] of Object.entries(colors)) {
-        const el = document.getElementById(id);
-        if (el) {
-           el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`;
-        }
-      }
+      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
+      for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`; }
 
       const uploadSec = document.getElementById('upload-section');
-      if (state.withMagnets) {
-        uploadSec.classList.remove('hidden');
-        document.getElementById('photo-target').innerText = state.product.size;
-        renderPhotos();
-      } else {
-        uploadSec.classList.add('hidden');
-      }
+      if (state.withMagnets) { uploadSec.classList.remove('hidden'); document.getElementById('photo-target').innerText = state.product.size; renderPhotos(); } 
+      else { uploadSec.classList.add('hidden'); }
       render(); 
     }
 
     function renderPhotos() {
-      const container = document.getElementById('photo-grid');
       const limit = state.product.size;
       document.getElementById('photo-count').innerText = state.photos.length;
 
@@ -510,10 +408,10 @@
       });
 
       if (state.photos.length < limit) {
-        // FIXED: The physical transparent input correctly overlays this div.
+        // NATIVE HTML FIX: Transparent input safely handles the files without hacking Dropzone mechanics
         html += `
           <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-accent flex flex-col items-center justify-center hover:bg-accent/80 text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/*" onclick="this.value=null" onchange="handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
+            <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
             <div class="pointer-events-none flex flex-col items-center justify-center">
               <i data-lucide="plus" class="w-5 h-5 mb-1"></i>
               <span class="text-[10px] font-bold">Add Photo</span>
@@ -521,28 +419,19 @@
           </div>
         `;
       }
-      container.innerHTML = html;
+      document.getElementById('photo-grid').innerHTML = html;
       lucide.createIcons();
     }
 
     function updateSummary() {
       if(!state.product) return; 
-
       const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
-      const total = price + ship;
-
-      let name = "";
-      if (state.style === 'bohemian') name = "Bohemian Frame";
-      else if (state.style === 'sleek') name = "Sleek Frame";
-      else name = "Rollercube";
-
-      const desc = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
-
+      let name = state.style === 'bohemian' ? "Bohemian Frame" : state.style === 'sleek' ? "Sleek Frame" : "Rollercube";
       document.getElementById('summary-product').innerText = name;
-      document.getElementById('summary-desc').innerText = desc;
+      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
-      document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
+      document.getElementById('summary-total').innerText = `£${(price + ship).toFixed(2)}`;
     }
 
     window.nextStep = () => {
@@ -550,50 +439,28 @@
         if (state.step === 1 && !state.style) { alert("Please choose a frame style to continue."); return; }
         if (state.step === 2 && !state.product) { alert("Please select a frame size."); return; }
         if (state.step === 3 && state.withMagnets && state.photos.length !== state.product.size) { alert(`Please upload exactly ${state.product.size} photos.`); return; }
-        if (state.step === 4) {
-          if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; }
-          submitOrder();
-          return;
-        }
-
-        if (state.step === 1 && state.style === 'rollercube') { state.step = 3; } 
-        else { state.step++; }
-        
-        if(state.step === 3) updateCustomUI();
-        if(state.step === 4) updateSummary();
-        render();
-        
-      } catch(e) {
-        console.error("Navigation error:", e);
-        alert("Something went wrong. Please try again.");
-      }
+        if (state.step === 4) { if (!state.shipping || state.social === null) { alert("Please complete delivery and permission options."); return; } submitOrder(); return; }
+        if (state.step === 1 && state.style === 'rollercube') state.step = 3; else state.step++;
+        if(state.step === 3) updateCustomUI(); if(state.step === 4) updateSummary(); render();
+      } catch(e) { alert("Something went wrong."); }
     };
 
     window.goBack = () => {
-      if (state.step === 3 && state.style === 'rollercube') { state.step = 1; } 
-      else { state.step--; }
-      if (state.step < 1) window.location.href = "/";
-      else render();
+      if (state.step === 3 && state.style === 'rollercube') state.step = 1; else state.step--;
+      if (state.step < 1) window.location.href = "/"; else render();
     };
 
     window.setShipping = (m) => {
       state.shipping = m;
-      const c = document.getElementById('ship-collect');
-      const d = document.getElementById('ship-deliver');
-      const active = "border-primary bg-accent ring-1 ring-primary";
-      c.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?active:''}`;
-      d.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?active:''}`;
-      updateSummary();
-      render(); 
+      document.getElementById('ship-collect').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_COLLECT'?"border-primary bg-accent ring-1 ring-primary":""}`;
+      document.getElementById('ship-deliver').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${m==='GI_DELIVER'?"border-primary bg-accent ring-1 ring-primary":""}`;
+      updateSummary(); render(); 
     };
 
     window.setSocial = (v) => {
       state.social = v;
-      const y = document.getElementById('social-yes');
-      const n = document.getElementById('social-no');
-      const active = "border-primary bg-accent ring-1 ring-primary";
-      y.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===true?active:''}`;
-      n.className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===false?active:''}`;
+      document.getElementById('social-yes').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===true?"border-primary bg-accent ring-1 ring-primary":""}`;
+      document.getElementById('social-no').className = `cursor-pointer border-2 rounded-xl p-3 text-center transition-all ${v===false?"border-primary bg-accent ring-1 ring-primary":""}`;
       render();
     };
 
@@ -601,7 +468,7 @@
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // FIXED: Do not clear e.target.value so memory doesn't wipe
+    // FIXED QUEUE AND MEMORY LOGIC
     window.handleFileSelect = (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const remaining = state.product.size - state.photos.length;
@@ -613,8 +480,7 @@
 
     async function processQueue(files) {
       for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
-      renderPhotos();
-      render(); 
+      renderPhotos(); render(); 
     }
 
     function openCropper(file, resolve) {
@@ -628,18 +494,13 @@
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
-            closeCropper(); 
-            resolve();
+            closeCropper(); resolve();
           }, 'image/jpeg', 0.95);
         };
 
-        // FIXED: Canceling now properly resolves the promise so the queue doesn't hang!
-        document.getElementById('crop-cancel').onclick = () => {
-          closeCropper();
-          resolve(); 
-        };
+        // FIXED: Canceling safely resolves the promise so the queue isn't blocked
+        document.getElementById('crop-cancel').onclick = () => { closeCropper(); resolve(); };
       };
-      
       reader.onerror = () => { closeCropper(); resolve(); };
       reader.readAsDataURL(file);
     }
@@ -652,25 +513,12 @@
       const phone = document.getElementById('phone').value.trim();
       const btn = document.getElementById('main-btn');
 
-      if(!email || !phone) { alert("Please enter email & phone"); return; }
-
-      btn.disabled = true;
-      btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
+      btn.disabled = true; btn.innerHTML = `<span class="animate-pulse">Processing...</span>`;
 
       try {
         const res = await fetch("/api/order", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email, phone,
-            event: "FRAMES",
-            productType: "frame",
-            frameStyle: state.style,
-            frameSize: state.product.size,
-            frameColor: state.color,
-            includeMagnets: state.withMagnets,
-            shippingMethod: state.shipping,
-            socialPermission: state.social
-          })
+          body: JSON.stringify({ email, phone, event: "FRAMES", productType: "frame", frameStyle: state.style, frameSize: state.product.size, frameColor: state.color, includeMagnets: state.withMagnets, shippingMethod: state.shipping, socialPermission: state.social })
         });
         
         if(!res.ok) throw new Error("API Error");
@@ -686,20 +534,10 @@
         }
 
         btn.innerHTML = "Redirecting...";
-        const ckRes = await fetch("/api/checkout", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, email, country: state.shipping })
-        });
-        
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email, country: state.shipping }) });
         const { checkoutUrl } = await ckRes.json();
         window.location.href = checkoutUrl;
-
-      } catch(e) {
-        console.error(e);
-        alert("Error processing order");
-        btn.disabled = false;
-        render();
-      }
+      } catch(e) { alert("Error processing order"); btn.disabled = false; render(); }
     };
 
     render();

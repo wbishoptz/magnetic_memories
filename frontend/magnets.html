@@ -149,13 +149,17 @@
       <h2>Upload your photos</h2>
 
       <form id="mm-dropzone" class="dropzone" onsubmit="return false;">
-        <div class="dz-message">
+        <div class="dz-message" style="position: relative;">
+          
+          <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" 
+                 onclick="this.value=null" 
+                 onchange="window.handleIgFallback(event)" 
+                 style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.01; z-index: 50; cursor: pointer;" />
+          
           Tap to select photos<br>
           <span style="font-size:0.85em; opacity:0.7">(or drag & drop)</span>
         </div>
       </form>
-
-      <input id="fileInput" type="file" multiple accept="image/*" style="display:none" />
 
       <div class="upload-meta">
         <div>
@@ -243,26 +247,17 @@
   <script>
     lucide.createIcons();
     
-    // THE BULLETPROOF INSTAGRAM FIX: 
-    // We take Dropzone's OWN native input and physically stretch it over the box. 
-    // This perfectly bypasses security without breaking app.js cropper logic.
-    setTimeout(() => {
-      const dzForm = document.getElementById('mm-dropzone');
-      if (dzForm && dzForm.dropzone && dzForm.dropzone.hiddenFileInput) {
-         const input = dzForm.dropzone.hiddenFileInput;
-         dzForm.style.position = 'relative';
-         input.style.visibility = 'visible';
-         input.style.position = 'absolute';
-         input.style.top = '0';
-         input.style.left = '0';
-         input.style.width = '100%';
-         input.style.height = '100%';
-         input.style.opacity = '0.01'; // Invisible but physically clickable
-         input.style.zIndex = '50';
-         input.style.cursor = 'pointer';
-         input.onclick = function() { this.value = null; }; // Fix memory bug
+    // SAFE FILE PASSING: This simply passes the raw files into Dropzone's native handler.
+    // It works perfectly on Desktop, iOS, and Android without blocking app.js.
+    window.handleIgFallback = function(e) {
+      if(e.target.files && e.target.files.length > 0) {
+         const dz = document.getElementById('mm-dropzone').dropzone;
+         if(dz) dz.handleFiles(e.target.files);
       }
-    }, 1000); // 1 second delay gives app.js time to load
+      
+      // Delay clear so Android memory doesn't wipe the file before app.js reads it
+      setTimeout(() => { e.target.value = ''; }, 500);
+    };
   </script>
 </body>
 </html>

@@ -107,8 +107,7 @@
         <h2 class="font-serif text-2xl font-bold mb-2">Choose Your Package</h2>
         <p class="text-sm text-muted-foreground">Each box contains beautiful magnets</p>
       </div>
-      <div class="grid grid-cols-2 gap-4" id="package-list">
-        </div>
+      <div class="grid grid-cols-2 gap-4" id="package-list"></div>
     </div>
 
     <div id="step-frame-style" class="hidden animate-fade-in">
@@ -154,8 +153,7 @@
         <h2 class="font-serif text-2xl font-bold mb-1">Select Size</h2>
         <p class="text-sm text-muted-foreground">How many magnets?</p>
       </div>
-      <div class="grid grid-cols-2 gap-4" id="size-grid">
-        </div>
+      <div class="grid grid-cols-2 gap-4" id="size-grid"></div>
     </div>
 
     <div id="step-frame-custom" class="hidden animate-fade-in">
@@ -301,7 +299,6 @@
   <script>
     lucide.createIcons();
 
-    // --- DATA ---
     const PACKAGES = [
       { id: 1, name: "Box 1", custom: 3, premade: 1, price: 12.50, img: "./box1.jpeg" },
       { id: 2, name: "Box 2", custom: 6, premade: 2, price: 25.00, img: "./box2.jpeg", popular: true },
@@ -336,7 +333,6 @@
       ]
     };
 
-    // --- STATE ---
     let state = {
       step: 'landing', 
       line: null, 
@@ -351,7 +347,6 @@
       social: null 
     };
 
-    // --- RENDER ROUTER ---
     function render() {
       ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'].forEach(s => {
         document.getElementById(`step-${s}`).style.display = (state.step === s) ? 'block' : 'none';
@@ -484,13 +479,13 @@
       });
 
       if (state.photos.length < req) {
-        // FIXED: Physical transparent input strictly layered over the div. onclick="this.value=null" resets it safely without breaking memory.
+        // NATIVE HTML FIX: Transparent input safely handles the files without hacking Dropzone mechanics
         html += `
           <div class="relative aspect-square rounded-xl border-2 border-dashed border-primary/40 bg-secondary/50 flex flex-col items-center justify-center hover:bg-secondary text-primary transition-all overflow-hidden cursor-pointer">
-            <input type="file" multiple accept="image/*" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full z-50 cursor-pointer" style="opacity: 0.01;" />
+            <input type="file" multiple accept="image/jpeg, image/png, image/heic, image/heif, image/webp" onclick="this.value=null" onchange="window.handleFileSelect(event)" class="absolute inset-0 w-full h-full cursor-pointer z-50" style="opacity: 0.01;" />
             <div class="pointer-events-none flex flex-col items-center justify-center">
               <i data-lucide="plus" class="w-6 h-6 mb-1"></i>
-              <span class="text-xs font-bold">Add Photo</span>
+              <span class="text-[10px] font-bold">Add Photo</span>
             </div>
           </div>
         `;
@@ -504,7 +499,7 @@
     const cropImg = document.getElementById('crop-image');
     let cropper = null;
 
-    // FIXED: Do not clear e.target.value here. Memory is safe.
+    // FIXED QUEUE AND MEMORY LOGIC
     window.handleFileSelect = (e) => {
       if(e.target.files && e.target.files.length > 0) {
         const req = state.line === 'magnets' ? PACKAGES.find(x=>x.id===state.pkg).custom : state.frameProduct.size;
@@ -516,43 +511,29 @@
     };
 
     async function processQueue(files) {
-      for(const f of files) { 
-        await new Promise(resolve => openCropper(f, resolve)); 
-      }
-      renderPhotos(); 
-      render(); 
+      for(const f of files) { await new Promise(resolve => openCropper(f, resolve)); }
+      renderPhotos(); render(); 
     }
 
     function openCropper(file, resolve) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        cropImg.src = e.target.result; 
+        cropImg.src = e.target.result;
         modal.style.display = 'flex';
         if(cropper) cropper.destroy();
         cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
         
-        // Save
         document.getElementById('crop-save').onclick = () => {
           cropper.getCroppedCanvas({ width: 1200, height: 1200 }).toBlob(blob => {
             state.photos.push({ id: crypto.randomUUID(), blob: blob, preview: URL.createObjectURL(blob) });
-            closeCropper(); 
-            resolve();
+            closeCropper(); resolve();
           }, 'image/jpeg', 0.95);
         };
 
-        // FIXED: Canceling now properly resolves the promise so the queue doesn't hang forever!
-        document.getElementById('crop-cancel').onclick = () => {
-          closeCropper();
-          resolve(); 
-        };
+        // FIXED: Canceling safely resolves the promise so the queue isn't blocked
+        document.getElementById('crop-cancel').onclick = () => { closeCropper(); resolve(); };
       };
-      
-      // Safety fallback
-      reader.onerror = () => {
-         closeCropper();
-         resolve();
-      };
-      
+      reader.onerror = () => { closeCropper(); resolve(); };
       reader.readAsDataURL(file);
     }
 
