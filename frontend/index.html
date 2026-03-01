@@ -20,34 +20,112 @@
           colors: {
             background: "hsl(15 33% 97%)", 
             primary: "hsl(350 80% 55%)",
-            muted: "hsl(15 20% 92%)"
-          },
-          animation: {
-            'fade-in': 'fadeIn 0.5s ease-out',
-          },
-          keyframes: {
-            fadeIn: { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } }
+            muted: "hsl(15 20% 92%)",
+            /* Banner Colors from Lovable */
+            banner: {
+              accent: "hsl(var(--banner-accent))",
+              cta: "hsl(var(--banner-cta))",
+              "cta-hover": "hsl(var(--banner-cta-hover))",
+              card: "hsl(var(--banner-card))",
+              heading: "hsl(var(--banner-heading))",
+              subtext: "hsl(var(--banner-subtext))",
+            }
           }
         }
       }
     }
   </script>
+
+  <style>
+    /* Global Colors */
+    :root {
+      --banner-accent: 340 82% 76%;
+      --banner-cta: 340 72% 52%;
+      --banner-cta-hover: 340 72% 44%;
+      --banner-card: 340 30% 97%;
+      --banner-heading: 340 30% 20%;
+      --banner-subtext: 340 10% 45%;
+    }
+
+    body {
+      background-color: theme('colors.background');
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Translated Framer Motion Animations */
+    .animate-banner-up {
+      animation: bannerUp 0.5s ease-out forwards;
+    }
+    @keyframes bannerUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-badge-scale {
+      opacity: 0;
+      animation: badgeScale 0.4s ease-out 0.3s forwards;
+    }
+    @keyframes badgeScale {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-slate-900">
+<body class="antialiased text-slate-800 min-h-screen">
 
-  <div class="max-w-md w-full animate-fade-in text-center">
+  <main class="container mx-auto px-4 py-8 max-w-2xl">
     
-    <img src="./logo.png" alt="Magnetic Memories" class="w-48 md:w-56 mx-auto mb-6 object-contain" />
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white shadow-md mb-4 border border-slate-100">
+        <i data-lucide="camera" class="w-10 h-10 text-primary"></i>
+      </div>
+      <h1 class="font-serif text-4xl font-bold text-slate-900 mb-2">Magnetic Memories</h1>
+      <p class="text-slate-500 text-sm">Turn your favourite photos into high-quality magnets and frames.</p>
+    </div>
 
-    <h1 class="font-serif text-3xl font-bold mb-2">Welcome</h1>
-    <p class="text-slate-500 mb-10">Select a product to get started</p>
+    <section class="relative w-full max-w-md mx-auto overflow-hidden rounded-2xl shadow-xl group mb-8 animate-banner-up">
+      <a href="/mothers-day" class="block">
+        <div class="relative overflow-hidden">
+          <img
+            src="./mothers-day-mobile.jpg"
+            alt="Mother's Day bouquet"
+            class="w-full h-40 object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-banner-card"></div>
+
+          <div class="absolute top-3 right-3 flex items-center gap-1.5 bg-banner-cta/90 backdrop-blur-sm px-2.5 py-1 rounded-full animate-badge-scale">
+            <i data-lucide="gift" class="w-3 h-3 text-white"></i>
+            <span class="text-[10px] font-bold text-white tracking-wide">LIMITED TIME</span>
+          </div>
+        </div>
+
+        <div class="bg-banner-card px-5 pb-4 pt-3 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1 mb-1">
+              <i data-lucide="heart" class="w-3 h-3 text-banner-cta fill-banner-cta shrink-0"></i>
+              <h2 class="text-base font-bold text-banner-heading truncate">
+                Mother's Day Gift Guide
+              </h2>
+            </div>
+            <p class="text-xs text-banner-subtext leading-relaxed line-clamp-2">
+              Show her how much she means with our hand-picked thoughtful gifts.
+            </p>
+          </div>
+
+          <span class="shrink-0 inline-flex items-center gap-1.5 bg-banner-cta active:bg-banner-cta-hover text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-all duration-200 shadow-md active:shadow-sm active:scale-95">
+            Shop
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </span>
+        </div>
+      </a>
+    </section>
 
     <div class="space-y-4">
       
       <a href="/frames" class="block group relative overflow-hidden rounded-2xl bg-white border-2 border-transparent hover:border-primary/30 shadow-sm transition-all duration-300">
         <div class="flex items-center p-5 gap-5">
           <div class="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-             <i data-lucide="frame" class="w-8 h-8 text-primary"></i>
+            <i data-lucide="frame" class="w-8 h-8 text-rose-500"></i>
           </div>
           <div class="text-left flex-1">
             <h3 class="font-serif text-xl font-bold text-slate-900">Photo Frames</h3>
@@ -74,14 +152,37 @@
         </div>
       </a>
 
+      <a href="/bingo" class="block group relative overflow-hidden rounded-2xl bg-white border-2 border-transparent hover:border-primary/30 shadow-sm transition-all duration-300">
+        <div class="flex items-center p-5 gap-5">
+          <div class="w-16 h-16 rounded-full bg-teal-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <i data-lucide="party-popper" class="w-8 h-8 text-teal-500"></i>
+          </div>
+          <div class="text-left flex-1">
+            <h3 class="font-serif text-xl font-bold text-slate-900">Bonkers Bingo</h3>
+            <p class="text-xs text-slate-500 mt-1">Exclusive magnets for event attendees</p>
+          </div>
+          <div class="text-slate-300 group-hover:text-primary transition-colors">
+            <i data-lucide="arrow-right" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </a>
+
     </div>
 
-    <div class="mt-12 text-xs text-slate-400">
-      &copy; Magnetic Memories
-    </div>
-  </div>
+    <footer class="mt-12 text-center pb-8">
+      <p class="text-xs text-slate-400">
+        &copy; 2024 Magnetic Memories. Printed with love.
+      </p>
+      <div class="mt-4 flex justify-center gap-4 text-xs text-slate-400">
+        <a href="/legal.html" class="hover:text-slate-600 transition-colors">Privacy Policy</a>
+        <span>&middot;</span>
+        <a href="/legal.html" class="hover:text-slate-600 transition-colors">Terms of Service</a>
+      </div>
+    </footer>
+  </main>
 
   <script>
+    // Initialize Lucide icons
     lucide.createIcons();
   </script>
 </body>
