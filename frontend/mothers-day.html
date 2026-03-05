@@ -192,12 +192,23 @@
 
       <div class="mb-6">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
-        <div class="grid grid-cols-3 gap-3">
-          <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all"><div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div><div class="font-semibold text-sm">White</div></div>
-          <div onclick="setColor('Black')" id="col-black" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all"><div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div><div class="font-semibold text-sm">Black</div></div>
-          <div onclick="setColor('Olive')" id="col-olive" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all"><div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #4C5642;"></div><div class="font-semibold text-sm">Olive</div></div>
-          <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all"><div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div><div class="font-semibold text-xs leading-tight">Black Walnut</div></div>
-          <div onclick="setColor('White Marble')" id="col-marble" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all"><div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #E5E5E5;"></div><div class="font-semibold text-xs leading-tight">White Marble</div></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
+            <div class="font-semibold text-sm">White</div>
+          </div>
+          <div onclick="setColor('Black')" id="col-black" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div>
+            <div class="font-semibold text-sm">Black</div>
+          </div>
+          <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div>
+            <div class="font-semibold text-xs leading-tight mt-1">Black Walnut</div>
+          </div>
+          <div onclick="setColor('White Marble')" id="col-marble" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
+            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #E5E5E5;"></div>
+            <div class="font-semibold text-xs leading-tight mt-1">White Marble</div>
+          </div>
         </div>
       </div>
     </div>
@@ -359,10 +370,8 @@
       social: null 
     };
 
-    // Optimization: Simplified render function
     function render() {
-      const steps = ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'];
-      steps.forEach(s => {
+      ['landing', 'packages', 'frame-style', 'frame-size', 'frame-custom', 'photos', 'premade', 'checkout'].forEach(s => {
         const el = document.getElementById(`step-${s}`);
         if (el) el.style.display = (state.step === s) ? 'block' : 'none';
       });
@@ -402,7 +411,6 @@
       
       lucide.createIcons();
 
-      // Only run expensive renders if relevant
       if(state.step === 'packages') renderPackages();
       if(state.step === 'frame-size') renderFrameSizes();
       if(state.step === 'photos') renderPhotos();
@@ -483,7 +491,6 @@
       updateCustomUI(); 
     };
 
-    // Optimization: Separated Custom UI update to prevent full loop lag
     function updateCustomUI() {
       const activeClass = "border-primary bg-secondary ring-1 ring-primary";
       const inactiveClass = "cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all";
@@ -497,7 +504,8 @@
         document.getElementById('customize-subtitle').innerText = `${state.frameProduct.size} Magnet${state.frameProduct.size>1?'s':''} Frame`;
       }
 
-      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
+      // OLIVE REMOVED: 4 COLORS REMAIN
+      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
       for (const [name, id] of Object.entries(colors)) { 
         const el = document.getElementById(id); 
         if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.frameColor === name ? activeClass : ''}`; 

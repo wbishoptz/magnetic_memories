@@ -174,7 +174,7 @@
 
       <div class="mb-6">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
           <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
             <div class="font-semibold text-sm">White</div>
@@ -183,17 +183,13 @@
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div>
             <div class="font-semibold text-sm">Black</div>
           </div>
-          <div onclick="setColor('Olive')" id="col-olive" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
-            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #4C5642;"></div>
-            <div class="font-semibold text-sm">Olive</div>
-          </div>
           <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div>
-            <div class="font-semibold text-xs leading-tight">Black Walnut</div>
+            <div class="font-semibold text-xs leading-tight mt-1">Black Walnut</div>
           </div>
           <div onclick="setColor('White Marble')" id="col-marble" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #E5E5E5;"></div>
-            <div class="font-semibold text-xs leading-tight">White Marble</div>
+            <div class="font-semibold text-xs leading-tight mt-1">White Marble</div>
           </div>
         </div>
       </div>
@@ -330,7 +326,6 @@
     };
 
     function render() {
-      // Logic for Upload step visibility in navigation bar
       const uploadStepNav = document.getElementById('nav-step-upload');
       if (state.withMagnets) {
           uploadStepNav.classList.remove('hidden');
@@ -344,19 +339,16 @@
         else { el.classList.add('hidden'); }
       });
 
-      // Update Progress Bar
       const totalSteps = state.withMagnets ? 5 : 4;
       const currentProgressStep = state.step;
       const progress = ((currentProgressStep - 1) / (totalSteps - 1)) * 100;
       document.getElementById('progress-fill').style.width = `${progress}%`;
 
-      // Update Step Indicators
       document.querySelectorAll('.step-indicator').forEach(el => {
         const s = parseInt(el.dataset.step);
         const circle = el.querySelector('div');
         const text = el.querySelector('span');
         
-        // Map 1-5 logic to visual 1-4 logic if magnets are off
         let visualStep = s;
         if (!state.withMagnets && s > 3) visualStep = s - 1;
 
@@ -438,7 +430,8 @@
         document.getElementById('photo-req').innerText = state.product.size;
       }
 
-      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Olive': 'col-olive', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
+      // Olive Removed: Just 4 Colors left
+      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
       for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`; }
       render(); 
     }
