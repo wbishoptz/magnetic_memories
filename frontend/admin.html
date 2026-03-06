@@ -306,10 +306,12 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize) continue;
-          let k = String(o.packSize);
+          if (!o.packSize && !o.frameStyle) continue;
+          let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
+          } else if (o.productType === 'frame' || o.productType === 'frames') {
+             k = k.charAt(0).toUpperCase() + k.slice(1) + " Frame";
           } else {
              k = k + "-pack";
              if (o.packType === 'big_picture') k += " (Jigsaw)";
@@ -324,7 +326,7 @@
       function renderOrders() {
         document.getElementById('list-count').textContent = `${filteredOrders.length}`;
         let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
-        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack</th><th>£</th></tr></thead><tbody>`;
+        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Frame</th><th>£</th></tr></thead><tbody>`;
         
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
@@ -341,27 +343,30 @@
               statusDisplay = `<span class="status-pill ${(o.status||'').replace(/\s+/g, '_')}">${o.status}</span>`;
           }
 
-          // BINGO BADGE
+          // EVENT BADGES
           if (o.event === 'BINGO') {
               let numDisplay = o.bingoNumber ? `#${o.bingoNumber}` : '';
               statusDisplay += ` <span class="tag" style="background:#f59e0b; color:black; font-weight:800; font-size:11px; border:none; box-shadow:0 2px 5px rgba(245, 158, 11, 0.4);">🎱 ${numDisplay}</span>`;
-          }
-          // VALENTINES BADGE
-          if (o.event === 'VALENTINES') {
+          } else if (o.event === 'VALENTINES') {
               statusDisplay += ` <span class="tag" style="background:#be123c; color:white; border:none; font-weight:700; font-size:10px;">💘 VALENTINES</span>`;
-          }
-          // MOTHER'S DAY BADGE (NEW)
-          if (o.event === 'MOTHERS_DAY') {
+          } else if (o.event === 'MOTHERS_DAY') {
               statusDisplay += ` <span class="tag" style="background:#be185d; color:white; border:none; font-weight:700; font-size:10px;">🌸 MOTHER'S DAY</span>`;
-          }
-          // FRAMES BADGE
-          if (o.event === 'FRAMES') {
+          } else if (o.event === 'FRAMES') {
               statusDisplay += ` <span class="tag" style="background:#ea580c; color:white; border:none; font-weight:700; font-size:10px;">🖼️ FRAMES</span>`;
           }
 
+          // SMART PACK DISPLAY
           let packDisplay = o.packSize || "?";
           let style = "";
-          if (String(packDisplay).startsWith('voucher_')) {
+          
+          if (o.productType === 'frame' || o.productType === 'frames' || o.frameStyle) {
+              const frameName = (o.frameStyle || '').charAt(0).toUpperCase() + (o.frameStyle || '').slice(1);
+              packDisplay = `🖼️ ${frameName} Frame`;
+              style = 'style="color: #ea580c; font-weight:600;"';
+          } else if (o.event === 'MOTHERS_DAY' && o.mothersPackage) {
+              packDisplay = `🌸 ${o.mothersPackage}`;
+              style = 'style="color: #be185d; font-weight:600;"';
+          } else if (String(packDisplay).startsWith('voucher_')) {
               const val = packDisplay.split('_')[1];
               packDisplay = `🎁 £${val} Voucher`;
               style = 'style="color: #66d19e; font-weight:600;"';
@@ -369,6 +374,7 @@
               packDisplay = '🧩 ' + packDisplay; 
               style = 'style="color: #d8b4fe; font-weight:600;"';
           }
+
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
           html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
@@ -469,13 +475,18 @@
           if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
           if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
-          // --- CONDITIONAL PACK/FRAME/MOTHERS DISPLAY ---
-          if (order.event === 'FRAMES') {
+          // --- CONDITIONAL SMART DISPLAY (FIXED FOR MOTHERS DAY FRAMES) ---
+          if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
               const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
               const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
-              html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div><div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize} slots)</div><div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div><div class="field-value">Type: ${type}</div>`;
+              html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize || '?'} slots)</div>
+                       <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
+                       <div class="field-value">Type: ${type}</div>`;
           } else if (order.event === 'MOTHERS_DAY') {
-              html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div><div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div><div class="field-value">${order.packSize} total magnets</div>`;
+              html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
+                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>
+                       <div class="field-value">${order.packSize} total magnets</div>`;
           } else {
               html += `<div class="field-label">Pack</div><div class="field-value">${isVoucher ? "" : order.packSize + " magnets — "}${packLabel}</div>`;
           }
@@ -484,7 +495,7 @@
               html += `<div class="field-label" style="color:#f97316;">🧡 Flexi Heart Color</div><div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.flexiColor || "Unknown"}</div>`;
           }
 
-          // --- PRE-MADE SELECTIONS (ROBUST) ---
+          // --- PRE-MADE SELECTIONS ---
           if (order.premadeSelections && order.premadeSelections.length > 0) {
               html += `<div class="field-label" style="color:#be185d;">🌸 Design Choices</div><div class="field-value" style="display:flex; flex-wrap:wrap; gap:8px;">`;
               order.premadeSelections.forEach(name => {
@@ -564,7 +575,7 @@
             if (res.ok) zip.file(img.filename || "image.jpg", await res.blob());
         }
 
-        // Add Premade Selections (NEW)
+        // Add Premade Selections
         if(order.premadeSelections) {
             for(const name of order.premadeSelections) {
                 const num = name.match(/\d+/);
