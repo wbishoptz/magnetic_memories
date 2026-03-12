@@ -174,7 +174,7 @@
 
       <div class="mb-6">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
             <div class="font-semibold text-sm">White</div>
@@ -186,10 +186,6 @@
           <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
             <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div>
             <div class="font-semibold text-xs leading-tight mt-1">Black Walnut</div>
-          </div>
-          <div onclick="setColor('White Marble')" id="col-marble" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
-            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #E5E5E5;"></div>
-            <div class="font-semibold text-xs leading-tight mt-1">White Marble</div>
           </div>
         </div>
       </div>
@@ -430,8 +426,8 @@
         document.getElementById('photo-req').innerText = state.product.size;
       }
 
-      // Olive Removed: Just 4 Colors left
-      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Black Walnut': 'col-walnut', 'White Marble': 'col-marble' };
+      // WHITE MARBLE & OLIVE REMOVED: 3 COLORS REMAIN
+      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Black Walnut': 'col-walnut' };
       for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`; }
       render(); 
     }
