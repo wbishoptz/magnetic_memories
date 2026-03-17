@@ -174,20 +174,8 @@
 
       <div class="mb-6">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
-        <div class="grid grid-cols-3 gap-3">
-          <div onclick="setColor('White')" id="col-white" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
-            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-white"></div>
-            <div class="font-semibold text-sm">White</div>
+        <div id="color-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-3">
           </div>
-          <div onclick="setColor('Black')" id="col-black" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
-            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2 bg-black"></div>
-            <div class="font-semibold text-sm">Black</div>
-          </div>
-          <div onclick="setColor('Black Walnut')" id="col-walnut" class="cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all">
-            <div class="w-8 h-8 rounded-full border border-gray-200 mx-auto mb-2" style="background-color: #54473F;"></div>
-            <div class="font-semibold text-xs leading-tight mt-1">Black Walnut</div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -316,8 +304,26 @@
       ]
     };
 
+    // ALL 14 FRAME COLORS
+    const FRAME_COLORS = [
+      { id: 'col-mwhite', name: 'Matte White', hex: '#FAFAFA', border: '#E5E7EB' },
+      { id: 'col-mblack', name: 'Matte Black', hex: '#222222', border: '#111827' },
+      { id: 'col-walnut', name: 'Black Walnut', hex: '#54473F', border: '#3E342E' },
+      { id: 'col-marble', name: 'White Marble', hex: '#E5E5E5', border: '#D1D5DB' },
+      { id: 'col-olive',  name: 'Olive Green', hex: '#4C5642', border: '#3B4333' },
+      { id: 'col-silver', name: 'Sterling Silver', hex: '#BDBFC1', border: '#9CA3AF' },
+      { id: 'col-grass',  name: 'Meadow Green', hex: '#5C864B', border: '#4A6B3C' },
+      { id: 'col-brown',  name: 'Mocha Brown', hex: '#7A5230', border: '#5C3D24' },
+      { id: 'col-cyan',   name: 'Ocean Cyan', hex: '#0EA5E9', border: '#0284C7' },
+      { id: 'col-purple', name: 'Royal Amethyst', hex: '#8B5CF6', border: '#7C3AED' },
+      { id: 'col-yellow', name: 'Sunflower Gold', hex: '#F59E0B', border: '#D97706' },
+      { id: 'col-red',    name: 'Crimson Red', hex: '#E11D48', border: '#BE123C' },
+      { id: 'col-tan',    name: 'Desert Dune', hex: '#D4B483', border: '#B89661' },
+      { id: 'col-bronze', name: 'Silky Bronze', hex: '#B87333', border: '#925C28' }
+    ];
+
     let state = {
-      step: 1, style: null, product: null, color: 'White',
+      step: 1, style: null, product: null, color: 'Matte White',
       withMagnets: false, photos: [], shipping: null, social: null
     };
 
@@ -370,7 +376,7 @@
 
       if (state.step === 1) { valid = !!state.style; } 
       else if (state.step === 2) { valid = !!state.product; } 
-      else if (state.step === 3) { valid = true; text = state.withMagnets ? "Go to Upload" : "Confirm Details"; } 
+      else if (state.step === 3) { valid = !!state.color; text = state.withMagnets ? "Go to Upload" : "Confirm Details"; } 
       else if (state.step === 4) { valid = state.photos.length === state.product.size; text = "Confirm Details"; } 
       else if (state.step === 5) { 
         valid = state.shipping && state.social !== null; 
@@ -413,10 +419,29 @@
     window.setMagnets = (enabled) => { state.withMagnets = enabled; if(!enabled) state.photos = []; updateCustomUI(); };
     window.setColor = (col) => { state.color = col; updateCustomUI(); };
 
+    function renderColors() {
+      const container = document.getElementById('color-grid');
+      let html = '';
+      FRAME_COLORS.forEach(c => {
+        const isActive = state.color === c.name;
+        const activeClass = isActive ? "border-primary bg-accent ring-1 ring-primary shadow-sm" : "border-transparent bg-white hover:border-primary/50 border-2";
+        
+        html += `
+          <div onclick="setColor('${c.name}')" id="${c.id}" class="cursor-pointer rounded-xl p-3 text-center transition-all ${activeClass}">
+            <div class="w-8 h-8 rounded-full mx-auto mb-2 shadow-sm" style="background-color: ${c.hex}; border: 1px solid ${c.border}"></div>
+            <div class="font-semibold text-[10px] leading-tight mt-1 text-slate-700">${c.name}</div>
+          </div>
+        `;
+      });
+      if(container) container.innerHTML = html;
+    }
+
     function updateCustomUI() {
       const activeClass = "border-primary bg-accent ring-1 ring-primary";
-      document.getElementById('opt-frame').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${!state.withMagnets ? activeClass : ''}`;
-      document.getElementById('opt-magnets').className = `cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all ${state.withMagnets ? activeClass : ''}`;
+      const inactiveClass = "cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all";
+      
+      document.getElementById('opt-frame').className = `${inactiveClass} ${!state.withMagnets ? activeClass : ''}`;
+      document.getElementById('opt-magnets').className = `${inactiveClass} ${state.withMagnets ? activeClass : ''}`;
 
       if(state.product) {
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
@@ -426,9 +451,7 @@
         document.getElementById('photo-req').innerText = state.product.size;
       }
 
-      // WHITE MARBLE & OLIVE REMOVED: 3 COLORS REMAIN
-      const colors = { 'White': 'col-white', 'Black': 'col-black', 'Black Walnut': 'col-walnut' };
-      for (const [name, id] of Object.entries(colors)) { const el = document.getElementById(id); if (el) el.className = `cursor-pointer border-2 rounded-xl p-3 bg-white text-center hover:border-primary/50 transition-all ${state.color === name ? activeClass : ''}`; }
+      renderColors();
       render(); 
     }
 
