@@ -304,15 +304,12 @@
       ]
     };
 
-    // The Ultimate 16-Color Palette
     const FRAME_COLORS = [
       { id: 'col-white',  name: 'White', hex: '#FFFFFF', border: '#E5E7EB' },
       { id: 'col-black',  name: 'Black', hex: '#000000', border: '#111827' },
       { id: 'col-mwhite', name: 'Matte White', hex: '#FAFAFA', border: '#E5E7EB' },
       { id: 'col-mblack', name: 'Matte Black', hex: '#222222', border: '#111827' },
       { id: 'col-walnut', name: 'Black Walnut', hex: '#54473F', border: '#3E342E' },
-      { id: 'col-marble', name: 'White Marble', hex: '#E5E5E5', border: '#D1D5DB' },
-      { id: 'col-olive',  name: 'Olive Green', hex: '#4C5642', border: '#3B4333' },
       { id: 'col-silver', name: 'Silver', hex: '#BDBFC1', border: '#9CA3AF' },
       { id: 'col-grass',  name: 'Grass Green', hex: '#5C864B', border: '#4A6B3C' },
       { id: 'col-brown',  name: 'Brown', hex: '#7A5230', border: '#5C3D24' },
@@ -401,7 +398,25 @@
       lucide.createIcons();
     }
 
-    window.selectStyle = (style) => { state.style = style; if (style === 'rollercube') { state.product = PRODUCTS.rollercube[0]; setTimeout(() => nextStep(), 300); } else { renderSizeGrid(); setTimeout(() => nextStep(), 300); } };
+    // FIX FOR ROLLERCUBE: Skip step 2 completely and go directly to step 3
+    window.selectStyle = (style) => { 
+      state.style = style; 
+      if (style === 'rollercube') { 
+        state.product = PRODUCTS.rollercube[0]; 
+        state.photos = [];
+        updateCustomUI(); 
+        setTimeout(() => {
+            state.step = 3;
+            render();
+        }, 300); 
+      } else { 
+        renderSizeGrid(); 
+        setTimeout(() => {
+            state.step = 2;
+            render();
+        }, 300); 
+      } 
+    };
 
     function renderSizeGrid() {
       const container = document.getElementById('size-grid');
@@ -417,7 +432,17 @@
       container.innerHTML = html;
     }
 
-    window.selectProduct = (pid) => { state.product = PRODUCTS[state.style].find(p => p.id === pid); state.photos = []; updateCustomUI(); renderSizeGrid(); setTimeout(() => nextStep(), 300); };
+    window.selectProduct = (pid) => { 
+      state.product = PRODUCTS[state.style].find(p => p.id === pid); 
+      state.photos = []; 
+      updateCustomUI(); 
+      renderSizeGrid(); 
+      setTimeout(() => {
+          state.step = 3;
+          render();
+      }, 300); 
+    };
+
     window.setMagnets = (enabled) => { state.withMagnets = enabled; if(!enabled) state.photos = []; updateCustomUI(); };
     window.setColor = (col) => { state.color = col; updateCustomUI(); };
 
@@ -539,11 +564,18 @@
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
     }
 
+    // FIX FOR NEXT STEP LOGIC
     window.nextStep = () => {
       if (state.step === 1 && !state.style) return;
       if (state.step === 2 && !state.product) return;
       
-      if (state.step === 3) {
+      if (state.step === 1) {
+          state.step = state.style === 'rollercube' ? 3 : 2;
+      }
+      else if (state.step === 2) {
+          state.step = 3;
+      }
+      else if (state.step === 3) {
           if (state.withMagnets) state.step = 4;
           else state.step = 5;
       }
@@ -557,8 +589,6 @@
       else if (state.step === 5) {
           submitOrder();
           return;
-      } else {
-          state.step++;
       }
       
       if(state.step === 4) renderPhotos();
