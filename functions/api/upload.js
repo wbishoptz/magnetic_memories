@@ -12,10 +12,20 @@ export async function onRequestPost({ request, env }) {
   try {
     const url = new URL(request.url);
     const orderId = url.searchParams.get("orderId");
+    
+    // NEW: Allow manual event page to set a specific filename (e.g. "Ticket-505-1.jpg")
     const customFilename = url.searchParams.get("filename");
 
     if (!orderId) {
       return json(400, { error: "Missing orderId." });
+    }
+
+    // 1. USE THE PREFIX (Fixes "Order not found")
+    const kvKey = `order:${orderId}`;
+    const order = await env.ORDERS_KV.get(kvKey, { type: "json" });
+
+    if (!order) {
+      return json(404, { error: "Order not found" });
     }
 
     const contentType = request.headers.get("content-type") || "";
@@ -30,29 +40,31 @@ export async function onRequestPost({ request, env }) {
       return json(400, { error: "Missing file upload." });
     }
 
+    // 2. RESTORE ADMIN COMPATIBILITY + SUPPORT CUSTOM NAMES
+    // We prioritize the customFilename (from Event Page) if it exists.
     const originalName = customFilename || file.name || "photo.jpg";
+    
+    // Sanitize the name to be safe for file systems/URLs
     const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    
+    // Keep your exact folder structure so Admin downloads work
     const r2Key = `orders/${orderId}/original/${Date.now()}_${safeName}`;
 
-    // 1. UPLOAD FIRST (This takes seconds/minutes and is where mobile browsers freeze)
     await env.R2_BUCKET.put(r2Key, file.stream(), {
-      httpMetadata: { contentType: file.type || "image/jpeg" },
-      customMetadata: { orderId: orderId, filename: safeName }
+      httpMetadata: {
+        contentType: file.type || "image/jpeg",
+      },
+      customMetadata: {
+        orderId: orderId,
+        filename: safeName
+      }
     });
 
-    // 2. READ DATABASE SECOND (Right before saving, so we never overwrite the webhook)
-    const kvKey = `order:${orderId}`;
-    const order = await env.ORDERS_KV.get(kvKey, { type: "json" });
-
-    if (!order) {
-      return json(404, { error: "Order not found" });
-    }
-
-    // 3. ATTACH IMAGE AND SAVE
+    // Attach to order record
     order.images = order.images || [];
     order.images.push({
       key: r2Key,
-      name: safeName,
+      name: safeName, // Save the clean name (e.g. Ticket-505-1.jpg)
       uploadedAt: new Date().toISOString(),
     });
 
