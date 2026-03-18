@@ -22,8 +22,10 @@ export async function onRequestPost({ request, env }) {
         };
     }
 
-    if (order.status !== 'draft' && order.status !== 'abandoned') {
-        return new Response("Order already processed", { status: 200 });
+    // FIX: Stronger check to prevent downgrades
+    const protectedStatuses = ['paid', 'printing', 'shipped', 'completed', 'abandoned'];
+    if (protectedStatuses.includes(order.status)) {
+        return new Response("Order already protected", { status: 200 });
     }
 
     order.email = email;
@@ -32,7 +34,6 @@ export async function onRequestPost({ request, env }) {
     order.packType = packType || order.packType;
     order.updatedAt = new Date().toISOString();
     
-    // NEW: If this session was recovered, mark it permanently
     if (isRecovery) {
         order.wasRecovered = true;
     }
