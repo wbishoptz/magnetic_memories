@@ -59,6 +59,7 @@ export async function onRequestPost({ request, env }) {
     const email = String(body?.email || "").trim();
     const phone = String(body?.phone || "").trim();
     const packSizeRaw = body?.packSize; 
+    const packType = body?.packType || 'standard';
     const eventTag = body?.event || null; 
     
     // --- SPECIAL FIELDS ---
@@ -120,6 +121,10 @@ export async function onRequestPost({ request, env }) {
             if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
             price = BINGO_PRICES[packSize];
         } 
+        else if (productType === 'keyring') {
+            // NEW: Keyring bypasses STANDARD_PACKS check entirely
+            price = 6.00;
+        }
         else {
             if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
             price = STANDARD_PRICES[packSize];
@@ -143,26 +148,35 @@ export async function onRequestPost({ request, env }) {
         socialPerm = body.socialPermission;
     }
 
+    // --- STATUS RACE CONDITION FIX ---
+    let finalStatus = existingOrder.status || "checkout_created";
+    if (manualStatus === 'paid') {
+        finalStatus = 'paid';
+    } else if (finalStatus === 'draft' || finalStatus === 'abandoned') {
+        finalStatus = 'checkout_created';
+    }
+
     const order = {
       orderId, 
-      email, 
-      phone, 
-      packSize, 
+      email: email || existingOrder.email, 
+      phone: phone || existingOrder.phone, 
+      packSize: packSize || existingOrder.packSize,
+      packType: packType || existingOrder.packType,
       price, 
-      event: eventTag,
-      raffleNumber, 
+      event: eventTag || existingOrder.event,
+      raffleNumber: raffleNumber || existingOrder.raffleNumber, 
       
-      productType, 
-      flexiColor, 
-      premadeSelections,
-      mothersPackage, // Save the selected Mother's Day package name
+      productType: productType || existingOrder.productType, 
+      flexiColor: flexiColor || existingOrder.flexiColor, 
+      premadeSelections: premadeSelections.length ? premadeSelections : existingOrder.premadeSelections,
+      mothersPackage: mothersPackage || existingOrder.mothersPackage, 
       
-      frameStyle,
-      frameSize,
-      frameColor,
-      includeMagnets,
+      frameStyle: frameStyle || existingOrder.frameStyle,
+      frameSize: frameSize || existingOrder.frameSize,
+      frameColor: frameColor || existingOrder.frameColor,
+      includeMagnets: includeMagnets !== undefined ? includeMagnets : existingOrder.includeMagnets,
       
-      status: manualStatus === 'paid' ? 'paid' : (existingOrder.status || "draft"),
+      status: finalStatus,
       
       createdAt: existingOrder.createdAt || now, 
       updatedAt: now,
