@@ -306,10 +306,12 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize && !o.frameStyle) continue;
+          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
+          } else if (o.productType === 'keyring') {
+             k = "Double-Sided Keyring";
           } else if (o.productType === 'frame' || o.productType === 'frames') {
              k = k.charAt(0).toUpperCase() + k.slice(1) + " Frame";
           } else {
@@ -326,7 +328,7 @@
       function renderOrders() {
         document.getElementById('list-count').textContent = `${filteredOrders.length}`;
         let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
-        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Frame</th><th>£</th></tr></thead><tbody>`;
+        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Product</th><th>£</th></tr></thead><tbody>`;
         
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
@@ -363,6 +365,9 @@
               const frameName = (o.frameStyle || '').charAt(0).toUpperCase() + (o.frameStyle || '').slice(1);
               packDisplay = `🖼️ ${frameName} Frame`;
               style = 'style="color: #ea580c; font-weight:600;"';
+          } else if (o.productType === 'keyring') {
+              packDisplay = `🔑 Double-Sided Keyring`;
+              style = 'style="color: #fbbf24; font-weight:600;"';
           } else if (o.event === 'MOTHERS_DAY' && o.mothersPackage) {
               packDisplay = `🌸 ${o.mothersPackage}`;
               style = 'style="color: #be185d; font-weight:600;"';
@@ -448,7 +453,7 @@
           if (!isVoucher && typeof order.price === 'number') {
              const total = order.price + shipCost;
              html += `<div class="field-label">Total Paid</div><div class="field-value" style="font-family:monospace; font-size:1.1em;">
-               £${order.price.toFixed(2)} (Pack) + £${shipCost.toFixed(2)} (Ship) = <span style="color:#66d19e; font-weight:bold;">£${total.toFixed(2)}</span>
+               £${order.price.toFixed(2)} (Product) + £${shipCost.toFixed(2)} (Ship) = <span style="color:#66d19e; font-weight:bold;">£${total.toFixed(2)}</span>
              </div>`;
           }
 
@@ -475,7 +480,7 @@
           if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
           if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
-          // --- CONDITIONAL SMART DISPLAY (FIXED FOR MOTHERS DAY FRAMES) ---
+          // --- CONDITIONAL SMART DISPLAY ---
           if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
               const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
               const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
@@ -483,6 +488,9 @@
                        <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize || '?'} slots)</div>
                        <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
                        <div class="field-value">Type: ${type}</div>`;
+          } else if (order.productType === 'keyring') {
+              html += `<div class="field-label" style="color:#fbbf24;">Product</div>
+                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring</div>`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>

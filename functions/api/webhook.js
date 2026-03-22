@@ -218,10 +218,10 @@ async function sendPaidEmail(order, env) {
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>Thanks for your order!</h2>
-      <p>We’ve received your payment and will start preparing your magnets shortly.</p>
+      <p>We’ve received your payment and will start preparing your order shortly.</p>
       <p>
         <strong>Order ID:</strong> ${order.orderId}<br/>
-        <strong>Pack:</strong> ${order.packSize || "?"} magnets<br/>
+        <strong>Product:</strong> ${order.productType === 'keyring' ? 'Keyring' : (order.packSize ? order.packSize + ' items' : "?")}<br/>
         <strong>Total:</strong> ${totalText}
       </p>
       <p>
@@ -253,10 +253,12 @@ async function sendAdminEmail(order, env) {
   const customerEmail = order.email || order.customer?.email || "Unknown";
   const customerPhone = order.phone || "No phone";
   
-  // Custom label if it's a voucher purchase
-  const packLabel = order.generatedVoucher 
-    ? `🎁 Voucher Purchase (£${order.voucherValue})` 
-    : `${order.packSize} magnets (${order.packType || 'standard'})`;
+  // Custom label if it's a keyring or voucher purchase
+  const packLabel = order.productType === 'keyring' 
+    ? `🔑 Double-Sided Keyring` 
+    : (order.generatedVoucher 
+        ? `🎁 Voucher Purchase (£${order.voucherValue})` 
+        : `${order.packSize} items (${order.packType || 'standard'})`);
 
   const html = `
     <div style="font-family: system-ui, sans-serif;">
@@ -296,12 +298,20 @@ async function sendPaidTelegram(order, env) {
 
   const total = typeof order.price === "number" ? `£${order.price.toFixed(2)}` : "Paid";
   
-  let packLine = `Pack: ${esc(order.packSize)} magnets`;
+  let header = "💳 <b>New paid order</b>";
+  if (order.productType === 'keyring') header = `🔑 <b>KEYRING ORDER</b>`;
+  else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
+  else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
+  else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
+  else if (order.event === 'FRAMES') header = `🖼️ <b>FRAME ORDER</b>`;
+  
+  let packLine = `Pack: ${esc(order.packSize)} items`;
+  if (order.productType === 'keyring') packLine = `Product: 🔑 Double-Sided Keyring`;
   if (order.packType === 'big_picture') packLine += ' (🧩 Jigsaw)';
   if (order.generatedVoucher) packLine = `🎁 <b>Voucher Purchase</b> (£${order.voucherValue})`;
 
   const lines = [
-    "💳 <b>New paid order</b>",
+    header,
     `ID: <code>${esc(order.orderId)}</code>`,
     `Email: ${esc(order.email || "Unknown")}`,
     `Phone: ${esc(order.phone || "No phone")}`,

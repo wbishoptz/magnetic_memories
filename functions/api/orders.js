@@ -12,8 +12,12 @@ function withDerivedPrice(order) {
   if (!order) return order;
   if (order.price != null) return order;
 
-  const packSize = Number(order.packSize);
-  const derived = PACK_PRICES[packSize];
+  let derived = null;
+  if (order.productType === 'keyring') {
+      derived = 6;
+  } else if (order.packSize) {
+      derived = PACK_PRICES[Number(order.packSize)];
+  }
 
   return {
     ...order,

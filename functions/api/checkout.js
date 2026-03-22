@@ -126,11 +126,14 @@ export async function onRequestPost({ request, env }) {
         productName = v.label;
         productDesc = "Digital code sent via email upon payment.";
         isVoucherPurchase = true;
+    } else if (productType === 'keyring') {
+        price = 6.00;
+        productName = "Double-Sided Photo Keyring";
+        productDesc = "Premium silver keyring with front and back photos";
     } else {
         let size = Number(packSizeRaw);
         
         if (eventTag === 'MOTHERS_DAY') {
-            // --- MOTHER'S DAY LOGIC ---
             if (productType === 'frames') {
                 const style = kvOrder.frameStyle || 'bohemian';
                 const fSize = kvOrder.frameSize || size;
@@ -354,7 +357,7 @@ async function sendPaidEmail(order, env) {
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>Thanks for your order!</h2>
-      <p>We’ve received your payment and will start preparing your magnets shortly.</p>
+      <p>We’ve received your payment and will start preparing your order shortly.</p>
       <p><strong>Order ID:</strong> ${order.orderId}</p>
       <p><a href="https://magnetic-memories.pages.dev/return.html?orderId=${encodeURIComponent(order.orderId)}">Track Order</a></p>
     </div>
@@ -403,17 +406,21 @@ async function sendAdminEmail(order, env) {
   if (!apiKey || !from || recipients.length === 0) return;
 
   let title = `New Order ${order.orderId}`;
-  if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
-  if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
-  if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
-  if (order.event === 'FRAMES') title = `🖼️ FRAME ORDER`;
+  if (order.productType === 'keyring') title = `🔑 KEYRING ORDER`;
+  else if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
+  else if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
+  else if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
+  else if (order.event === 'FRAMES') title = `🖼️ FRAME ORDER`;
 
   const subject = `${title} - Paid`;
+  
+  const productLine = order.productType === 'keyring' ? 'Double-Sided Keyring' : (order.event === 'FRAMES' || order.productType === 'frames' ? 'Frame' : order.packSize + ' items');
+
   const html = `
     <div style="font-family: system-ui, sans-serif;">
       <h2>${title}</h2>
       <p><strong>Customer:</strong> ${order.email}</p>
-      <p><strong>Product:</strong> ${order.event === 'FRAMES' || order.productType === 'frames' ? 'Frame' : order.packSize + ' magnets'}</p>
+      <p><strong>Product:</strong> ${productLine}</p>
       <p><a href="https://magnetic-memories.pages.dev/admin.html">Open Admin Dashboard</a></p>
     </div>
   `;
@@ -435,10 +442,11 @@ async function sendPaidTelegram(order, env) {
   const chatIds = chatIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
   
   let header = "💳 <b>New Order</b>";
-  if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
-  if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
-  if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
-  if (order.event === 'FRAMES') header = `🖼️ <b>FRAME ORDER</b>`;
+  if (order.productType === 'keyring') header = `🔑 <b>KEYRING ORDER</b>`;
+  else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
+  else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
+  else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
+  else if (order.event === 'FRAMES') header = `🖼️ <b>FRAME ORDER</b>`;
 
   const text = `${header}\nID: <code>${esc(order.orderId)}</code>\nEmail: ${esc(order.email)}`;
 

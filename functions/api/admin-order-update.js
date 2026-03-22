@@ -13,19 +13,19 @@
 
 const CUSTOMER_STATUS_MESSAGES = {
   printing: {
-    subject: "Your Magnetic Memories order is being printed 🖨️",
-    intro: "Good news — we’ve started printing your magnets!",
-    body: "We’re carefully preparing your order so it looks perfect on your fridge.",
+    subject: "Your Magnetic Memories order is being prepared 🖨️",
+    intro: "Good news — we’ve started preparing your order!",
+    body: "We’re carefully making it so it looks absolutely perfect.",
   },
   shipped: {
     subject: "Your Magnetic Memories order is on its way 🚚",
-    intro: "Your magnets have been shipped!",
-    body: "They’ll be with you soon. Thanks for ordering from Magnetic Memories.",
+    intro: "Your order has been shipped!",
+    body: "It’ll be with you soon. Thanks for ordering from Magnetic Memories.",
   },
   complete: {
     subject: "Your Magnetic Memories order is complete ✅",
     intro: "Your order is now complete.",
-    body: "We hope you love your new magnets. Thanks again for your order!",
+    body: "We hope you love your new memories. Thanks again for your order!",
   },
 };
 
@@ -172,9 +172,9 @@ function buildCustomerEmailHtml(order, status, messageDef) {
     <p><strong>Order ID:</strong> ${order.orderId}</p>
     <p><strong>Current status:</strong> ${prettyStatus}</p>
     ${
-      order.packSize
-        ? `<p><strong>Pack:</strong> ${order.packSize} magnets</p>`
-        : ""
+      order.productType === 'keyring' 
+      ? `<p><strong>Product:</strong> Double-Sided Keyring</p>` 
+      : (order.packSize ? `<p><strong>Pack:</strong> ${order.packSize} items</p>` : "")
     }
     <p style="margin-top: 24px; font-size: 13px; color: #555;">
       If you have any questions, just reply to this email.
