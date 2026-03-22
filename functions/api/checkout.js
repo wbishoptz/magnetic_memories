@@ -40,6 +40,9 @@ const FRAME_PRICES = {
   },
   rollercube: {
     4: { frame: 10, full: 17 }
+  },
+  rattan: {
+    4: { frame: 15, full: 20 }
   }
 };
 
@@ -129,7 +132,7 @@ export async function onRequestPost({ request, env }) {
     } else if (productType === 'keyring') {
         price = 6.00;
         productName = "Double-Sided Photo Keyring";
-        productDesc = "Premium silver keyring with front and back photos";
+        productDesc = "Premium keyring with front and back photos";
     } else {
         let size = Number(packSizeRaw);
         
@@ -331,8 +334,6 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: "Checkout failed" }, 500);
   }
 }
-
-// --- HELPER FUNCTIONS ---
 
 function esc(str) { return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 

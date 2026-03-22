@@ -41,6 +41,9 @@ const FRAME_PRICES = {
   },
   rollercube: {
     4: { frame: 10, full: 17 }
+  },
+  rattan: {
+    4: { frame: 15, full: 20 }
   }
 };
 
@@ -122,7 +125,6 @@ export async function onRequestPost({ request, env }) {
             price = BINGO_PRICES[packSize];
         } 
         else if (productType === 'keyring') {
-            // NEW: Keyring bypasses STANDARD_PACKS check entirely
             price = 6.00;
         }
         else {
