@@ -259,6 +259,7 @@
       if (state.step === 2) canNext = !!state.delivery;
       if (state.step === 3) canNext = state.social !== null;
       if (state.step === 4) canNext = state.email.includes('@') && state.phone.length > 5;
+      if (state.step === 5) canNext = true;
       
       btnNext.disabled = !canNext;
       btnNext.innerHTML = state.step === 5 
