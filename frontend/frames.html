@@ -132,6 +132,16 @@
             <p class="text-sm text-muted-foreground">Natural, woven texture for a warm, earthy feel.</p>
           </div>
         </div>
+        
+        <div onclick="selectStyle('flexi')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
+          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
+            <img src="./flexi-heart.jpg" alt="Flexi Heart" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+          <div class="p-4">
+            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="heart" class="w-4 h-4 text-primary"></i> Flexi Heart</h3>
+            <p class="text-sm text-muted-foreground">Flexible interlocking heart frame with your custom photo.</p>
+          </div>
+        </div>
 
         <div onclick="selectStyle('rollercube')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
           <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
@@ -174,7 +184,7 @@
           <div onclick="setMagnets(true)" id="opt-magnets" class="cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all">
             <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center"><i data-lucide="image" class="w-5 h-5 text-muted-foreground"></i></div>
             <div class="flex-1">
-              <div class="font-semibold text-sm">Frame + Magnets</div>
+              <div class="font-semibold text-sm">Frame + Photo</div>
               <div class="text-xs text-muted-foreground">Includes custom photos</div>
             </div>
             <div class="font-bold text-sm" id="price-magnets">£0.00</div>
@@ -314,6 +324,9 @@
       ],
       rattan: [
         { id: 'rat', size: 4, framePrice: 15, fullPrice: 20, img: './frame-rattan-4.jpg' }
+      ],
+      flexi: [
+        { id: 'fh', size: 1, framePrice: 12.50, fullPrice: 12.50, img: './flexi-heart.jpg' }
       ]
     };
 
@@ -411,10 +424,10 @@
       lucide.createIcons();
     }
 
-    // Skips step 2 for single-size frames
+    // Skips step 2 for single-size items
     window.selectStyle = (style) => { 
       state.style = style; 
-      if (style === 'rollercube' || style === 'rattan') { 
+      if (style === 'rollercube' || style === 'rattan' || style === 'flexi') { 
         state.product = PRODUCTS[style][0]; 
         state.photos = [];
         updateCustomUI(); 
@@ -486,7 +499,11 @@
       if(state.product) {
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
         document.getElementById('price-magnets').innerText = `£${state.product.fullPrice.toFixed(2)}`;
-        document.getElementById('customize-subtitle').innerText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
+        
+        let subTitleText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
+        if (state.style === 'flexi') subTitleText = "1 Photo Face";
+        
+        document.getElementById('customize-subtitle').innerText = subTitleText;
         document.getElementById('photo-target').innerText = state.product.size;
         document.getElementById('photo-req').innerText = state.product.size;
       }
@@ -570,9 +587,18 @@
       const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
       const total = price + ship;
-      let name = state.style === 'bohemian' ? "Bohemian Frame" : state.style === 'sleek' ? "Sleek Frame" : state.style === 'rattan' ? "Rattan Frame" : "Rollercube";
+      
+      let name = state.style === 'bohemian' ? "Bohemian Frame" 
+               : state.style === 'sleek' ? "Sleek Frame" 
+               : state.style === 'rattan' ? "Rattan Frame" 
+               : state.style === 'flexi' ? "Flexi Heart"
+               : "Rollercube";
+               
       document.getElementById('summary-product').innerText = name;
-      document.getElementById('summary-desc').innerText = `${state.product.size} Magnet Slots • ${state.color} • ${state.withMagnets ? 'With Magnets' : 'Frame Only'}`;
+      
+      const subDesc = state.style === 'flexi' ? '1 Photo Face' : `${state.product.size} Magnet Slots`;
+      document.getElementById('summary-desc').innerText = `${subDesc} • ${state.color} • ${state.withMagnets ? 'With Photo' : 'Frame Only'}`;
+      
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
     }
@@ -582,7 +608,7 @@
       if (state.step === 2 && !state.product) return;
       
       if (state.step === 1) {
-          state.step = (state.style === 'rollercube' || state.style === 'rattan') ? 3 : 2;
+          state.step = (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi') ? 3 : 2;
       }
       else if (state.step === 2) {
           state.step = 3;
@@ -610,7 +636,7 @@
 
     window.goBack = () => {
       if (state.step === 5 && !state.withMagnets) state.step = 3;
-      else if (state.step === 3 && (state.style === 'rollercube' || state.style === 'rattan')) state.step = 1;
+      else if (state.step === 3 && (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi')) state.step = 1;
       else state.step--;
 
       if (state.step < 1) window.location.href = "/";
@@ -646,9 +672,23 @@
       btn.disabled = true; btn.innerHTML = `<span class=\"animate-pulse\">Processing...</span>`;
 
       try {
+        const pType = state.style === 'flexi' ? 'flexi' : 'frame';
+        
         const res = await fetch("/api/order", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, phone, event: "FRAMES", productType: "frame", frameStyle: state.style, frameSize: state.product.size, frameColor: state.color, includeMagnets: state.withMagnets, shippingMethod: state.shipping, socialPermission: state.social })
+          body: JSON.stringify({ 
+            email, 
+            phone, 
+            event: "FRAMES", 
+            productType: pType, 
+            frameStyle: state.style, 
+            frameSize: state.product.size, 
+            frameColor: state.color, 
+            flexiColor: state.color, 
+            includeMagnets: state.withMagnets, 
+            shippingMethod: state.shipping, 
+            socialPermission: state.social 
+          })
         });
         const { orderId } = await res.json();
 

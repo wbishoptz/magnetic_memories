@@ -160,19 +160,26 @@ export async function onRequestPost({ request, env }) {
             }
 
         } else if (eventTag === 'FRAMES') {
-            const style = kvOrder.frameStyle || 'bohemian';
-            const fSize = kvOrder.frameSize || size;
-            const withMags = kvOrder.includeMagnets || false;
-            const color = kvOrder.frameColor || 'White';
-
-            const pData = FRAME_PRICES[style]?.[fSize];
-            if (pData) {
-                price = withMags ? pData.full : pData.frame;
-                const styleName = style.charAt(0).toUpperCase() + style.slice(1);
-                productName = `${styleName} Frame (${color})`;
-                productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+                const color = kvOrder.flexiColor || kvOrder.frameColor || 'Standard';
+                productName = `Flexi Heart (${color})`;
+                productDesc = "1 Custom Photo Face";
             } else {
-                price = 0; productName = "Unknown Frame Configuration";
+                const style = kvOrder.frameStyle || 'bohemian';
+                const fSize = kvOrder.frameSize || size;
+                const withMags = kvOrder.includeMagnets || false;
+                const color = kvOrder.frameColor || 'White';
+
+                const pData = FRAME_PRICES[style]?.[fSize];
+                if (pData) {
+                    price = withMags ? pData.full : pData.frame;
+                    const styleName = style.charAt(0).toUpperCase() + style.slice(1);
+                    productName = `${styleName} Frame (${color})`;
+                    productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
+                } else {
+                    price = 0; productName = "Unknown Frame Configuration";
+                }
             }
 
         } else if (eventTag === 'VALENTINES') {

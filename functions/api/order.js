@@ -107,10 +107,14 @@ export async function onRequestPost({ request, env }) {
     }
     else {
         if (eventTag === 'FRAMES') {
-            const styleData = FRAME_PRICES[frameStyle];
-            const sizeData = styleData ? styleData[frameSize] : null;
-            if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
-            price = includeMagnets ? sizeData.full : sizeData.frame;
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+            } else {
+                const styleData = FRAME_PRICES[frameStyle];
+                const sizeData = styleData ? styleData[frameSize] : null;
+                if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
+                price = includeMagnets ? sizeData.full : sizeData.frame;
+            }
         } 
         else if (eventTag === 'VALENTINES') {
             if (productType === 'flexi') {
