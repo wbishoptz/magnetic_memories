@@ -61,7 +61,12 @@
         <i data-lucide="chevron-left" class="w-5 h-5"></i>
       </button>
       <h1 class="font-serif text-lg font-semibold">Frame Collection</h1>
-      <div class="w-10"></div>
+      
+      <button id="cart-btn" onclick="toggleBasket()" class="hidden w-10 h-10 relative rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+        <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+        <span id="cart-badge" class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+      </button>
+      <div id="cart-placeholder" class="w-10 h-10"></div>
     </div>
     
     <div class="w-full px-4 py-4">
@@ -305,8 +310,37 @@
     </div>
   </div>
 
+  <div id="basket-drawer" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/50 transition-opacity opacity-0" id="basket-backdrop" onclick="toggleBasket()"></div>
+    <div class="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col" id="basket-panel">
+      <div class="p-4 border-b flex justify-between items-center bg-background">
+        <h2 class="font-serif text-xl font-bold">Your Basket</h2>
+        <button onclick="toggleBasket()" class="p-2 bg-muted rounded-full text-muted-foreground hover:bg-muted/80"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-4 space-y-4" id="basket-items">
+        </div>
+      
+      <div class="p-4 border-t bg-muted/20">
+        <div class="flex justify-between items-center mb-4">
+          <span class="font-bold text-lg">Subtotal</span>
+          <span class="font-bold text-xl text-primary" id="basket-subtotal">£0.00</span>
+        </div>
+        <button onclick="checkoutBasket()" class="w-full h-14 rounded-xl gradient-coral text-white font-bold flex items-center justify-center gap-2 shadow-soft hover:opacity-90 transition-all">
+          Proceed to Checkout <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     lucide.createIcons();
+
+    // ==========================================
+    // THE MASTER FEATURE FLAG: BASKET TOGGLE
+    // Set to true to test the Slide-out Basket
+    // ==========================================
+    const ENABLE_BASKET = false; 
 
     const PRODUCTS = {
       bohemian: [
@@ -356,7 +390,152 @@
       withMagnets: false, photos: [], shipping: null, social: null
     };
 
+    // --- BASKET LOGIC (PHASE 1) ---
+    let basket = JSON.parse(localStorage.getItem('magnetic_basket')) || [];
+
+    function blobToBase64(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function updateBasketUI() {
+       basket = JSON.parse(localStorage.getItem('magnetic_basket')) || [];
+       const badge = document.getElementById('cart-badge');
+       if(basket.length > 0) {
+          badge.innerText = basket.length;
+          badge.classList.remove('hidden');
+       } else {
+          badge.classList.add('hidden');
+       }
+
+       const container = document.getElementById('basket-items');
+       let total = 0;
+       
+       if(basket.length === 0) {
+          container.innerHTML = `<div class="text-center text-muted-foreground mt-12"><i data-lucide="shopping-bag" class="w-16 h-16 mx-auto mb-4 opacity-20"></i><p class="font-medium">Your basket is empty.</p></div>`;
+       } else {
+          container.innerHTML = basket.map((item, i) => {
+             total += item.price;
+             // Ensure we always have an image to show
+             let imgSrc = item.photos && item.photos.length > 0 ? item.photos[0] : './logo.png';
+             return `
+               <div class="flex gap-4 bg-white border border-border rounded-xl p-3 shadow-sm relative pr-10">
+                  <div class="w-16 h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0 border border-border/50">
+                     <img src="${imgSrc}" class="w-full h-full object-cover" />
+                  </div>
+                  <div class="flex-1">
+                     <h4 class="font-bold text-sm text-foreground">${item.name}</h4>
+                     <p class="text-[10px] text-muted-foreground leading-tight mt-0.5">${item.desc}</p>
+                     <p class="font-bold text-primary text-sm mt-1">£${item.price.toFixed(2)}</p>
+                  </div>
+                  <button onclick="removeFromBasket(${i})" class="absolute top-3 right-3 text-muted-foreground hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+               </div>
+             `;
+          }).join('');
+       }
+       document.getElementById('basket-subtotal').innerText = `£${total.toFixed(2)}`;
+       lucide.createIcons();
+    }
+
+    window.removeFromBasket = (idx) => {
+       basket.splice(idx, 1);
+       localStorage.setItem('magnetic_basket', JSON.stringify(basket));
+       updateBasketUI();
+    };
+
+    window.toggleBasket = () => {
+       const drawer = document.getElementById('basket-drawer');
+       const backdrop = document.getElementById('basket-backdrop');
+       const panel = document.getElementById('basket-panel');
+
+       updateBasketUI();
+
+       if(drawer.classList.contains('hidden')) {
+          drawer.classList.remove('hidden');
+          // Delay to allow display:block to apply before animating
+          setTimeout(() => {
+             backdrop.classList.remove('opacity-0');
+             panel.classList.remove('translate-x-full');
+          }, 10);
+       } else {
+          backdrop.classList.add('opacity-0');
+          panel.classList.add('translate-x-full');
+          setTimeout(() => {
+             drawer.classList.add('hidden');
+          }, 300);
+       }
+    };
+
+    window.checkoutBasket = () => {
+       if(basket.length === 0) return;
+       alert("🛠 Basket Checkout functionality is coming in Phase 2!\n\nTo process a live test order right now, please ensure ENABLE_BASKET is set to 'false' in the code to check out individual items.");
+    };
+
+    async function processAddToBasket() {
+      const btn = document.getElementById('main-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 mr-2 animate-spin"></i> Saving to Basket...`;
+      lucide.createIcons();
+
+      try {
+        // 1. Convert all cropped blobs to Base64 so they survive page reloads
+        let b64Photos = [];
+        for(let p of state.photos) {
+           b64Photos.push(await blobToBase64(p.blob));
+        }
+
+        const price = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+        const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0;
+        
+        // 2. Build the Item Object
+        const item = {
+           id: crypto.randomUUID(),
+           type: 'frame',
+           style: state.style,
+           color: state.color,
+           size: state.product.size,
+           withMagnets: state.withMagnets,
+           price: price + ship,
+           photos: b64Photos,
+           name: document.getElementById('summary-product').innerText,
+           desc: document.getElementById('summary-desc').innerText,
+           shipping: state.shipping,
+           social: state.social,
+           email: document.getElementById('email').value.trim(),
+           phone: document.getElementById('phone').value.trim()
+        };
+
+        // 3. Save to browser memory
+        basket.push(item);
+        localStorage.setItem('magnetic_basket', JSON.stringify(basket));
+
+        // 4. Success UI
+        btn.innerHTML = `<i data-lucide="check" class="w-5 h-5 mr-2"></i> Added!`;
+        lucide.createIcons();
+        
+        setTimeout(() => {
+           toggleBasket();
+           // Reset button for next interaction
+           render(); 
+        }, 800);
+      } catch (e) {
+        alert("Error adding to basket. Images might be too large.");
+        btn.disabled = false;
+        render();
+      }
+    }
+    // --- END BASKET LOGIC ---
+
     function render() {
+      if(ENABLE_BASKET) {
+         document.getElementById('cart-btn').classList.remove('hidden');
+         document.getElementById('cart-placeholder').classList.add('hidden');
+         updateBasketUI(); // make sure badge is correct on load
+      }
+
       const uploadStepNav = document.getElementById('nav-step-upload');
       if (state.withMagnets) {
           uploadStepNav.classList.remove('hidden');
@@ -412,11 +591,15 @@
         if(state.product) { 
             const p = state.withMagnets ? state.product.fullPrice : state.product.framePrice; 
             const ship = (state.shipping === 'GI_DELIVER') ? 3 : 0; 
-            text = `Pay £${(p + ship).toFixed(2)}`; 
+            
+            // FEATURE FLAG SWITCH: Changes the button text based on basket mode
+            text = ENABLE_BASKET 
+              ? `Add to Basket - £${(p + ship).toFixed(2)}` 
+              : `Pay £${(p + ship).toFixed(2)}`; 
         } 
       }
 
-      if (state.product) { 
+      if (state.product && state.step < 5) { 
           priceLabel = ` • £${(state.withMagnets ? state.product.fullPrice : state.product.framePrice).toFixed(2)}`; 
       }
 
@@ -424,7 +607,10 @@
       btn.classList.toggle('opacity-50', !valid);
       btn.classList.toggle('cursor-not-allowed', !valid);
 
-      btn.innerHTML = state.step === 5 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${state.step < 5 ? priceLabel : ''} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+      btn.innerHTML = state.step === 5 && valid 
+        ? `<i data-lucide="${ENABLE_BASKET ? 'shopping-bag' : 'check'}" class="w-5 h-5 mr-2"></i> ${text}` 
+        : `${text}${priceLabel} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+        
       lucide.createIcons();
     }
 
@@ -639,7 +825,14 @@
           state.step = 5;
       }
       else if (state.step === 5) {
-          submitOrder();
+          
+          // FEATURE FLAG ROUTING
+          if (ENABLE_BASKET) {
+              processAddToBasket();
+          } else {
+              submitOrder();
+          }
+          
           return;
       }
       
@@ -677,6 +870,7 @@
       render();
     };
 
+    // ORIGINAL STRAIGHT-TO-CHECKOUT LOGIC
     window.submitOrder = async () => {
       const email = document.getElementById('email').value.trim();
       const phone = document.getElementById('phone').value.trim();
