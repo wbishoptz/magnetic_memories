@@ -306,12 +306,6 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (o.basket && o.basket.length > 0) {
-              o.basket.forEach(item => {
-                 counts.set(item.name, (counts.get(item.name) || 0) + 1);
-              });
-              continue;
-          }
           if (!o.packSize && !o.frameStyle && o.productType !== 'keyring') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
@@ -363,14 +357,11 @@
               statusDisplay += ` <span class="tag" style="background:#ea580c; color:white; border:none; font-weight:700; font-size:10px;">🖼️ FRAMES</span>`;
           }
 
-          // SMART PACK DISPLAY (DUAL MODE)
+          // SMART PACK DISPLAY
           let packDisplay = o.packSize || "?";
           let style = "";
           
-          if (o.basket && o.basket.length > 0) {
-              packDisplay = `🛒 Multi-item Basket (${o.basket.length})`;
-              style = 'style="color: #60a5fa; font-weight:600;"';
-          } else if (o.productType === 'frame' || o.productType === 'frames' || o.frameStyle) {
+          if (o.productType === 'frame' || o.productType === 'frames' || o.frameStyle) {
               const frameName = (o.frameStyle || '').charAt(0).toUpperCase() + (o.frameStyle || '').slice(1);
               packDisplay = `🖼️ ${frameName} Frame`;
               style = 'style="color: #ea580c; font-weight:600;"';
@@ -460,9 +451,9 @@
 
           // PRICE CALCULATION DISPLAY
           if (!isVoucher && typeof order.price === 'number') {
-             const total = order.price + (order.basket ? 0 : shipCost); // If basket, shipping was already baked in via frontend
+             const total = order.price + shipCost;
              html += `<div class="field-label">Total Paid</div><div class="field-value" style="font-family:monospace; font-size:1.1em;">
-               <span style="color:#66d19e; font-weight:bold;">£${total.toFixed(2)}</span>
+               £${order.price.toFixed(2)} (Product) + £${shipCost.toFixed(2)} (Ship) = <span style="color:#66d19e; font-weight:bold;">£${total.toFixed(2)}</span>
              </div>`;
           }
 
@@ -489,18 +480,8 @@
           if (order.generatedVoucher) html += `<div class="field-label">🎁 Voucher Generated</div><div class="field-value" style="font-size:1.2em; color:#66d19e;">${order.generatedVoucher}</div>`;
           if (order.usedVoucher) html += `<div class="field-label">🏷️ Discount Used</div><div class="field-value" style="color:#f0c36a;">Code: ${order.usedVoucher}</div>`;
 
-          // --- SMART CONDITIONAL DISPLAY (DUAL MODE) ---
-          if (order.basket && order.basket.length > 0) {
-              html += `<div class="field-label" style="color:#60a5fa; margin-top:24px;">🛒 Multi-item Basket Contents</div>`;
-              order.basket.forEach((item, i) => {
-                  html += `<div class="field-value" style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid #1e293b;">
-                      <strong style="color:#f8fafc; font-size:1.1em;">${item.name}</strong><br>
-                      <span style="font-size:12px; color:#9ca3af;">${item.desc}</span><br>
-                      <span style="color:#66d19e; font-weight:bold; font-size:1.1em; display:block; margin-top:4px;">£${item.price.toFixed(2)}</span>
-                  </div>`;
-              });
-          }
-          else if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
+          // --- CONDITIONAL SMART DISPLAY ---
+          if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
               const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
               const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
               html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div>
@@ -536,20 +517,7 @@
               html += `</div>`;
           }
 
-          // --- BASKET IMAGES VS LEGACY IMAGES ---
-          if (order.basket && order.basket.length > 0) {
-              let basketImgHtml = '<div class="images-grid">';
-              order.basket.forEach(item => {
-                  if(item.photos && item.photos.length > 0) {
-                      item.photos.forEach(b64 => {
-                          basketImgHtml += `<div class="image-thumb" style="width:120px;"><img src="${b64}" style="width:100%; height:100px;"><a href="${b64}" download="${item.name}-photo.jpg">Download</a></div>`;
-                      });
-                  }
-              });
-              basketImgHtml += '</div>';
-              html += `<div class="field-label" style="margin-top:16px;">Basket Images</div><div class="field-value">${basketImgHtml}</div>`;
-          }
-          else if (!isVoucher) {
+          if (!isVoucher) {
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
@@ -582,7 +550,7 @@
              }
           };
           
-          if (!isVoucher && (!order.basket || order.basket.length === 0)) {
+          if (!isVoucher) {
               const dlBtn = document.getElementById("download-all-btn");
               if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId, order);
               loadOrderImages(orderId);

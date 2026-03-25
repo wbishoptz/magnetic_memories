@@ -86,63 +86,54 @@ export async function onRequestPost({ request, env }) {
     if (!/\S+@\S+\.\S+/.test(email)) return jsonResponse({ error: "Invalid email." }, 400);
 
     let price = 0;
-    
-    // --- DUAL MODE CHECK ---
-    const isBasket = Array.isArray(body?.basket) && body.basket.length > 0;
+    const packSize = Number(packSizeRaw);
 
-    if (isBasket) {
-        // BASKET MODE PRICING: Sum up the items in the basket
-        price = body.basket.reduce((sum, item) => sum + item.price, 0);
-    } else {
-        // LEGACY MODE PRICING: Your exact original logic
-        const packSize = Number(packSizeRaw);
-
-        if (eventTag === 'MANUAL') {
-            price = 0; // Paid in cash/person
-        } 
-        else if (String(packSizeRaw).startsWith("voucher_")) {
-            price = 0; 
-        } 
-        else if (eventTag === 'MOTHERS_DAY') {
-            if (productType === 'frames') {
+    // --- PRICING LOGIC ---
+    if (eventTag === 'MANUAL') {
+        price = 0; // Paid in cash/person
+    } 
+    else if (String(packSizeRaw).startsWith("voucher_")) {
+        price = 0; 
+    } 
+    else if (eventTag === 'MOTHERS_DAY') {
+        if (productType === 'frames') {
+            const styleData = FRAME_PRICES[frameStyle];
+            const sizeData = styleData ? styleData[frameSize] : null;
+            if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
+            price = includeMagnets ? sizeData.full : sizeData.frame;
+        } else {
+            price = MOTHERS_PACKAGES[mothersPackage] || 0;
+        }
+    }
+    else {
+        if (eventTag === 'FRAMES') {
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+            } else {
                 const styleData = FRAME_PRICES[frameStyle];
                 const sizeData = styleData ? styleData[frameSize] : null;
                 if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
                 price = includeMagnets ? sizeData.full : sizeData.frame;
-            } else {
-                price = MOTHERS_PACKAGES[mothersPackage] || 0;
             }
+        } 
+        else if (eventTag === 'VALENTINES') {
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+            } else {
+                if (!VALENTINES_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
+                price = VALENTINES_PRICES[packSize];
+            }
+        } 
+        else if (eventTag === 'BINGO') {
+            if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
+            price = BINGO_PRICES[packSize];
+        } 
+        else if (productType === 'keyring') {
+            price = 6.00;
         }
         else {
-            if (eventTag === 'FRAMES') {
-                if (productType === 'flexi') {
-                    price = FLEXI_PRICE;
-                } else {
-                    const styleData = FRAME_PRICES[frameStyle];
-                    const sizeData = styleData ? styleData[frameSize] : null;
-                    if (!sizeData) return jsonResponse({ error: "Invalid frame configuration." }, 400);
-                    price = includeMagnets ? sizeData.full : sizeData.frame;
-                }
-            } 
-            else if (eventTag === 'VALENTINES') {
-                if (productType === 'flexi') {
-                    price = FLEXI_PRICE;
-                } else {
-                    if (!VALENTINES_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
-                    price = VALENTINES_PRICES[packSize];
-                }
-            } 
-            else if (eventTag === 'BINGO') {
-                if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
-                price = BINGO_PRICES[packSize];
-            } 
-            else if (productType === 'keyring') {
-                price = 6.00;
-            }
-            else {
-                if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
-                price = STANDARD_PRICES[packSize];
-            }
+            if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
+            price = STANDARD_PRICES[packSize];
         }
     }
 
@@ -175,20 +166,17 @@ export async function onRequestPost({ request, env }) {
       orderId, 
       email: email || existingOrder.email, 
       phone: phone || existingOrder.phone, 
-      
-      // Dual-Mode Storage: Save the basket array if it exists
-      basket: isBasket ? body.basket : existingOrder.basket,
-      
-      // Legacy Fields (Kept exactly as they were)
-      packSize: body?.packSize || existingOrder.packSize,
+      packSize: packSize || existingOrder.packSize,
       packType: packType || existingOrder.packType,
       price, 
       event: eventTag || existingOrder.event,
       raffleNumber: raffleNumber || existingOrder.raffleNumber, 
+      
       productType: productType || existingOrder.productType, 
       flexiColor: flexiColor || existingOrder.flexiColor, 
       premadeSelections: premadeSelections.length ? premadeSelections : existingOrder.premadeSelections,
       mothersPackage: mothersPackage || existingOrder.mothersPackage, 
+      
       frameStyle: frameStyle || existingOrder.frameStyle,
       frameSize: frameSize || existingOrder.frameSize,
       frameColor: frameColor || existingOrder.frameColor,

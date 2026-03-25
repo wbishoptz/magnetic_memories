@@ -116,113 +116,106 @@ export async function onRequestPost({ request, env }) {
     if (!eventTag && kvOrder?.event) eventTag = kvOrder.event;
     const productType = kvOrder?.productType || body?.productType || 'standard';
 
-    // --- DETERMINE PRODUCT & PRICE (DUAL MODE) ---
-    const isBasket = Array.isArray(kvOrder?.basket) && kvOrder.basket.length > 0;
+    // --- DETERMINE PRODUCT & PRICE ---
     const packSizeRaw = kvOrder?.packSize || body?.packSize;
     let price = 0;
     let productName = "";
     let productDesc = "";
     let isVoucherPurchase = false;
 
-    if (isBasket) {
-        // BASKET MODE
-        price = kvOrder.basket.reduce((sum, item) => sum + item.price, 0);
+    if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
+        const v = VOUCHERS[packSizeRaw];
+        if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
+        price = v.price;
+        productName = v.label;
+        productDesc = "Digital code sent via email upon payment.";
+        isVoucherPurchase = true;
+    } else if (productType === 'keyring') {
+        price = 6.00;
+        productName = "Double-Sided Photo Keyring";
+        productDesc = "Premium keyring with front and back photos";
     } else {
-        // LEGACY SINGLE ITEM MODE
-        if (typeof packSizeRaw === 'string' && packSizeRaw.startsWith('voucher_')) {
-            const v = VOUCHERS[packSizeRaw];
-            if (!v) return jsonResponse({ error: "Invalid voucher type" }, 400);
-            price = v.price;
-            productName = v.label;
-            productDesc = "Digital code sent via email upon payment.";
-            isVoucherPurchase = true;
-        } else if (productType === 'keyring') {
-            price = 6.00;
-            productName = "Double-Sided Photo Keyring";
-            productDesc = "Premium keyring with front and back photos";
-        } else {
-            let size = Number(packSizeRaw);
-            
-            if (eventTag === 'MOTHERS_DAY') {
-                if (productType === 'frames') {
-                    const style = kvOrder.frameStyle || 'bohemian';
-                    const fSize = kvOrder.frameSize || size;
-                    const pData = FRAME_PRICES[style]?.[fSize];
-                    
-                    if (pData) {
-                        price = kvOrder.includeMagnets ? pData.full : pData.frame;
-                        const styleName = style.charAt(0).toUpperCase() + style.slice(1);
-                        productName = `Mother's Day: ${styleName} Frame (${kvOrder.frameColor || 'White'})`;
-                        productDesc = kvOrder.includeMagnets 
-                          ? `With ${fSize} personalised magnets` 
-                          : `Frame only (${fSize} slots)`;
-                          
-                    } else {
-                        price = 0; productName = "Unknown Frame Configuration";
-                    }
-                } else {
-                    price = MOTHERS_PACKAGES[kvOrder.mothersPackage] || 0;
-                    productName = `Mother's Day: ${kvOrder.mothersPackage}`;
-                    productDesc = `${size} magnets included`;
-                }
-
-            } else if (eventTag === 'FRAMES') {
-                if (productType === 'flexi') {
-                    price = FLEXI_PRICE;
-                    const color = kvOrder.flexiColor || kvOrder.frameColor || 'Standard';
-                    productName = `Heart Buddy (${color})`;
-                    productDesc = "1 Custom Photo Face";
-                } else {
-                    const style = kvOrder.frameStyle || 'bohemian';
-                    const fSize = kvOrder.frameSize || size;
-                    const withMags = kvOrder.includeMagnets || false;
-                    const color = kvOrder.frameColor || 'White';
-
-                    const pData = FRAME_PRICES[style]?.[fSize];
-                    if (pData) {
-                        price = withMags ? pData.full : pData.frame;
-                        const styleName = style.charAt(0).toUpperCase() + style.slice(1);
-                        productName = `${styleName} Frame (${color})`;
-                        productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
-                    } else {
-                        price = 0; productName = "Unknown Frame Configuration";
-                    }
-                }
-
-            } else if (eventTag === 'VALENTINES') {
-                if (productType === 'flexi') {
-                    price = FLEXI_PRICE;
-                    const color = kvOrder?.flexiColor || "Standard";
-                    productName = `Heart Buddy (${color})`;
-                    productDesc = "1 Custom Photo Face";
-                } else {
-                    price = VALENTINES_PRICES[size] || 0;
-                    productName = `Valentine's Box (${size} magnets)`;
-                    productDesc = "Custom Photos + Pre-made Designs";
-                }
-
-            } else if (eventTag === 'BINGO') {
-                price = BINGO_PRICES[size] || 20; 
-                productName = `Bingo Special (${size} magnets)`;
-                productDesc = "Collect at the stall";
-
-            } else {
-                if (!STANDARD_PACKS.includes(size)) size = 3;
-                price = STANDARD_PRICES[size];
-                productName = `${size} Custom Photo Magnets`;
-                productDesc = "50×50mm fridge magnets";
+        let size = Number(packSizeRaw);
+        
+        if (eventTag === 'MOTHERS_DAY') {
+            if (productType === 'frames') {
+                const style = kvOrder.frameStyle || 'bohemian';
+                const fSize = kvOrder.frameSize || size;
+                const pData = FRAME_PRICES[style]?.[fSize];
                 
-                let type = kvOrder?.packType || body?.packType || "standard";
-                if (type === 'big_picture') {
-                    productName = `Jigsaw Picture (${size} magnets)`;
-                    productDesc = "One large photo split across magnets.";
+                if (pData) {
+                    price = kvOrder.includeMagnets ? pData.full : pData.frame;
+                    const styleName = style.charAt(0).toUpperCase() + style.slice(1);
+                    productName = `Mother's Day: ${styleName} Frame (${kvOrder.frameColor || 'White'})`;
+                    productDesc = kvOrder.includeMagnets 
+                      ? `With ${fSize} personalised magnets` 
+                      : `Frame only (${fSize} slots)`;
+                      
+                } else {
+                    price = 0; productName = "Unknown Frame Configuration";
+                }
+            } else {
+                price = MOTHERS_PACKAGES[kvOrder.mothersPackage] || 0;
+                productName = `Mother's Day: ${kvOrder.mothersPackage}`;
+                productDesc = `${size} magnets included`;
+            }
+
+        } else if (eventTag === 'FRAMES') {
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+                const color = kvOrder.flexiColor || kvOrder.frameColor || 'Standard';
+                productName = `Heart Buddy (${color})`;
+                productDesc = "1 Custom Photo Face";
+            } else {
+                const style = kvOrder.frameStyle || 'bohemian';
+                const fSize = kvOrder.frameSize || size;
+                const withMags = kvOrder.includeMagnets || false;
+                const color = kvOrder.frameColor || 'White';
+
+                const pData = FRAME_PRICES[style]?.[fSize];
+                if (pData) {
+                    price = withMags ? pData.full : pData.frame;
+                    const styleName = style.charAt(0).toUpperCase() + style.slice(1);
+                    productName = `${styleName} Frame (${color})`;
+                    productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
+                } else {
+                    price = 0; productName = "Unknown Frame Configuration";
                 }
             }
-        }
 
-        if (eventTag === 'BINGO' && kvOrder?.bingoNumber) {
-            productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
+        } else if (eventTag === 'VALENTINES') {
+            if (productType === 'flexi') {
+                price = FLEXI_PRICE;
+                const color = kvOrder?.flexiColor || "Standard";
+                productName = `Heart Buddy (${color})`;
+                productDesc = "1 Custom Photo Face";
+            } else {
+                price = VALENTINES_PRICES[size] || 0;
+                productName = `Valentine's Box (${size} magnets)`;
+                productDesc = "Custom Photos + Pre-made Designs";
+            }
+
+        } else if (eventTag === 'BINGO') {
+            price = BINGO_PRICES[size] || 20; 
+            productName = `Bingo Special (${size} magnets)`;
+            productDesc = "Collect at the stall";
+
+        } else {
+            if (!STANDARD_PACKS.includes(size)) size = 3;
+            price = STANDARD_PRICES[size];
+            productName = `${size} Custom Photo Magnets`;
+            productDesc = "50×50mm fridge magnets";
+            
+            let type = kvOrder?.packType || body?.packType || "standard";
+            if (type === 'big_picture') {
+                productName = `Jigsaw Picture (${size} magnets)`;
+                productDesc = "One large photo split across magnets.";
+            }
         }
+    }
+
+    if (eventTag === 'BINGO' && kvOrder?.bingoNumber) {
+        productName = `Order #${kvOrder.bingoNumber} - ${productName}`;
     }
 
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
@@ -243,7 +236,6 @@ export async function onRequestPost({ request, env }) {
         params.append("metadata[usedVoucher]", voucherCode);
     }
 
-    // --- VOUCHER CALCULATION ---
     let discountAmount = 0;
     let finalPrice = price;
     let voucherData = null;
@@ -262,39 +254,16 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // --- STRIPE LINE ITEMS (DUAL MODE) ---
-    if (isBasket) {
-        // If a voucher discount is applied to the basket, we bundle the total to easily apply the discount
-        if (discountAmount > 0) {
-             params.append("line_items[0][quantity]", "1");
-             params.append("line_items[0][price_data][currency]", "gbp");
-             params.append("line_items[0][price_data][product_data][name]", `Basket Order (${kvOrder.basket.length} items)`);
-             params.append("line_items[0][price_data][product_data][description]", `Voucher applied: -£${discountAmount}`);
-             params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100)));
-        } else {
-             // Otherwise, list out every item individually on the Stripe Checkout page
-             kvOrder.basket.forEach((item, index) => {
-                 params.append(`line_items[${index}][quantity]`, "1");
-                 params.append(`line_items[${index}][price_data][currency]`, "gbp");
-                 params.append(`line_items[${index}][price_data][product_data][name]`, item.name || "Magnetic Memories Item");
-                 if (item.desc) params.append(`line_items[${index}][price_data][product_data][description]`, item.desc);
-                 params.append(`line_items[${index}][price_data][unit_amount]`, String(Math.round(item.price * 100)));
-             });
-        }
-    } else {
-        // Legacy Single-Item Line Item
-        params.append("line_items[0][quantity]", "1");
-        params.append("line_items[0][price_data][currency]", "gbp");
-        params.append("line_items[0][price_data][product_data][name]", productName);
-        params.append("line_items[0][price_data][product_data][description]", productDesc);
-        params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100))); 
+    params.append("line_items[0][quantity]", "1");
+    params.append("line_items[0][price_data][currency]", "gbp");
+    params.append("line_items[0][price_data][product_data][name]", productName);
+    params.append("line_items[0][price_data][product_data][description]", productDesc);
+    params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100))); 
 
-        if (discountAmount > 0) {
-            params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
-        }
+    if (discountAmount > 0) {
+        params.set("line_items[0][price_data][product_data][description]", `${productDesc} (Voucher ${voucherCode}: -£${discountAmount})`);
     }
 
-    // --- VOUCHER 100% DISCOUNT BYPASS ---
     if (voucherCode && discountAmount > 0 && finalPrice === 0) {
         const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
         const newBalance = currentBalance - discountAmount;
@@ -321,9 +290,7 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ checkoutUrl: successUrl });
     }
 
-    // --- GLOBAL SHIPPING HANDLING ---
-    // If it's a basket, shipping is already bundled into the individual item prices from the frontend.
-    if (!isVoucherPurchase && !isBasket) {
+    if (!isVoucherPurchase) {
         const targetCountry = body?.country || kvOrder?.shippingMethod || "GI_COLLECT";
 
         if (targetCountry === "GB") {
