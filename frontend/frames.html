@@ -135,7 +135,7 @@
         
         <div onclick="selectStyle('flexi')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
           <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
-            <img src="./flexi-heart.jpg" alt="Flexi Heart" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            <img src="./val-flexi.jpg" alt="Flexi Heart" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           </div>
           <div class="p-4">
             <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="heart" class="w-4 h-4 text-primary"></i> Flexi Heart</h3>
@@ -169,7 +169,7 @@
         <p class="text-sm text-muted-foreground" id="customize-subtitle">Personalise your order</p>
       </div>
 
-      <div class="mb-6">
+      <div class="mb-6" id="options-wrapper">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Options</label>
         <div class="space-y-3">
           <div onclick="setMagnets(false)" id="opt-frame" class="cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all">
@@ -326,7 +326,7 @@
         { id: 'rat', size: 4, framePrice: 15, fullPrice: 20, img: './frame-rattan-4.jpg' }
       ],
       flexi: [
-        { id: 'fh', size: 1, framePrice: 12.50, fullPrice: 12.50, img: './flexi-heart.jpg' }
+        { id: 'fh', size: 1, framePrice: 12.50, fullPrice: 12.50, img: './val-flexi.jpg' }
       ]
     };
 
@@ -430,6 +430,7 @@
       if (style === 'rollercube' || style === 'rattan' || style === 'flexi') { 
         state.product = PRODUCTS[style][0]; 
         state.photos = [];
+        if (style === 'flexi') state.withMagnets = true; // Force photo upload for flexi
         updateCustomUI(); 
         setTimeout(() => {
             state.step = 3;
@@ -495,6 +496,15 @@
       
       document.getElementById('opt-frame').className = `${inactiveClass} ${!state.withMagnets ? activeClass : ''}`;
       document.getElementById('opt-magnets').className = `${inactiveClass} ${state.withMagnets ? activeClass : ''}`;
+
+      // Force Flexi Heart to require photo upload by hiding the options
+      const optionsWrapper = document.getElementById('options-wrapper');
+      if (state.style === 'flexi') {
+          if (optionsWrapper) optionsWrapper.style.display = 'none';
+          state.withMagnets = true;
+      } else {
+          if (optionsWrapper) optionsWrapper.style.display = 'block';
+      }
 
       if(state.product) {
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
