@@ -340,7 +340,7 @@
     // THE MASTER FEATURE FLAG: BASKET TOGGLE
     // Set to true to test the Slide-out Basket
     // ==========================================
-    const ENABLE_BASKET = false; 
+    const ENABLE_BASKET = true; 
 
     const PRODUCTS = {
       bohemian: [
@@ -469,9 +469,52 @@
        }
     };
 
-    window.checkoutBasket = () => {
+    window.checkoutBasket = async () => {
        if(basket.length === 0) return;
-       alert("🛠 Basket Checkout functionality is coming in Phase 2!\n\nTo process a live test order right now, please ensure ENABLE_BASKET is set to 'false' in the code to check out individual items.");
+       const btn = document.querySelector('#basket-panel button');
+       btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 mr-2 animate-spin"></i> Processing...`;
+       lucide.createIcons();
+       
+       try {
+           // We extract the global details from the last item they added to the basket
+           const lastItem = basket[basket.length - 1];
+           const email = lastItem.email;
+           const phone = lastItem.phone;
+           const shipping = lastItem.shipping;
+           const social = lastItem.social;
+
+           // 1. Send the entire basket array to the new Dual-Mode order.js
+           const res = await fetch("/api/order", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ email, phone, shippingMethod: shipping, socialPermission: social, basket })
+           });
+           
+           if(!res.ok) throw new Error("Failed to create multi-item order");
+           const { orderId } = await res.json();
+           
+           btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 mr-2 animate-spin"></i> Redirecting to secure checkout...`;
+           lucide.createIcons();
+
+           // 2. Trigger Stripe via Dual-Mode checkout.js
+           const ckRes = await fetch("/api/checkout", { 
+               method: "POST", 
+               headers: { "Content-Type": "application/json" }, 
+               body: JSON.stringify({ orderId, email, country: shipping }) 
+           });
+           
+           const { checkoutUrl } = await ckRes.json();
+           
+           // Clear their basket since they are going to pay
+           localStorage.removeItem('magnetic_basket');
+           
+           // Send them to Stripe
+           window.location.href = checkoutUrl;
+       } catch(e) {
+           alert("Error processing your basket. Please try again.");
+           btn.innerHTML = `Proceed to Checkout <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
+           lucide.createIcons();
+       }
     };
 
     async function processAddToBasket() {
