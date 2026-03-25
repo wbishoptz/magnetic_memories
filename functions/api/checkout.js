@@ -5,6 +5,7 @@ const STANDARD_PACKS = [3, 6, 9, 12, 15];
 const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
 
 const BINGO_PACKS = [1, 3, 6, 12];
+// UPDATED: 1 magnet is now £4.00
 const BINGO_PRICES = { 1: 4.00, 3: 10, 6: 20, 12: 35 };
 
 const VALENTINES_PACKS = [1, 2, 3, 4];
@@ -163,7 +164,7 @@ export async function onRequestPost({ request, env }) {
             if (productType === 'flexi') {
                 price = FLEXI_PRICE;
                 const color = kvOrder.flexiColor || kvOrder.frameColor || 'Standard';
-                productName = `Flexi Heart (${color})`;
+                productName = `Heart Buddy (${color})`;
                 productDesc = "1 Custom Photo Face";
             } else {
                 const style = kvOrder.frameStyle || 'bohemian';
@@ -186,7 +187,7 @@ export async function onRequestPost({ request, env }) {
             if (productType === 'flexi') {
                 price = FLEXI_PRICE;
                 const color = kvOrder?.flexiColor || "Standard";
-                productName = `Flexi Heart (${color})`;
+                productName = `Heart Buddy (${color})`;
                 productDesc = "1 Custom Photo Face";
             } else {
                 price = VALENTINES_PRICES[size] || 0;

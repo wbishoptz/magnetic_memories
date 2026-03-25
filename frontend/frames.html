@@ -102,56 +102,58 @@
         <p class="text-sm text-muted-foreground">Select the perfect frame style</p>
       </div>
 
-      <div class="space-y-4">
-        <div onclick="selectStyle('bohemian')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
+      <div class="grid grid-cols-2 gap-3 sm:gap-4">
+        
+        <div onclick="selectStyle('bohemian')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./bohemian.jpeg" alt="Bohemian" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="flower-2" class="w-4 h-4 text-primary"></i> Bohemian</h3>
-            <p class="text-sm text-muted-foreground">Warm, artistic frames with a handcrafted feel.</p>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="flower-2" class="w-4 h-4 text-primary"></i> Bohemian</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Warm, handcrafted feel.</p>
           </div>
         </div>
 
-        <div onclick="selectStyle('sleek')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
-            <img src="./sleek.jpeg" alt="Sleek" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
-            <p class="text-sm text-muted-foreground">Modern, minimalist frames for a clean look.</p>
-          </div>
-        </div>
-
-        <div onclick="selectStyle('rattan')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
+        <div onclick="selectStyle('rattan')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./frame-rattan-4.jpg" alt="Rattan" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="sun" class="w-4 h-4 text-primary"></i> Rattan</h3>
-            <p class="text-sm text-muted-foreground">Natural, woven texture for a warm, earthy feel.</p>
-          </div>
-        </div>
-        
-        <div onclick="selectStyle('flexi')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
-            <img src="./frame-flexi.png" alt="Flexi Heart" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="heart" class="w-4 h-4 text-primary"></i> Flexi Heart</h3>
-            <p class="text-sm text-muted-foreground">Flexible interlocking heart frame with your custom photo.</p>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="sun" class="w-4 h-4 text-primary"></i> Rattan</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Natural, woven texture.</p>
           </div>
         </div>
 
-        <div onclick="selectStyle('rollercube')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
+        <div onclick="selectStyle('rollercube')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./rollercube.jpeg" alt="Rollercube" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-primary"></i> Rollercube</h3>
-            <p class="text-sm text-muted-foreground">Interactive 3D rotating display cube.</p>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="box" class="w-4 h-4 text-primary"></i> Rollercube</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">3D rotating display.</p>
           </div>
         </div>
+
+        <div onclick="selectStyle('flexi')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden">
+            <img src="./frame-flexi.png" alt="Heart Buddy" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="heart" class="w-4 h-4 text-primary"></i> Heart Buddy</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Interlocking photo frame.</p>
+          </div>
+        </div>
+
+        <div onclick="selectStyle('sleek')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full col-span-2 sm:col-span-1">
+          <div class="w-full aspect-[2/1] sm:aspect-square bg-muted overflow-hidden">
+            <img src="./sleek.jpeg" alt="Sleek" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Modern, minimalist look.</p>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -497,7 +499,7 @@
       document.getElementById('opt-frame').className = `${inactiveClass} ${!state.withMagnets ? activeClass : ''}`;
       document.getElementById('opt-magnets').className = `${inactiveClass} ${state.withMagnets ? activeClass : ''}`;
 
-      // Force Flexi Heart to require photo upload by hiding the options
+      // Force Heart Buddy to require photo upload by hiding the options
       const optionsWrapper = document.getElementById('options-wrapper');
       if (state.style === 'flexi') {
           if (optionsWrapper) optionsWrapper.style.display = 'none';
@@ -601,7 +603,7 @@
       let name = state.style === 'bohemian' ? "Bohemian Frame" 
                : state.style === 'sleek' ? "Sleek Frame" 
                : state.style === 'rattan' ? "Rattan Frame" 
-               : state.style === 'flexi' ? "Flexi Heart"
+               : state.style === 'flexi' ? "Heart Buddy"
                : "Rollercube";
                
       document.getElementById('summary-product').innerText = name;
