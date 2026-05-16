@@ -330,7 +330,7 @@
       btn.onclick = () => remove(btn.dataset.id);
     });
     const keepBtn = document.getElementById('mm-keep-btn');
-    if (keepBtn) keepBtn.onclick = closePanel;
+    if (keepBtn) keepBtn.onclick = () => { window.location.href = '/'; };
     const checkoutBtn = document.getElementById('mm-checkout-btn');
     if (checkoutBtn) checkoutBtn.onclick = () => { inCheckout = true; renderContent(); };
   }
