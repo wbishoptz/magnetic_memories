@@ -433,6 +433,15 @@
       btn.classList.toggle('opacity-50', !valid);
       btn.classList.toggle('cursor-not-allowed', !valid);
 
+      const basketBtn = document.getElementById('basket-btn-frames');
+      if (basketBtn) {
+        const photosReady = !state.withMagnets || (state.product && state.photos.length === state.product.size);
+        const basketReady = !!state.product && photosReady;
+        basketBtn.disabled = !basketReady;
+        basketBtn.style.opacity = basketReady ? '1' : '0.4';
+        basketBtn.style.cursor = basketReady ? 'pointer' : 'not-allowed';
+      }
+
       btn.innerHTML = state.step === 5 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${state.step < 5 ? priceLabel : ''} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;
       lucide.createIcons();
     }
@@ -730,7 +739,8 @@
         if (addToBasket) {
           const style = (state.style || '').charAt(0).toUpperCase() + (state.style || '').slice(1);
           const label = `${style} Frame (${state.product?.size || '?'} slots)`;
-          window.mmBasket.add(orderId, label, state.price || 0);
+          const basketPrice = state.withMagnets ? state.product.fullPrice : state.product.framePrice;
+          window.mmBasket.add(orderId, label, basketPrice);
           btn.disabled = false;
           btn.innerHTML = '🛒 Add to Basket';
           return;
