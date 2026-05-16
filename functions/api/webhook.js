@@ -93,6 +93,38 @@ export const onRequestPost = async ({ request, env }) => {
       }
     }
 
+    // --- Basket: mark all basket orders paid ---
+    const basketOrderIds = session.metadata?.basketOrderIds
+      ? session.metadata.basketOrderIds.split(',').map(s => s.trim()).filter(Boolean)
+      : null;
+
+    if (basketOrderIds && basketOrderIds.length > 0) {
+      const paidOrders = [];
+      for (const bid of basketOrderIds) {
+        const bKey = `order:${bid}`;
+        const bRaw = await ordersKV.get(bKey);
+        if (!bRaw) continue;
+        const bOrder = JSON.parse(bRaw);
+        bOrder.status = 'paid';
+        bOrder.paidAt = new Date().toISOString();
+        bOrder.stripeSessionId = session.id;
+        bOrder.customer = order.customer; // same customer for all
+        await ordersKV.put(bKey, JSON.stringify(bOrder), { expirationTtl: 60 * 60 * 24 * 30 });
+        paidOrders.push(bOrder);
+      }
+      // One admin notification, individual confirmation emails
+      if (paidOrders.length > 0) {
+        const summary = { ...paidOrders[0], basketOrderIds: session.metadata.basketOrderIds };
+        await Promise.allSettled([
+          sendAdminEmail(summary, env),
+          sendPaidTelegram(summary, env),
+          ...paidOrders.map(o => sendPaidEmail(o, env))
+        ]);
+      }
+      return json({ received: true, updated: true, basket: true });
+    }
+
+    // --- Single order ---
     await ordersKV.put(kvKey, JSON.stringify(order), {
       expirationTtl: 60 * 60 * 24 * 30, // 30 days
     });

@@ -43,7 +43,7 @@ export async function onRequestGet({ request, env }) {
     // - Must be 'draft' (we change this to 'abandoned' after sending, preventing loops)
     // - Must have Email
     // - Must NOT have sent recovery before
-    if (order.status === 'draft' && order.email && !order.recoverySent && !order.recoverySkipped) {
+    if (order.status === 'draft' && order.email && !order.recoverySent && !order.recoverySkipped && !order.basketDraft) {
         
         const lastUpdate = new Date(order.updatedAt || order.createdAt).getTime();
         

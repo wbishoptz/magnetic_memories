@@ -30,7 +30,11 @@ export async function onRequestPost({ request, env }) {
 
     const mothersPackage = body?.mothersPackage;
 
-    if (!/\S+@\S+\.\S+/.test(email)) return jsonResponse({ error: "Invalid email." }, 400);
+    const isBasketDraft = body?.basketDraft === true;
+    // Basket drafts skip email validation — real email is added at basket checkout time
+    if (!isBasketDraft && !/\S+@\S+\.\S+/.test(email)) {
+      return jsonResponse({ error: "Invalid email." }, 400);
+    }
 
     // Voucher orders: keep packSizeRaw as a string, don't convert to Number
     const isVoucher = typeof packSizeRaw === 'string' && packSizeRaw.startsWith("voucher_");
@@ -129,7 +133,8 @@ export async function onRequestPost({ request, env }) {
 
       shippingMethod: body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null),
       socialPermission: socialPerm,
-      bingoNumber: existingOrder.bingoNumber
+      bingoNumber: existingOrder.bingoNumber,
+      basketDraft: isBasketDraft || existingOrder.basketDraft || false
     };
 
     if (eventTag === 'BINGO' && !order.bingoNumber) {

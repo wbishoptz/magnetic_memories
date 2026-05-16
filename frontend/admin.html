@@ -98,7 +98,10 @@
             <span class="tag" style="margin-left:auto; color:#f0c36a;">💰 Vouchers</span>
           </div>
 
-          <div class="toolbar" style="margin-top: 0"><span class="tag" id="pack-summary">Pack summary: –</span></div>
+          <div class="toolbar" style="margin-top: 0">
+            <span class="tag" id="pack-summary">Pack summary: –</span>
+            <button id="basket-toggle-btn" style="margin-left:auto; padding:4px 12px; border-radius:999px; font-size:0.8rem; font-weight:600; border:1px solid #1f2933; background:#020617; color:#aaa; cursor:pointer;" title="Toggle basket feature flag">🛒 Basket: …</button>
+          </div>
           
           <div id="list-container" class="table-wrapper">
             <div class="empty-state">Enter key above to load.</div>
@@ -156,6 +159,33 @@
       navOrders.onclick = () => switchMode('orders');
       navDrafts.onclick = () => switchMode('drafts');
       navVouchers.onclick = () => switchMode('vouchers');
+
+      const basketToggleBtn = document.getElementById('basket-toggle-btn');
+      async function loadBasketFlag() {
+        try {
+          const res = await fetch('/api/feature-flags');
+          const { basket } = await res.json();
+          basketToggleBtn.textContent = `🛒 Basket: ${basket ? 'ON' : 'OFF'}`;
+          basketToggleBtn.style.color = basket ? '#59c9a5' : '#aaa';
+          basketToggleBtn.style.borderColor = basket ? '#59c9a5' : '#1f2933';
+          basketToggleBtn.dataset.current = basket ? 'true' : 'false';
+        } catch(e) { basketToggleBtn.textContent = '🛒 Basket: ?'; }
+      }
+      basketToggleBtn.addEventListener('click', async () => {
+        if (!adminKey) { alert('Unlock admin first.'); return; }
+        const newVal = basketToggleBtn.dataset.current !== 'true';
+        basketToggleBtn.textContent = 'Saving...';
+        try {
+          const res = await fetch('/api/admin-basket-flag', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newVal })
+          });
+          if (!res.ok) throw new Error('Failed');
+          await loadBasketFlag();
+        } catch(e) { alert('Could not update flag.'); await loadBasketFlag(); }
+      });
+      loadBasketFlag();
 
       function switchMode(mode) {
         currentMode = mode;

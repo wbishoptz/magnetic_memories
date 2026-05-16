@@ -818,3 +818,78 @@ function openCropModal(file, done) {
 
 updatePayButtonAppearance();
 updateVisibility();
+
+// ─── Basket integration ────────────────────────────────────────────────────
+
+const basketBtn = document.getElementById('basketBtn');
+if (basketBtn) {
+  basketBtn.addEventListener('click', addToBasket);
+}
+
+async function addToBasket() {
+  if (!isCountValid()) {
+    shakeElement(uploadMetaEl);
+    showToast(`You need exactly ${requiredCount} photo${requiredCount > 1 ? 's' : ''}`, 'error');
+    return;
+  }
+  if (!isAllCropped()) {
+    shakeElement(cropHelp);
+    showToast('Please crop all photos first', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('basketBtn');
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    const packSizePayload = selectedPackType === 'voucher'
+      ? `voucher_${selectedPackSize}`
+      : selectedPackSize;
+
+    const orderRes = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId: currentOrderId,
+        email: 'basket@draft.local',
+        packSize: packSizePayload,
+        packType: selectedPackType,
+        basketDraft: true,
+      }),
+    });
+    if (!orderRes.ok) throw new Error('Order creation failed');
+    const { orderId } = await orderRes.json();
+    currentOrderId = orderId;
+
+    btn.textContent = 'Uploading...';
+    const files = myDropzone.files.slice();
+    for (const file of files) {
+      const form = new FormData();
+      const blob = file._croppedBlob || file;
+      const name = (file.name || 'photo.jpg').replace(/\.(heic|heif)$/i, '.jpg');
+      form.append('file', blob, name);
+      const up = await fetch(`/api/upload?orderId=${encodeURIComponent(orderId)}`, { method: 'POST', body: form });
+      if (!up.ok) throw new Error('Upload failed');
+    }
+
+    const packPrices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+    const price = selectedPackType === 'voucher' ? selectedPackSize : (packPrices[selectedPackSize] || 0);
+    const label = selectedPackType === 'voucher'
+      ? `£${selectedPackSize} Gift Voucher`
+      : `${selectedPackSize} Photo Magnets`;
+
+    window.mmBasket.add(orderId, label, price);
+
+    // Reset for a fresh order
+    myDropzone.removeAllFiles(true);
+    currentOrderId = crypto.randomUUID();
+    showToast('Added to basket!', 'ok');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to add to basket', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🛒 Add to Basket';
+  }
+}

@@ -190,9 +190,14 @@
       <button onclick="goBack()" id="btn-back" class="text-muted-foreground hover:text-foreground font-medium flex items-center gap-2 disabled:opacity-0 transition-opacity">
         <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
       </button>
-      <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">
-        Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
-      </button>
+      <div class="flex gap-3 items-center">
+        <button id="basket-btn-keyrings" onclick="submitOrder({addToBasket:true})" class="basket-show px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000; display:none;">
+          🛒 Add to Basket
+        </button>
+        <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">
+          Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
     </div>
 
   </main>
@@ -373,26 +378,32 @@
       }
     };
 
-    async function submitOrder() {
-      const btn = document.getElementById('btn-next');
-      btn.disabled = true; 
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+    async function submitOrder(opts = {}) {
+      const { addToBasket = false } = opts;
+      const btn = addToBasket
+        ? document.getElementById('basket-btn-keyrings')
+        : document.getElementById('btn-next');
+      btn.disabled = true;
+      btn.innerHTML = addToBasket
+        ? `Adding...`
+        : `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
 
       try {
         const payload = {
-          email: state.email, 
-          phone: state.phone, 
-          socialPermission: state.social,
-          shippingMethod: state.delivery,
-          productType: 'keyring', 
-          packSize: 1 // 1 Keyring
+          email: addToBasket ? 'basket@draft.local' : state.email,
+          phone: addToBasket ? '00000000000' : state.phone,
+          socialPermission: addToBasket ? 'yes' : state.social,
+          shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
+          productType: 'keyring',
+          packSize: 1,
+          basketDraft: addToBasket || undefined
         };
 
         const res = await fetch("/api/order", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        
+
         if(!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
@@ -404,12 +415,22 @@
           await fetch(`/api/upload?orderId=${orderId}`, { method: "POST", body: form });
         }
 
+        if (addToBasket) {
+          window.mmBasket.add(orderId, '🔑 Double-Sided Keyring', 6);
+          btn.innerHTML = `🛒 Added!`;
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = `🛒 Add to Basket`;
+          }, 2000);
+          return;
+        }
+
         btn.innerText = "Redirecting...";
         const ckRes = await fetch("/api/checkout", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'keyring' })
         });
-        
+
         const { checkoutUrl } = await ckRes.json();
         window.location.href = checkoutUrl;
 
@@ -423,5 +444,6 @@
 
     render();
   </script>
+  <script src="./basket.js"></script>
 </body>
 </html>
