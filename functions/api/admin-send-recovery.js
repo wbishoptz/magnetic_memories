@@ -5,9 +5,9 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { key, orderId } = body;
+    const { orderId } = body;
+    const key = request.headers.get("Authorization")?.replace("Bearer ", "") || body.key;
 
-    // 1. Auth Check
     if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }

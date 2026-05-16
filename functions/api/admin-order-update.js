@@ -34,7 +34,7 @@ export async function onRequestPost(context) {
 
   // --- 1. Check admin key ---
   const url = new URL(request.url);
-  const key = url.searchParams.get("key");
+  const key = request.headers.get("Authorization")?.replace("Bearer ", "") || url.searchParams.get("key");
 
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
     return jsonResponse({ error: "Unauthorized" }, 401);

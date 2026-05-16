@@ -3,8 +3,8 @@
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
-  const key = url.searchParams.get("key");
   const targetId = url.searchParams.get("orderId");
+  const key = request.headers.get("Authorization")?.replace("Bearer ", "") || url.searchParams.get("key");
 
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
@@ -39,6 +39,7 @@ export async function onRequest({ request, env }) {
             productType: o.productType,
             frameStyle: o.frameStyle,
             frameSize: o.frameSize,
+            mothersPackage: o.mothersPackage,
             price: o.price,
             wasRecovered: o.wasRecovered,
             usedVoucher: o.usedVoucher,

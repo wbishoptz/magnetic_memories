@@ -4,11 +4,9 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { key, orderId } = body;
+    const { orderId } = body;
+    const key = request.headers.get("Authorization")?.replace("Bearer ", "") || body.key;
 
-    // 1. Security Check
-    // We assume you have set ADMIN_KEY in your Cloudflare Env Variables.
-    // If you are using a hardcoded key in your code, replace env.ADMIN_KEY below with "your-secret-key"
     if (!key || key !== env.ADMIN_KEY) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,

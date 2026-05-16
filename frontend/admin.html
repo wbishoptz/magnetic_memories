@@ -192,7 +192,7 @@
         if (!adminKey) return;
         listContainer.innerHTML = '<div class="empty-state">Loading vouchers...</div>';
         try {
-            const res = await fetch(`/api/admin-vouchers?key=${encodeURIComponent(adminKey)}`);
+            const res = await fetch(`/api/admin-vouchers`, { headers: { Authorization: `Bearer ${adminKey}` } });
             if (!res.ok) throw new Error("Auth failed");
             const data = await res.json();
             vouchers = data.vouchers || [];
@@ -267,7 +267,7 @@
         if (!adminKey) return;
         listContainer.innerHTML = '<div class="empty-state">Loading orders…</div>';
         try {
-          const res = await fetch(`/api/admin-orders?key=${encodeURIComponent(adminKey)}`);
+          const res = await fetch(`/api/admin-orders`, { headers: { Authorization: `Bearer ${adminKey}` } });
           if (res.status === 401) { headerSubtitle.textContent = "Invalid admin key."; listContainer.innerHTML = '<div class="empty-state">Invalid key.</div>'; return; }
           const data = await res.json();
           orders = data.orders || []; applyFilters();
@@ -398,7 +398,7 @@
       async function loadOrderDetails(orderId) {
         detailsContainer.innerHTML = '<div class="empty-state">Loading...</div>';
         try {
-          const res = await fetch(`/api/admin-orders?orderId=${encodeURIComponent(orderId)}&key=${encodeURIComponent(adminKey)}`);
+          const res = await fetch(`/api/admin-orders?orderId=${encodeURIComponent(orderId)}`, { headers: { Authorization: `Bearer ${adminKey}` } });
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           const order = data.order;
@@ -527,7 +527,7 @@
           // Wire up interactions
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
-             await fetch(`/api/admin-order-update?key=${adminKey}`, { method: "POST", body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
+             await fetch(`/api/admin-order-update`, { method: "POST", headers: { Authorization: `Bearer ${adminKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
              loadOrderDetails(orderId); loadOrders(); 
           };
           
@@ -536,7 +536,7 @@
               manualRecBtn.onclick = async () => {
                   manualRecBtn.textContent = "Sending..."; manualRecBtn.disabled = true;
                   try {
-                      const res = await fetch("/api/admin-send-recovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: adminKey, orderId }) });
+                      const res = await fetch("/api/admin-send-recovery", { method: "POST", headers: { Authorization: `Bearer ${adminKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ orderId }) });
                       if (res.ok) { alert("Email sent!"); loadOrderDetails(orderId); loadOrders(); } 
                       else { alert("Failed to send."); manualRecBtn.textContent = "Try Again"; manualRecBtn.disabled = false; }
                   } catch (e) { alert("Error: " + e.message); }
@@ -545,7 +545,7 @@
 
           document.getElementById("delete-order-btn").onclick = async () => {
              if(confirm("Delete forever?")) {
-                 await fetch("/api/admin-order-delete", { method: "POST", body: JSON.stringify({ key: adminKey, orderId }) });
+                 await fetch("/api/admin-order-delete", { method: "POST", headers: { Authorization: `Bearer ${adminKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ orderId }) });
                  orders = orders.filter(o => o.orderId !== orderId); applyFilters(); detailsContainer.innerHTML="Deleted.";
              }
           };
@@ -558,8 +558,8 @@
         } catch (e) { detailsContainer.innerHTML = "Error loading details."; }
       }
 
-      async function loadOrderImages(id) { 
-        const res = await fetch(`/api/admin-order-images?orderId=${id}&key=${adminKey}`);
+      async function loadOrderImages(id) {
+        const res = await fetch(`/api/admin-order-images?orderId=${id}`, { headers: { Authorization: `Bearer ${adminKey}` } });
         const data = await res.json();
         let h = '<div class="images-grid">';
         (data.images||[]).forEach(img => {

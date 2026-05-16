@@ -6,10 +6,10 @@
 export const onRequestGet = async ({ request, env }) => {
   try {
     const url = new URL(request.url);
-    const key = url.searchParams.get("key");
     const orderId = url.searchParams.get("orderId");
+    const key = request.headers.get("Authorization")?.replace("Bearer ", "") || url.searchParams.get("key");
 
-    if (!key || key !== env.ADMIN_DASH_KEY) {
+    if (!key || (key !== env.ADMIN_DASH_KEY && key !== env.ADMIN_KEY)) {
       return json({ error: "Unauthorized" }, 401);
     }
 

@@ -4,11 +4,9 @@
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
-  const key = url.searchParams.get("key");
-  const search = url.searchParams.get("search"); // Optional: search specific code
+  const search = url.searchParams.get("search");
+  const key = request.headers.get("Authorization")?.replace("Bearer ", "") || url.searchParams.get("key");
 
-  // 1. Auth Check
-  // We assume you have set ADMIN_KEY in your Cloudflare Env Variables.
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
