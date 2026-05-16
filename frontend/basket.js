@@ -355,12 +355,13 @@
 
   function buildCheckoutHTML() {
     const subtotal = Math.max(0, getSubtotal() - voucherApplied);
+    const pre = window.mmBasketPrefill || {};
     return `
       <button class="mm-back-link" id="mm-back-btn">← Back to basket</button>
 
       <div class="mm-section-title">Your details</div>
-      <input type="email" id="mm-email" placeholder="Email address" class="mm-input" autocomplete="email" />
-      <input type="tel" id="mm-phone" placeholder="Phone number" class="mm-input" autocomplete="tel" />
+      <input type="email" id="mm-email" placeholder="Email address" class="mm-input" autocomplete="email" value="${pre.email || ''}" />
+      <input type="tel" id="mm-phone" placeholder="Phone number" class="mm-input" autocomplete="tel" value="${pre.phone || ''}" />
 
       <div class="mm-section-title">Shipping</div>
       <div class="mm-ship-options">
@@ -420,6 +421,17 @@
         r.closest('.mm-social-card').classList.add('mm-selected');
       });
     });
+
+    // Pre-select shipping/social from prefill if available
+    const pre = window.mmBasketPrefill || {};
+    if (pre.shipping) {
+      const r = document.querySelector(`input[name="mm_ship"][value="${pre.shipping}"]`);
+      if (r) { r.checked = true; r.closest('.mm-ship-card')?.classList.add('mm-selected'); updatePayTotal(); }
+    }
+    if (pre.social) {
+      const r = document.querySelector(`input[name="mm_social"][value="${pre.social}"]`);
+      if (r) { r.checked = true; r.closest('.mm-social-card')?.classList.add('mm-selected'); }
+    }
 
     document.getElementById('mm-promo-btn')?.addEventListener('click', applyPromo);
     document.getElementById('mm-pay-btn')?.addEventListener('click', submitCheckout);

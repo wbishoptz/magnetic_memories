@@ -366,11 +366,18 @@
           // Setup Summary
           document.getElementById('sum-front').src = state.front.preview;
           document.getElementById('sum-back').src = state.back.preview;
-          
+
           const isDel = state.delivery === 'GI_DELIVER';
           document.getElementById('sum-delivery').innerText = isDel ? "Delivery" : "Collection";
           document.getElementById('sum-delivery-price').innerText = isDel ? "£3.00" : "Free";
           document.getElementById('sum-total').innerText = `£${(PRICE + (isDel ? 3 : 0)).toFixed(2)}`;
+
+          window.mmBasketPrefill = {
+            email: state.email,
+            phone: state.phone,
+            shipping: state.delivery,
+            social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined
+          };
         }
         render();
       } else {

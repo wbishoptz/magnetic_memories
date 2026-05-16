@@ -209,6 +209,14 @@ function setPhoneValidityUI(isValid) {
 
 function updatePayButtonAppearance() {
   const ready = isEmailValid() && isPhoneValid() && isCountValid() && isAllCropped() && isSocialSelected() && isShippingSelected();
+  if (isEmailValid() && isPhoneValid()) {
+    window.mmBasketPrefill = {
+      email: customerEmail,
+      phone: customerPhone,
+      shipping: selectedShipping,
+      social: socialPermission === true ? 'yes' : socialPermission === false ? 'no' : undefined
+    };
+  }
   if (ready) {
     payBtn.classList.remove("disabled-look");
     payBtn.textContent = "Pay securely";
