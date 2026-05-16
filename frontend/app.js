@@ -630,6 +630,15 @@ payBtn.addEventListener("click", async () => {
     return;
   }
 
+  if (window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
+    const count = window.mmBasket.getCount();
+    const yes = confirm(`You have ${count} item${count>1?'s':''} in your basket. Add this to your basket and pay for everything together?`);
+    if (yes) {
+      document.getElementById('basketBtn')?.click();
+      return;
+    }
+  }
+
   try {
     payBtn.disabled = true;
     payBtn.textContent = "Processing...";

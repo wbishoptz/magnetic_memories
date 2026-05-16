@@ -702,6 +702,12 @@
       const btn = document.getElementById(addToBasket ? 'basket-btn-frames' : 'main-btn');
 
       if(!addToBasket && (!email || !phone)) { alert("Please enter email & phone"); return; }
+
+      if (!addToBasket && window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
+        const count = window.mmBasket.getCount();
+        const yes = confirm(`You have ${count} item${count>1?'s':''} in your basket. Add this to your basket and pay for everything together?`);
+        if (yes) { submitOrder({ addToBasket: true }); return; }
+      }
       btn.disabled = true;
       btn.innerHTML = `<span class="animate-pulse">${addToBasket ? 'Adding to basket...' : 'Processing...'}</span>`;
 
