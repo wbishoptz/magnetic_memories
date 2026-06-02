@@ -4,28 +4,44 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Event | Manual Upload</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center p-6">
 
-  <div class="max-w-md w-full space-y-8">
-    
+  <div class="max-w-md w-full space-y-6">
+
     <div class="text-center">
       <h1 class="text-3xl font-bold text-emerald-400">Event Mode</h1>
       <p class="text-slate-400">Manual Entry (Paid In-Person)</p>
     </div>
 
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-      <label class="block text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Raffle Ticket #</label>
-      <input type="text" id="raffle" placeholder="e.g. 505" class="w-full text-3xl font-mono font-bold bg-slate-900 border border-slate-600 rounded-lg p-4 text-center focus:ring-2 focus:ring-emerald-500 outline-none" />
+    <!-- Event selector -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+      <label class="block text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">Event</label>
+      <select id="event-select" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-lg font-semibold focus:ring-2 focus:ring-emerald-500 outline-none">
+        <option value="">Loading events…</option>
+      </select>
+      <p id="event-help" class="text-xs text-slate-500 mt-2"></p>
     </div>
 
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-      <label class="block text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Photos (<span id="count">0</span>)</label>
-      
-      <div id="preview-grid" class="grid grid-cols-3 gap-2 mb-4"></div>
+    <!-- Raffle number dropdown -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+      <div class="flex items-center justify-between mb-2">
+        <label class="block text-sm font-bold uppercase tracking-wider text-slate-400">Raffle Ticket #</label>
+        <span id="free-count" class="text-xs text-slate-500"></span>
+      </div>
+      <select id="raffle" disabled class="w-full text-2xl font-mono font-bold bg-slate-900 border border-slate-600 rounded-lg p-4 text-center focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-50">
+        <option value="">Select an event first</option>
+      </select>
+      <p class="text-xs text-slate-500 mt-2">Only un-used numbers are shown. Once saved, a number disappears from this list.</p>
+    </div>
 
+    <!-- Photos -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+      <label class="block text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Photos (<span id="count">0</span>)</label>
+      <div id="preview-grid" class="grid grid-cols-3 gap-2 mb-4"></div>
       <button onclick="document.getElementById('files').click()" class="w-full py-4 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-colors flex flex-col items-center justify-center gap-2">
         <i data-lucide="camera" class="w-6 h-6"></i>
         <span>Take / Select Photos</span>
@@ -33,21 +49,85 @@
       <input type="file" id="files" multiple accept="image/*" class="hidden" />
     </div>
 
-    <button id="submit-btn" onclick="submitManualOrder()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xl py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2">
+    <button id="submit-btn" onclick="submitManualOrder()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xl py-4 rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-40">
       Confirm & Upload <i data-lucide="check-circle" class="w-6 h-6"></i>
     </button>
 
     <div id="status" class="text-center text-sm font-mono hidden"></div>
 
+    <p class="text-center text-xs text-slate-600">Manage events in the <a href="/admin.html" class="underline hover:text-slate-400">Admin → Events</a> tab.</p>
   </div>
 
   <script>
     lucide.createIcons();
     let selectedFiles = [];
+    let events = [];
+    let currentEvent = null;
+    let usedNumbers = new Set();
 
+    const eventSelect = document.getElementById('event-select');
+    const raffleSelect = document.getElementById('raffle');
+    const eventHelp = document.getElementById('event-help');
+    const freeCount = document.getElementById('free-count');
+
+    // ── Load events ───────────────────────────────────────────────
+    async function loadEvents() {
+      try {
+        const res = await fetch('/api/events');
+        const data = await res.json();
+        events = (data.events || []).filter(e => e.active);
+        if (events.length === 0) {
+          eventSelect.innerHTML = '<option value="">No active events</option>';
+          eventHelp.textContent = 'No active event found. Create one in Admin → Events.';
+          return;
+        }
+        eventSelect.innerHTML = events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        await selectEvent(events[0].id);
+      } catch (e) {
+        eventSelect.innerHTML = '<option value="">Error loading</option>';
+        eventHelp.textContent = 'Could not load events. Check connection.';
+      }
+    }
+
+    eventSelect.addEventListener('change', () => selectEvent(eventSelect.value));
+
+    async function selectEvent(id) {
+      currentEvent = events.find(e => e.id === id) || null;
+      if (!currentEvent) return;
+      raffleSelect.disabled = true;
+      raffleSelect.innerHTML = '<option value="">Loading numbers…</option>';
+      try {
+        const res = await fetch(`/api/events?id=${encodeURIComponent(id)}`);
+        const data = await res.json();
+        usedNumbers = new Set((data.used || []).map(Number));
+        currentEvent = data.event || currentEvent;
+        populateNumbers();
+      } catch (e) {
+        raffleSelect.innerHTML = '<option value="">Error loading numbers</option>';
+      }
+    }
+
+    function populateNumbers() {
+      const { rangeStart, rangeEnd } = currentEvent;
+      const free = [];
+      for (let n = rangeStart; n <= rangeEnd; n++) {
+        if (!usedNumbers.has(n)) free.push(n);
+      }
+      eventHelp.textContent = `Range ${rangeStart}–${rangeEnd} · ${usedNumbers.size} used`;
+      freeCount.textContent = `${free.length} free`;
+      if (free.length === 0) {
+        raffleSelect.innerHTML = '<option value="">All numbers used 🎉</option>';
+        raffleSelect.disabled = true;
+        return;
+      }
+      raffleSelect.innerHTML = '<option value="">— pick a number —</option>' +
+        free.map(n => `<option value="${n}">#${n}</option>`).join('');
+      raffleSelect.disabled = false;
+    }
+
+    // ── Photos ────────────────────────────────────────────────────
     document.getElementById('files').addEventListener('change', (e) => {
-      const newFiles = Array.from(e.target.files);
-      selectedFiles = [...selectedFiles, ...newFiles];
+      selectedFiles = [...selectedFiles, ...Array.from(e.target.files)];
       renderPreviews();
     });
 
@@ -63,69 +143,77 @@
       lucide.createIcons();
     }
 
-    window.removeFile = (i) => {
-      selectedFiles.splice(i, 1);
-      renderPreviews();
-    };
+    window.removeFile = (i) => { selectedFiles.splice(i, 1); renderPreviews(); };
 
+    // ── Submit ────────────────────────────────────────────────────
     async function submitManualOrder() {
-      const raffle = document.getElementById('raffle').value.trim();
+      const raffle = raffleSelect.value;
       const btn = document.getElementById('submit-btn');
       const status = document.getElementById('status');
 
-      if (!raffle) return alert("Enter Raffle Ticket Number");
-      if (selectedFiles.length === 0) return alert("Select at least 1 photo");
+      if (!currentEvent) return alert('Select an event first.');
+      if (!raffle) return alert('Pick a raffle ticket number.');
+      if (selectedFiles.length === 0) return alert('Select at least 1 photo.');
 
       btn.disabled = true;
-      btn.innerHTML = "Creating Order...";
+      btn.innerHTML = 'Creating Order...';
       status.classList.remove('hidden');
+      status.textContent = '';
 
       try {
-        // 1. Create Paid Order
-        const res = await fetch("/api/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            event: "MANUAL",
+            event: 'MANUAL',
+            eventId: currentEvent.id,
             raffleNumber: raffle,
-            packSize: selectedFiles.length, // Dynamic pack size
-            email: `raffle-${raffle}@event.local`, // Fake email for system
-            phone: "00000000",
-            status: "paid" // Instant paid status
+            packSize: selectedFiles.length,
+            email: `raffle-${currentEvent.id}-${raffle}@event.local`,
+            phone: '00000000',
+            status: 'paid'
           })
         });
 
-        if (!res.ok) throw new Error("Order creation failed");
+        if (res.status === 409) {
+          const d = await res.json().catch(() => ({}));
+          alert(d.error || 'That number was just taken. Refreshing list.');
+          await selectEvent(currentEvent.id);
+          btn.disabled = false;
+          btn.innerHTML = 'Confirm & Upload';
+          return;
+        }
+        if (!res.ok) throw new Error('Order creation failed');
         const { orderId } = await res.json();
 
-        // 2. Upload Photos
         btn.innerHTML = `Uploading 0/${selectedFiles.length}...`;
-        
         for (let i = 0; i < selectedFiles.length; i++) {
           const formData = new FormData();
-          formData.append("file", selectedFiles[i]);
-          
-          // Pass the desired filename explicitly in the query string
-          const fileName = `Ticket-${raffle}-${i+1}.jpg`; 
-          
+          formData.append('file', selectedFiles[i]);
+          const fileName = `Ticket-${raffle}-${i + 1}.jpg`;
           await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(fileName)}`, {
-            method: "POST",
-            body: formData
+            method: 'POST', body: formData
           });
-          
-          btn.innerHTML = `Uploading ${i+1}/${selectedFiles.length}...`;
+          btn.innerHTML = `Uploading ${i + 1}/${selectedFiles.length}...`;
         }
 
-        // 3. Reset
-        alert(`Order Saved!\nTicket: ${raffle}\nPhotos: ${selectedFiles.length}`);
-        location.reload();
+        // Mark number used locally + reset for next person
+        usedNumbers.add(Number(raffle));
+        selectedFiles = [];
+        renderPreviews();
+        populateNumbers();
+        status.innerHTML = `<span class="text-emerald-400">✅ Saved ticket #${raffle}</span>`;
+        btn.disabled = false;
+        btn.innerHTML = 'Confirm & Upload';
 
       } catch (e) {
-        alert("Error: " + e.message);
+        alert('Error: ' + e.message);
         btn.disabled = false;
-        btn.innerText = "Try Again";
+        btn.innerText = 'Try Again';
       }
     }
+
+    loadEvents();
   </script>
 </body>
 </html>

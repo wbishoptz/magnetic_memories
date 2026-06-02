@@ -73,6 +73,7 @@
             <button class="nav-btn active" id="nav-orders">Orders</button>
             <button class="nav-btn" id="nav-drafts">Drafts</button>
             <button class="nav-btn" id="nav-vouchers">Vouchers</button>
+            <button class="nav-btn" id="nav-events">🎪 Events</button>
           </div>
         </div>
         <div class="input-inline" id="key-form"><input id="admin-key-input" type="password" placeholder="Admin key" autocomplete="off" /><button id="save-key-btn">Unlock</button></div>
@@ -127,10 +128,12 @@
       const navOrders = document.getElementById("nav-orders");
       const navDrafts = document.getElementById("nav-drafts");
       const navVouchers = document.getElementById("nav-vouchers");
+      const navEvents = document.getElementById("nav-events");
       let currentMode = 'orders';
 
       let adminKey = null;
       let orders = [], filteredOrders = [], selectedOrderId = null, lastImagesForOrder = {};
+      let events = [], selectedEventId = null;
       let vouchers = [], filteredVouchers = [], selectedVoucher = null;
 
       (function initKey() {
@@ -159,6 +162,7 @@
       navOrders.onclick = () => switchMode('orders');
       navDrafts.onclick = () => switchMode('drafts');
       navVouchers.onclick = () => switchMode('vouchers');
+      navEvents.onclick = () => switchMode('events');
 
       const basketToggleBtn = document.getElementById('basket-toggle-btn');
       async function loadBasketFlag() {
@@ -192,9 +196,20 @@
         navOrders.classList.toggle('active', mode === 'orders');
         navDrafts.classList.toggle('active', mode === 'drafts');
         navVouchers.classList.toggle('active', mode === 'vouchers');
+        navEvents.classList.toggle('active', mode === 'events');
 
         document.getElementById('voucher-toolbar').style.display = (mode === 'vouchers') ? 'flex' : 'none';
-        
+
+        if (mode === 'events') {
+            document.getElementById('order-toolbar').style.display = 'none';
+            document.getElementById('voucher-toolbar').style.display = 'none';
+            document.getElementById('pack-summary').style.display = 'none';
+            document.getElementById('list-title').textContent = "Events";
+            document.getElementById('list-subtitle').textContent = "In-person raffle uploads";
+            loadEvents();
+            return;
+        }
+
         if (mode === 'orders') {
             document.getElementById('order-toolbar').style.display = 'flex';
             document.getElementById('status-filter').parentElement.style.display = 'block'; 
@@ -278,8 +293,151 @@
           detailsContainer.innerHTML = html;
       }
 
-      document.getElementById("search-input").addEventListener("input", applyFilters); 
-      document.getElementById("status-filter").addEventListener("change", applyFilters); 
+      // ─── EVENTS TAB ────────────────────────────────────────────────
+      async function loadEvents() {
+        if (!adminKey) { listContainer.innerHTML = '<div class="empty-state">Enter key above to load.</div>'; return; }
+        listContainer.innerHTML = '<div class="empty-state">Loading events…</div>';
+        try {
+          const [evRes, ordRes] = await Promise.all([
+            fetch('/api/events'),
+            fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } })
+          ]);
+          events = (await evRes.json()).events || [];
+          orders = (await ordRes.json()).orders || [];
+          renderEventManager();
+        } catch (e) {
+          listContainer.innerHTML = '<div class="empty-state">Error loading events.</div>';
+        }
+      }
+
+      function eventOrderCount(id) {
+        return orders.filter(o => o.eventId === id).length;
+      }
+
+      function renderEventManager() {
+        document.getElementById('list-count').textContent = `${events.length}`;
+        let html = `<div style="margin-bottom:16px;">
+          <button id="new-event-btn" class="btn-action" style="width:100%;">＋ New Event</button>
+        </div>`;
+
+        if (events.length === 0) {
+          html += `<div class="empty-state">No events yet. Create one, set its ticket range, then open <code>/event.html</code> at the stall.</div>`;
+        } else {
+          html += '<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Range</th><th>Uploads</th><th>Status</th></tr></thead><tbody>';
+          for (const e of events) {
+            const sel = e.id === selectedEventId ? ' selected' : '';
+            const statusPill = e.active
+              ? `<span class="status-pill paid">Active</span>`
+              : `<span class="status-pill abandoned">Off</span>`;
+            html += `<tr class="${sel}" data-event-id="${e.id}">
+              <td style="font-weight:700;">${e.name}</td>
+              <td style="font-family:monospace;">${e.rangeStart}–${e.rangeEnd}</td>
+              <td>${eventOrderCount(e.id)}</td>
+              <td>${statusPill}</td>
+            </tr>`;
+          }
+          html += '</tbody></table></div>';
+        }
+        listContainer.innerHTML = html;
+
+        document.getElementById('new-event-btn').onclick = createEvent;
+        listContainer.querySelectorAll('tbody tr').forEach(row => {
+          row.addEventListener('click', () => selectAdminEvent(row.getAttribute('data-event-id')));
+        });
+      }
+
+      async function createEvent() {
+        const name = prompt('Event name (e.g. Summer Fair 2026):');
+        if (!name) return;
+        const startStr = prompt('First ticket number:', '1');
+        if (startStr === null) return;
+        const endStr = prompt('Last ticket number:', '500');
+        if (endStr === null) return;
+        const rangeStart = parseInt(startStr, 10), rangeEnd = parseInt(endStr, 10);
+        if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeEnd < rangeStart) {
+          return alert('Invalid range.');
+        }
+        try {
+          const res = await fetch('/api/admin-event', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save', name, rangeStart, rangeEnd, active: true })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed');
+          await loadEvents();
+        } catch (e) { alert('Could not create event: ' + e.message); }
+      }
+
+      async function toggleEventActive(ev) {
+        try {
+          await fetch('/api/admin-event', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save', id: ev.id, name: ev.name, rangeStart: ev.rangeStart, rangeEnd: ev.rangeEnd, active: !ev.active })
+          });
+          await loadEvents();
+          selectAdminEvent(ev.id);
+        } catch (e) { alert('Could not update event.'); }
+      }
+
+      async function deleteEvent(ev) {
+        if (!confirm(`Delete event "${ev.name}"?\n\nUploaded photos/orders are kept, but the event disappears from the stall page.`)) return;
+        try {
+          await fetch('/api/admin-event', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id: ev.id })
+          });
+          selectedEventId = null;
+          detailsContainer.innerHTML = '<div class="empty-state">Event deleted.</div>';
+          await loadEvents();
+        } catch (e) { alert('Could not delete event.'); }
+      }
+
+      function selectAdminEvent(id) {
+        selectedEventId = id;
+        renderEventManager();
+        const ev = events.find(e => e.id === id);
+        if (!ev) return;
+
+        const evOrders = orders
+          .filter(o => o.eventId === id)
+          .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
+
+        let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${ev.name}</div>`;
+        html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · ${evOrders.length} uploaded</div>`;
+        html += `<div class="field-value" style="display:flex; gap:8px; margin:10px 0;">
+          <button id="ev-toggle" class="btn-action" style="flex:1;">${ev.active ? 'Set Inactive' : 'Set Active'}</button>
+          <button id="ev-delete" class="btn-danger" style="flex:1; margin:0;">Delete Event</button>
+        </div>`;
+
+        html += `<div class="field-label">Uploads by Ticket #</div>`;
+        if (evOrders.length === 0) {
+          html += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
+        } else {
+          html += '<div class="table-wrapper"><table><thead><tr><th>Ticket</th><th>Photos</th><th>When</th></tr></thead><tbody>';
+          for (const o of evOrders) {
+            const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '–';
+            html += `<tr data-order-id="${o.orderId}">
+              <td style="font-family:monospace; font-weight:800; color:#66d19e;">#${o.raffleNumber ?? '?'}</td>
+              <td>${o.packSize ?? '?'}</td>
+              <td>${created}</td>
+            </tr>`;
+          }
+          html += '</tbody></table></div>';
+        }
+        detailsContainer.innerHTML = html;
+
+        document.getElementById('ev-toggle').onclick = () => toggleEventActive(ev);
+        document.getElementById('ev-delete').onclick = () => deleteEvent(ev);
+        detailsContainer.querySelectorAll('tbody tr').forEach(row => {
+          row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
+        });
+      }
+
+      document.getElementById("search-input").addEventListener("input", applyFilters);
+      document.getElementById("status-filter").addEventListener("change", applyFilters);
       document.getElementById("date-filter").addEventListener("change", applyFilters);
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
@@ -305,7 +463,7 @@
       }
 
       function applyFilters() {
-        if (currentMode === 'vouchers') return;
+        if (currentMode === 'vouchers' || currentMode === 'events') return;
         
         const q = document.getElementById("search-input").value.trim().toLowerCase();
         const statusVal = document.getElementById("status-filter").value;
@@ -318,6 +476,7 @@
 
         filteredOrders = orders.filter(o => {
           if (currentMode === 'orders') {
+             if (o.eventId) return false; // event uploads live in the Events tab
              if (o.status === 'draft' || o.status === 'abandoned') return false;
              if (statusVal && o.status !== statusVal) return false;
           } else if (currentMode === 'drafts') {
@@ -436,7 +595,10 @@
 
           // --- TOP BANNER LOGIC ---
           let topBanner = "";
-          if (order.event === 'BINGO') {
+          if (order.eventId) {
+              const evName = (events.find(e => e.id === order.eventId) || {}).name || order.eventId;
+              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${evName}<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.raffleNumber ?? '?'}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
+          } else if (order.event === 'BINGO') {
               let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
           } else if (order.event === 'VALENTINES') {

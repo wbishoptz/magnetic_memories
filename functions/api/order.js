@@ -21,7 +21,17 @@ export async function onRequestPost({ request, env }) {
     const premadeSelections = body?.premadeSelections || [];
 
     const raffleNumber = body?.raffleNumber || null;
+    const eventId = body?.eventId || null;
     const manualStatus = body?.status || "draft";
+
+    // Event ticket: block duplicate raffle numbers within the same event
+    if (eventTag === 'MANUAL' && eventId && raffleNumber != null && !body?.orderId) {
+      const ticketKey = `event:ticket:${eventId}:${raffleNumber}`;
+      const taken = await env.ORDERS_KV.get(ticketKey);
+      if (taken) {
+        return jsonResponse({ error: `Ticket #${raffleNumber} is already used for this event.` }, 409);
+      }
+    }
 
     const frameStyle = body?.frameStyle;
     const frameSize = body?.frameSize;
@@ -112,6 +122,7 @@ export async function onRequestPost({ request, env }) {
       price,
       event: eventTag || existingOrder.event,
       raffleNumber: raffleNumber || existingOrder.raffleNumber,
+      eventId: eventId || existingOrder.eventId || null,
 
       productType: productType || existingOrder.productType,
       flexiColor: flexiColor || existingOrder.flexiColor,
@@ -148,6 +159,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
+
+    // Reserve the event ticket number so it can't be reused
+    if (order.event === 'MANUAL' && order.eventId && order.raffleNumber != null) {
+      await env.ORDERS_KV.put(`event:ticket:${order.eventId}:${order.raffleNumber}`, orderId);
+    }
 
     return jsonResponse({ orderId });
   } catch (err) {
