@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /event.html
+Disallow: /return.html
+Disallow: /bingo-return.html
+Disallow: /api/
+
+Sitemap: https://magnetic-memories.pages.dev/sitemap.xml
