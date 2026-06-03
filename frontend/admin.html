@@ -475,8 +475,37 @@
         return canvas.toDataURL('image/jpeg', 0.92);
       }
 
-      // Draw one magnet tile: photo + octagon cut outline + number in the border
-      function drawMagnetTile(pdf, x, y, item) {
+      // Render a border label to a transparent PNG, pre-rotated and centred.
+      // wMm × hMm = the final placed strip size; rot in radians (0, ±π/2, π).
+      function labelCanvas(text, wMm, hMm, rot) {
+        const PX = 18; // px per mm — high-res for crisp print
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(wMm * PX);
+        cv.height = Math.round(hMm * PX);
+        const ctx = cv.getContext('2d');
+        ctx.translate(cv.width / 2, cv.height / 2);
+        ctx.rotate(rot);
+        ctx.fillStyle = '#1f1f1f';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // Perpendicular-to-text dimension (the narrow strip width) sets the font size
+        const shortPx = Math.abs(Math.sin(rot)) > 0.5 ? cv.width : cv.height;
+        ctx.font = `bold ${Math.round(shortPx * 0.42)}px Arial, Helvetica, sans-serif`;
+        ctx.fillText(text, 0, 0);
+        return cv.toDataURL('image/png');
+      }
+
+      // Build the three branding labels once (identical on every tile)
+      function makeBorderLabels() {
+        return {
+          top:   labelCanvas('MAGNETIC MEMORIES', PHOTO, PHOTO_OFF, Math.PI),       // flipped for back fold
+          left:  labelCanvas('MADE IN GIBRALTAR', PHOTO_OFF, PHOTO, -Math.PI / 2),  // reads bottom→top
+          right: labelCanvas('PERSONALISED MAGNETS', PHOTO_OFF, PHOTO, Math.PI / 2) // reads top→bottom
+        };
+      }
+
+      // Draw one magnet tile: photo + octagon cut outline + branding + number
+      function drawMagnetTile(pdf, x, y, item, labels) {
         // Photo (centre-cropped square) in the middle of the tile
         pdf.addImage(item.data, 'JPEG', x + PHOTO_OFF, y + PHOTO_OFF, PHOTO, PHOTO);
 
@@ -494,30 +523,16 @@
           pdf.line(a[0], a[1], b[0], b[1]);
         }
 
-        const cx = x + T / 2, cy = y + T / 2;
-        // Centres of each border strip (the bleed/wrap area outside the photo)
-        const topMid = y + PHOTO_OFF / 2;
-        const botMid = y + T - PHOTO_OFF / 2;
-        const leftMid = x + PHOTO_OFF / 2;
-        const rightMid = x + T - PHOTO_OFF / 2;
-
-        // All border text: bold + dark, centred in its strip both ways (baseline:middle)
-        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30);
-
-        // Top border: "Magnetic Memories" — flipped 180° so it reads upright when folded round the back
-        pdf.setFontSize(6.5);
-        pdf.text('MAGNETIC MEMORIES', cx, topMid, { angle: 180, align: 'center', baseline: 'middle' });
-
-        // Left side (vertical, reads bottom→top): "Made in Gibraltar"
-        pdf.setFontSize(6);
-        pdf.text('MADE IN GIBRALTAR', leftMid, cy, { angle: 90, align: 'center', baseline: 'middle' });
-
-        // Right side (vertical, reads top→bottom): "Personalised Magnets"
-        pdf.text('PERSONALISED MAGNETS', rightMid, cy, { angle: 270, align: 'center', baseline: 'middle' });
+        // Branding labels as pre-rotated images, placed exactly in each border strip
+        if (labels) {
+          pdf.addImage(labels.top, 'PNG', x + PHOTO_OFF, y, PHOTO, PHOTO_OFF);
+          pdf.addImage(labels.left, 'PNG', x, y + PHOTO_OFF, PHOTO_OFF, PHOTO);
+          pdf.addImage(labels.right, 'PNG', x + PHOTO_OFF + PHOTO, y + PHOTO_OFF, PHOTO_OFF, PHOTO);
+        }
 
         // Bottom border: magnet number (upright, easy to read while sorting)
-        pdf.setFontSize(11);
-        pdf.text(`#${item.ticket ?? '?'}`, cx, botMid, { align: 'center', baseline: 'middle' });
+        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30); pdf.setFontSize(11);
+        pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, y + T - PHOTO_OFF / 2, { align: 'center', baseline: 'middle' });
       }
 
       // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
@@ -528,6 +543,7 @@
         const topMargin = (PAGE_H - totalH) / 2;     // centre the grid vertically
         const rowPitch = TILE + ROW_GAP;
         const pageCount = Math.ceil(items.length / PER_PAGE);
+        const labels = makeBorderLabels();            // built once, reused on every tile
 
         for (let p = 0; p < pageCount; p++) {
           if (p > 0) pdf.addPage();
@@ -537,7 +553,7 @@
           // Tiles
           for (let k = 0; k < pageItems.length; k++) {
             const r = Math.floor(k / COLS), col = k % COLS;
-            drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k]);
+            drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k], labels);
           }
 
           // Horizontal cut guides in the gap between each row of magnets
