@@ -37,6 +37,7 @@ export async function onRequestPost({ request, env }) {
     const frameSize = body?.frameSize;
     const frameColor = body?.frameColor;
     const includeMagnets = body?.includeMagnets;
+    const bandColor = body?.bandColor;
 
     const mothersPackage = body?.mothersPackage;
 
@@ -133,6 +134,7 @@ export async function onRequestPost({ request, env }) {
       frameSize: frameSize || existingOrder.frameSize,
       frameColor: frameColor || existingOrder.frameColor,
       includeMagnets: includeMagnets !== undefined ? includeMagnets : existingOrder.includeMagnets,
+      bandColor: bandColor || existingOrder.bandColor || null,
 
       status: finalStatus,
 

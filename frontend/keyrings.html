@@ -67,6 +67,7 @@
     <div class="flex items-center justify-center gap-2 mb-10" id="step-indicator"></div>
 
     <div id="step-1" class="text-center space-y-6 animate-in fade-in duration-300">
+      <img src="./keyring-display.jpg" alt="Personalised photo keyrings with faux leather straps" class="w-full max-w-md mx-auto rounded-2xl shadow-md" onerror="this.style.display='none'" />
       <div>
         <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Upload Your Photos</h2>
         <p class="text-muted-foreground text-sm">Choose a photo for each side of your keyring. They'll appear in a beautiful circular frame with a faux leather strap.</p>
@@ -92,6 +93,19 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="pt-2">
+        <p class="text-sm font-medium mb-3">Choose your strap colour</p>
+        <div class="flex flex-wrap items-center justify-center gap-3" id="band-wrap">
+          <button type="button" onclick="setBand('grey')"  data-band="grey"  title="Grey"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#c2c1ba"></button>
+          <button type="button" onclick="setBand('black')" data-band="black" title="Black" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#2b2b2f"></button>
+          <button type="button" onclick="setBand('green')" data-band="green" title="Green" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#aebd8a"></button>
+          <button type="button" onclick="setBand('blue')"  data-band="blue"  title="Blue"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#34425b"></button>
+          <button type="button" onclick="setBand('brown')" data-band="brown" title="Brown" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#b06b3a"></button>
+          <button type="button" onclick="setBand('pink')"  data-band="pink"  title="Pink"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#edb0b4"></button>
+        </div>
+        <p id="band-label" class="text-xs text-muted-foreground mt-3">No colour selected yet</p>
       </div>
     </div>
 
@@ -176,6 +190,10 @@
           <span class="font-bold">£6.00</span>
         </div>
         <div class="flex items-center justify-between border-b pb-2">
+          <span class="font-medium text-muted-foreground">Strap colour</span>
+          <span class="font-bold" id="sum-band">—</span>
+        </div>
+        <div class="flex items-center justify-between border-b pb-2">
           <span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span>
           <span class="font-bold" id="sum-delivery-price">£0.00</span>
         </div>
@@ -223,10 +241,23 @@
       step: 1,
       front: null, // { blob, preview }
       back: null,
+      bandColor: null,
       delivery: null,
       social: null,
       email: '',
       phone: ''
+    };
+
+    window.setBand = (c) => {
+      state.bandColor = c;
+      document.querySelectorAll('.band-swatch').forEach(el => {
+        const sel = el.dataset.band === c;
+        el.classList.toggle('ring-2', sel);
+        el.classList.toggle('ring-offset-2', sel);
+        el.classList.toggle('ring-primary', sel);
+      });
+      document.getElementById('band-label').textContent = 'Strap colour: ' + c.charAt(0).toUpperCase() + c.slice(1);
+      render();
     };
 
     const LABELS = ["Photos", "Delivery", "Share", "Contact", "Review"];
@@ -266,7 +297,7 @@
       btnBack.disabled = state.step === 1;
       
       let canNext = false;
-      if (state.step === 1) canNext = !!state.front && !!state.back;
+      if (state.step === 1) canNext = !!state.front && !!state.back && !!state.bandColor;
       if (state.step === 2) canNext = !!state.delivery;
       if (state.step === 3) canNext = state.social !== null;
       if (state.step === 4) canNext = state.email.includes('@') && state.phone.length > 5;
@@ -371,6 +402,7 @@
           document.getElementById('sum-delivery').innerText = isDel ? "Delivery" : "Collection";
           document.getElementById('sum-delivery-price').innerText = isDel ? "£3.00" : "Free";
           document.getElementById('sum-total').innerText = `£${(PRICE + (isDel ? 3 : 0)).toFixed(2)}`;
+          document.getElementById('sum-band').innerText = state.bandColor ? (state.bandColor.charAt(0).toUpperCase() + state.bandColor.slice(1)) : '—';
 
           window.mmBasketPrefill = {
             email: state.email,
@@ -409,6 +441,7 @@
           shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
           productType: 'keyring',
           packSize: 1,
+          bandColor: state.bandColor,
           basketDraft: addToBasket || undefined
         };
 
@@ -432,7 +465,8 @@
         }
 
         if (addToBasket) {
-          window.mmBasket.add(orderId, '🔑 Double-Sided Keyring', 6);
+          const colourTxt = state.bandColor ? ` (${state.bandColor.charAt(0).toUpperCase() + state.bandColor.slice(1)})` : '';
+          window.mmBasket.add(orderId, '🔑 Double-Sided Keyring' + colourTxt, 6);
           btn.innerHTML = `🛒 Added!`;
           setTimeout(() => {
             btn.disabled = false;

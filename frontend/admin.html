@@ -995,8 +995,10 @@
                        <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
                        <div class="field-value">Type: ${type}</div>`;
           } else if (order.productType === 'keyring') {
+              const band = order.bandColor ? (order.bandColor.charAt(0).toUpperCase() + order.bandColor.slice(1)) : 'Not specified';
               html += `<div class="field-label" style="color:#fbbf24;">Product</div>
-                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring</div>`;
+                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring</div>
+                       <div class="field-value">Strap colour: <span style="font-weight:bold;">${band}</span></div>`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>
