@@ -68,6 +68,10 @@ export async function onRequestPost({ request, env }) {
       price = krQty === 2 ? 10.00 : 6.00; // 1 for £6, 2 for £10
       productName = krQty === 2 ? "2 Double-Sided Photo Keyrings" : "Double-Sided Photo Keyring";
       productDesc = "Premium keyring with front and back photos";
+    } else if (productType === 'bundle') {
+      price = 7.00; // any 2 for £7
+      productName = "Any 2 Bundle (Bottle Opener / Mirror Keyring)";
+      productDesc = "Two personalised 58mm pieces — mix & match";
     } else {
       let size = Number(packSizeRaw);
 

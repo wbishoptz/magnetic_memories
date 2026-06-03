@@ -87,6 +87,8 @@ export async function onRequestPost({ request, env }) {
       price = BINGO_PRICES[packSize];
     } else if (productType === 'keyring') {
       price = Number(packSize) === 2 ? 10.00 : 6.00; // 1 for £6, 2 for £10
+    } else if (productType === 'bundle') {
+      price = 7.00; // any 2 (bottle opener / mirror keyring) for £7
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
@@ -136,6 +138,7 @@ export async function onRequestPost({ request, env }) {
       includeMagnets: includeMagnets !== undefined ? includeMagnets : existingOrder.includeMagnets,
       bandColor: bandColor || existingOrder.bandColor || null,
       bandColors: body?.bandColors || existingOrder.bandColors || null,
+      bundleItems: body?.bundleItems || existingOrder.bundleItems || null,
 
       status: finalStatus,
 

@@ -607,23 +607,65 @@
         }
       }
 
-      // Compose a PDF from magnet + keyring items and download it
-      function buildAndSave(magnets, keyrings, filenameBase, showNumbers) {
+      // ── Badge template: 58mm circles (bottle openers / mirror keyrings) ──
+      const BG_CUT = 58, BG_PHOTO = 59;   // 58mm cut line, 59mm photo (1mm bleed)
+      const BG_LABEL_H = 4.5;
+      const BG_COLS = 3, BG_ROWS = 4, BG_PER = BG_COLS * BG_ROWS;
+      const BG_GAP_X = 12, BG_GAP_Y = 9;
+      const BG_CELL_W = BG_PHOTO, BG_CELL_H = BG_PHOTO + BG_LABEL_H;
+      const BG_GRID_W = BG_COLS * BG_CELL_W + (BG_COLS - 1) * BG_GAP_X;
+      const BG_LEFT = (PAGE_W - BG_GRID_W) / 2;
+
+      function layoutBadges(pdf, items, freshStart) {
+        const totalH = BG_ROWS * BG_CELL_H + (BG_ROWS - 1) * BG_GAP_Y;
+        const topMargin = (PAGE_H - totalH) / 2;
+        const rowPitch = BG_CELL_H + BG_GAP_Y;
+        const colPitch = BG_CELL_W + BG_GAP_X;
+        const pageCount = Math.ceil(items.length / BG_PER);
+        for (let p = 0; p < pageCount; p++) {
+          if (p > 0 || freshStart) pdf.addPage();
+          const pageItems = items.slice(p * BG_PER, (p + 1) * BG_PER);
+          for (let k = 0; k < pageItems.length; k++) {
+            const r = Math.floor(k / BG_COLS), col = k % BG_COLS;
+            const x = BG_LEFT + col * colPitch;
+            const y = topMargin + r * rowPitch;
+            pdf.addImage(pageItems[k].data, 'JPEG', x, y, BG_PHOTO, BG_PHOTO);
+            pdf.setDrawColor(120); pdf.setLineWidth(0.3);
+            pdf.circle(x + BG_PHOTO / 2, y + BG_PHOTO / 2, BG_CUT / 2, 'S');
+            if (pageItems[k].label) {
+              pdf.setFont('helvetica', 'bold'); pdf.setTextColor(40); pdf.setFontSize(8);
+              pdf.text(pageItems[k].label, x + BG_PHOTO / 2, y + BG_PHOTO + BG_LABEL_H - 1.2, { align: 'center', baseline: 'middle' });
+            }
+          }
+        }
+      }
+
+      // Compose a PDF from magnet + keyring + badge items and download it
+      function buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers) {
         const pdf = newLetterPdf();
         let started = false;
         if (magnets.length) { layoutMagnets(pdf, magnets, showNumbers, false); started = true; }
         if (keyrings.length) { layoutKeyrings(pdf, keyrings, started); started = true; }
+        if (badges.length) { layoutBadges(pdf, badges, started); started = true; }
         const safe = (filenameBase || 'print').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
         pdf.save(`${safe}-print-sheets.pdf`);
-        return Math.ceil(magnets.length / PER_PAGE) + Math.ceil(keyrings.length / KR_PER);
+        return Math.ceil(magnets.length / PER_PAGE) + Math.ceil(keyrings.length / KR_PER) + Math.ceil(badges.length / BG_PER);
       }
 
-      // What template does a product need?  'magnet' | 'keyring' | null(skip)
+      // What template does a product need?  'magnet' | 'keyring' | 'badge' | null(skip)
       function productKind(o) {
         if (o.productType === 'keyring') return 'keyring';
+        if (o.productType === 'bundle') return 'badge';   // 58mm openers / mirror keyrings
         if (o.productType === 'flexi') return null;
         if (String(o.packSize).startsWith('voucher_')) return null;
         return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
+      }
+
+      function badgeLabel(key) {
+        const k = String(key).toLowerCase();
+        if (k.includes('opener')) return 'OPENER';
+        if (k.includes('mirror')) return 'MIRROR';
+        return '';
       }
 
       function keyringLabel(key, idx) {
@@ -651,20 +693,21 @@
               kind,
               ticket: o.raffleNumber,
               isEvent: !!o.eventId,
-              label: kind === 'keyring' ? keyringLabel(img.key, idx) : null,
+              label: kind === 'keyring' ? keyringLabel(img.key, idx) : (kind === 'badge' ? badgeLabel(img.key) : null),
               src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
             });
           });
         }
-        const magnets = [], keyrings = [];
+        const magnets = [], keyrings = [], badges = [];
         for (let i = 0; i < raw.length; i++) {
           if (onProgress) onProgress(i + 1, raw.length);
           const data = squareDataUrl(await loadImg(raw[i].src));
           if (raw[i].kind === 'keyring') keyrings.push({ data, label: raw[i].label });
+          else if (raw[i].kind === 'badge') badges.push({ data, label: raw[i].label });
           else magnets.push({ data, ticket: raw[i].ticket });
         }
         const showNumbers = raw.some(r => r.kind === 'magnet' && r.isEvent);
-        return { magnets, keyrings, showNumbers };
+        return { magnets, keyrings, badges, showNumbers };
       }
 
       // Placeholder tile so you can check cut alignment without real photos
@@ -696,7 +739,7 @@
           btn.disabled = true; btn.textContent = 'Building…';
           const data = makeTestTileDataUrl();
           const items = Array.from({ length: PER_PAGE }, (_, i) => ({ ticket: 'T' + (i + 1), data }));
-          buildAndSave(items, [], 'TEST-SHEET', true);
+          buildAndSave(items, [], [], 'TEST-SHEET', true);
           btn.textContent = '✅ Downloaded';
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000);
         } catch (e) {
@@ -715,11 +758,11 @@
             .filter(o => o.eventId === ev.id)
             .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
 
-          const { magnets, keyrings, showNumbers } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
-          if (!magnets.length && !keyrings.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
+          const { magnets, keyrings, badges, showNumbers } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length && !badges.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
 
           btn.textContent = 'Building PDF…';
-          const sheets = buildAndSave(magnets, keyrings, ev.name, showNumbers);
+          const sheets = buildAndSave(magnets, keyrings, badges, ev.name, showNumbers);
           btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
         } catch (e) {
@@ -734,9 +777,9 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
-          const { magnets, keyrings, showNumbers } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
-          if (!magnets.length && !keyrings.length) { alert('No printable photos found.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
-          buildAndSave(magnets, keyrings, filenameBase, showNumbers);
+          const { magnets, keyrings, badges, showNumbers } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length && !badges.length) { alert('No printable photos found.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+          buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers);
           if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
         } catch (e) {
           alert('Print sheet error: ' + e.message);
@@ -873,8 +916,11 @@
               packDisplay = `🖼️ ${frameName} Frame`;
               style = 'style="color: #ea580c; font-weight:600;"';
           } else if (o.productType === 'keyring') {
-              packDisplay = `🔑 Double-Sided Keyring`;
+              packDisplay = `🔑 Keyring${Number(o.packSize) === 2 ? ' ×2' : ''}`;
               style = 'style="color: #fbbf24; font-weight:600;"';
+          } else if (o.productType === 'bundle') {
+              packDisplay = `🎁 Bundle (2 for £7)`;
+              style = 'style="color: #10b981; font-weight:600;"';
           } else if (o.event === 'MOTHERS_DAY' && o.mothersPackage) {
               packDisplay = `🌸 ${o.mothersPackage}`;
               style = 'style="color: #be185d; font-weight:600;"';
@@ -1008,6 +1054,11 @@
               html += `<div class="field-label" style="color:#fbbf24;">Product</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring ×${krQty}</div>
                        <div class="field-value">Strap colour${cols.length > 1 ? 's' : ''}: <span style="font-weight:bold;">${colsTxt}</span></div>`;
+          } else if (order.productType === 'bundle') {
+              const names = { bottle_opener: '🍺 Bottle Opener', mirror_keyring: '🪞 Mirror Keyring' };
+              const items = (order.bundleItems || []).map((t, i) => `<div class="field-value">Item ${i + 1}: <span style="font-weight:bold;">${names[t] || t}</span></div>`).join('');
+              html += `<div class="field-label" style="color:#10b981;">Bundle — Any 2 for £7</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎁 2-piece bundle (58mm)</div>${items}`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>
