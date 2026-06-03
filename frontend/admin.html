@@ -447,6 +447,8 @@
       const PHOTO = 2.05 * IN;               // 52.07mm — visible photo face
       const PHOTO_OFF = (TILE - PHOTO) / 2;  // 9.525mm border each side
       const CHAMFER = 11;                    // octagon corner cut (mm)
+      const LBL_BAND = 3.8;                  // thickness of the text band
+      const LBL_GAP = 0.4;                   // tiny gap between text and photo edge
       const COLS = 3, ROWS = 3, PER_PAGE = 9;
       const PAGE_W = 8.5 * IN, PAGE_H = 11 * IN; // US Letter
       const GRID_W = COLS * TILE;
@@ -489,8 +491,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         // Perpendicular-to-text dimension (the narrow strip width) sets the font size
-        const shortPx = Math.abs(Math.sin(rot)) > 0.5 ? cv.width : cv.height;
-        ctx.font = `bold ${Math.round(shortPx * 0.30)}px Arial, Helvetica, sans-serif`;
+        ctx.font = `bold ${Math.round(2.8 * PX)}px Arial, Helvetica, sans-serif`; // ~8pt
         ctx.fillText(text, 0, 0);
         return cv.toDataURL('image/png');
       }
@@ -498,9 +499,9 @@
       // Build the three branding labels once (identical on every tile)
       function makeBorderLabels() {
         return {
-          top:   labelCanvas('MAGNETIC MEMORIES', PHOTO, PHOTO_OFF, Math.PI),       // flipped for back fold
-          left:  labelCanvas('MADE IN GIBRALTAR', PHOTO_OFF, PHOTO, -Math.PI / 2),  // reads bottom→top
-          right: labelCanvas('PERSONALISED MAGNETS', PHOTO_OFF, PHOTO, Math.PI / 2) // reads top→bottom
+          top:   labelCanvas('MAGNETIC MEMORIES', PHOTO, LBL_BAND, Math.PI),       // flipped for back fold
+          left:  labelCanvas('MADE IN GIBRALTAR', LBL_BAND, PHOTO, -Math.PI / 2),  // reads bottom→top
+          right: labelCanvas('PERSONALISED MAGNETS', LBL_BAND, PHOTO, Math.PI / 2) // reads top→bottom
         };
       }
 
@@ -523,16 +524,20 @@
           pdf.line(a[0], a[1], b[0], b[1]);
         }
 
-        // Branding labels as pre-rotated images, placed exactly in each border strip
+        // Photo edges
+        const pTop = y + PHOTO_OFF, pBottom = y + PHOTO_OFF + PHOTO;
+        const pLeft = x + PHOTO_OFF, pRight = x + PHOTO_OFF + PHOTO;
+
+        // Branding labels as thin bands pressed right up against the photo
         if (labels) {
-          pdf.addImage(labels.top, 'PNG', x + PHOTO_OFF, y, PHOTO, PHOTO_OFF);
-          pdf.addImage(labels.left, 'PNG', x, y + PHOTO_OFF, PHOTO_OFF, PHOTO);
-          pdf.addImage(labels.right, 'PNG', x + PHOTO_OFF + PHOTO, y + PHOTO_OFF, PHOTO_OFF, PHOTO);
+          pdf.addImage(labels.top, 'PNG', pLeft, pTop - LBL_GAP - LBL_BAND, PHOTO, LBL_BAND);
+          pdf.addImage(labels.left, 'PNG', pLeft - LBL_GAP - LBL_BAND, pTop, LBL_BAND, PHOTO);
+          pdf.addImage(labels.right, 'PNG', pRight + LBL_GAP, pTop, LBL_BAND, PHOTO);
         }
 
-        // Bottom border: magnet number (upright, easy to read while sorting)
+        // Magnet number, just below the photo (upright, easy to read while sorting)
         pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30); pdf.setFontSize(11);
-        pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, y + T - PHOTO_OFF / 2, { align: 'center', baseline: 'middle' });
+        pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, pBottom + LBL_GAP + 2.0, { align: 'center', baseline: 'middle' });
       }
 
       // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
