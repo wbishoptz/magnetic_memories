@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
@@ -40,7 +40,7 @@
     body { background-color: hsl(20 30% 97%); color: hsl(20 20% 15%); }
     .gold-glow { box-shadow: 0 4px 20px hsl(0 55% 65% / 0.15); }
     .btn-gradient { background: linear-gradient(135deg, hsl(0 55% 70%), hsl(20 60% 75%)); }
-    
+
     /* Circular Cropper Overrides */
     .cropper-view-box, .cropper-face { border-radius: 50%; }
 
@@ -63,53 +63,41 @@
   </header>
 
   <main class="container mx-auto px-4 py-8 max-w-xl">
-    
+
     <div class="flex items-center justify-center gap-2 mb-10" id="step-indicator"></div>
 
+    <!-- STEP 1: Quantity -->
     <div id="step-1" class="text-center space-y-6 animate-in fade-in duration-300">
       <img src="./keyring-display.jpg" alt="Personalised photo keyrings with faux leather straps" class="w-full max-w-md mx-auto rounded-2xl shadow-md" onerror="this.style.display='none'" />
       <div>
-        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Upload Your Photos</h2>
-        <p class="text-muted-foreground text-sm">Choose a photo for each side of your keyring. They'll appear in a beautiful circular frame with a faux leather strap.</p>
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Choose Your Keyrings</h2>
+        <p class="text-muted-foreground text-sm">Each keyring is double-sided with a premium faux leather strap. Grab two and save £2.</p>
       </div>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-8 py-4">
-        <div class="flex flex-col items-center gap-3">
-          <p class="text-sm font-medium">Front Side</p>
-          <div onclick="triggerUpload('front')" class="relative w-40 h-40 rounded-full border-2 border-dashed border-primary/40 hover:border-primary transition-all cursor-pointer bg-secondary flex items-center justify-center overflow-hidden group">
-            <img id="preview-front" src="" class="w-full h-full object-cover hidden" />
-            <div id="empty-front" class="flex flex-col items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-              <i data-lucide="upload" class="w-8 h-8 mb-2"></i>
-              <span class="text-xs">Tap to upload</span>
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-col items-center gap-3">
-          <p class="text-sm font-medium">Back Side</p>
-          <div onclick="triggerUpload('back')" class="relative w-40 h-40 rounded-full border-2 border-dashed border-primary/40 hover:border-primary transition-all cursor-pointer bg-secondary flex items-center justify-center overflow-hidden group">
-            <img id="preview-back" src="" class="w-full h-full object-cover hidden" />
-            <div id="empty-back" class="flex flex-col items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-              <i data-lucide="upload" class="w-8 h-8 mb-2"></i>
-              <span class="text-xs">Tap to upload</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pt-2">
-        <p class="text-sm font-medium mb-3">Choose your strap colour</p>
-        <div class="flex flex-wrap items-center justify-center gap-3" id="band-wrap">
-          <button type="button" onclick="setBand('grey')"  data-band="grey"  title="Grey"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#c2c1ba"></button>
-          <button type="button" onclick="setBand('black')" data-band="black" title="Black" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#2b2b2f"></button>
-          <button type="button" onclick="setBand('green')" data-band="green" title="Green" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#aebd8a"></button>
-          <button type="button" onclick="setBand('blue')"  data-band="blue"  title="Blue"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#34425b"></button>
-          <button type="button" onclick="setBand('brown')" data-band="brown" title="Brown" class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#b06b3a"></button>
-          <button type="button" onclick="setBand('pink')"  data-band="pink"  title="Pink"  class="band-swatch w-10 h-10 rounded-full border-2 border-border transition-all" style="background:#edb0b4"></button>
-        </div>
-        <p id="band-label" class="text-xs text-muted-foreground mt-3">No colour selected yet</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setQty(1)" id="qty-1" class="relative p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40">
+          <p class="font-semibold text-lg text-foreground">1 Keyring</p>
+          <p class="text-3xl font-bold text-primary mt-2">£6</p>
+        </button>
+        <button onclick="setQty(2)" id="qty-2" class="relative p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40">
+          <span class="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wide bg-primary text-white px-2 py-0.5 rounded-full">Best value</span>
+          <p class="font-semibold text-lg text-foreground">2 Keyrings</p>
+          <p class="text-3xl font-bold text-primary mt-2">£10</p>
+          <p class="text-xs text-muted-foreground mt-1">Save £2</p>
+        </button>
       </div>
     </div>
 
-    <div id="step-2" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+    <!-- STEP 2: Design (built dynamically) -->
+    <div id="step-2" class="space-y-6 hidden animate-in fade-in duration-300">
+      <div class="text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Design Your Keyrings</h2>
+        <p class="text-muted-foreground text-sm">Upload a front &amp; back photo and pick a strap colour for each one.</p>
+      </div>
+      <div id="design-container" class="space-y-6"></div>
+    </div>
+
+    <!-- STEP 3: Delivery -->
+    <div id="step-3" class="text-center space-y-6 hidden animate-in fade-in duration-300">
       <div>
         <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Delivery Method</h2>
         <p class="text-muted-foreground text-sm">Choose collection for free or have it delivered for just £3.</p>
@@ -130,7 +118,8 @@
       </div>
     </div>
 
-    <div id="step-3" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+    <!-- STEP 4: Share -->
+    <div id="step-4" class="text-center space-y-6 hidden animate-in fade-in duration-300">
       <div>
         <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Share the Love?</h2>
         <p class="text-muted-foreground text-sm">Would you be happy for us to feature your order on our social media? It helps us grow!</p>
@@ -147,7 +136,8 @@
       </div>
     </div>
 
-    <div id="step-4" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+    <!-- STEP 5: Contact -->
+    <div id="step-5" class="text-center space-y-6 hidden animate-in fade-in duration-300">
       <div>
         <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Your Contact Details</h2>
         <p class="text-muted-foreground text-sm">So we can send you updates about your order.</p>
@@ -164,7 +154,8 @@
       </div>
     </div>
 
-    <div id="step-5" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+    <!-- STEP 6: Review -->
+    <div id="step-6" class="text-center space-y-6 hidden animate-in fade-in duration-300">
       <div>
         <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
           <i data-lucide="check" class="w-8 h-8 text-primary"></i>
@@ -172,26 +163,13 @@
         <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Review Your Order</h2>
         <p class="text-muted-foreground text-sm">Make sure everything looks perfect before submitting.</p>
       </div>
-      
-      <div class="flex justify-center gap-6">
-        <div class="text-center">
-          <img id="sum-front" src="" class="w-20 h-20 rounded-full border-2 border-primary/40 object-cover mx-auto" />
-          <p class="text-xs text-muted-foreground mt-1">Front</p>
-        </div>
-        <div class="text-center">
-          <img id="sum-back" src="" class="w-20 h-20 rounded-full border-2 border-primary/40 object-cover mx-auto" />
-          <p class="text-xs text-muted-foreground mt-1">Back</p>
-        </div>
-      </div>
+
+      <div id="review-thumbs" class="space-y-5"></div>
 
       <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
         <div class="flex items-center justify-between border-b pb-2">
-          <span class="font-medium text-muted-foreground">Keyring</span>
-          <span class="font-bold">£6.00</span>
-        </div>
-        <div class="flex items-center justify-between border-b pb-2">
-          <span class="font-medium text-muted-foreground">Strap colour</span>
-          <span class="font-bold" id="sum-band">—</span>
+          <span class="font-medium text-muted-foreground" id="sum-qty">Keyrings</span>
+          <span class="font-bold" id="sum-product-price">£6.00</span>
         </div>
         <div class="flex items-center justify-between border-b pb-2">
           <span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span>
@@ -237,88 +215,159 @@
   <script>
     lucide.createIcons();
 
+    const COLORS = [
+      { id: 'grey',  hex: '#c2c1ba' },
+      { id: 'black', hex: '#2b2b2f' },
+      { id: 'green', hex: '#aebd8a' },
+      { id: 'blue',  hex: '#34425b' },
+      { id: 'brown', hex: '#b06b3a' },
+      { id: 'pink',  hex: '#edb0b4' }
+    ];
+    const LABELS = ["Quantity", "Design", "Delivery", "Share", "Contact", "Review"];
+    const TOTAL_STEPS = 6;
+    const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    const priceFor = (qty) => qty === 2 ? 10.00 : 6.00;
+
     let state = {
       step: 1,
-      front: null, // { blob, preview }
-      back: null,
-      bandColor: null,
+      qty: null,
+      keyrings: [],   // [{ front:{blob,preview}, back:{blob,preview}, color }]
       delivery: null,
       social: null,
       email: '',
       phone: ''
     };
 
-    window.setBand = (c) => {
-      state.bandColor = c;
-      document.querySelectorAll('.band-swatch').forEach(el => {
-        const sel = el.dataset.band === c;
-        el.classList.toggle('ring-2', sel);
-        el.classList.toggle('ring-offset-2', sel);
-        el.classList.toggle('ring-primary', sel);
-      });
-      document.getElementById('band-label').textContent = 'Strap colour: ' + c.charAt(0).toUpperCase() + c.slice(1);
-      render();
-    };
-
-    const LABELS = ["Photos", "Delivery", "Share", "Contact", "Review"];
-    const PRICE = 6.00;
-
     function render() {
-      // Step Indicators
+      // Step indicators
       let indHtml = '';
-      for(let i=1; i<=5; i++) {
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
         const isCompleted = i < state.step;
         const isActive = i === state.step;
         let circleClass = "bg-secondary text-muted-foreground";
         if (isCompleted) circleClass = "bg-primary text-white";
         if (isActive) circleClass = "btn-gradient text-white gold-glow scale-110";
-        
         indHtml += `
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <div class="flex flex-col items-center gap-1">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${circleClass}">
-                ${isCompleted ? '<i data-lucide="check" class="w-4 h-4"></i>' : i}
+              <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${circleClass}">
+                ${isCompleted ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : i}
               </div>
               <span class="text-[10px] hidden sm:block ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}">${LABELS[i-1]}</span>
             </div>
-            ${i < 5 ? `<div class="w-6 sm:w-10 h-px mb-4 ${isCompleted ? 'bg-primary' : 'bg-border'}"></div>` : ''}
-          </div>
-        `;
+            ${i < TOTAL_STEPS ? `<div class="w-4 sm:w-7 h-px mb-4 ${isCompleted ? 'bg-primary' : 'bg-border'}"></div>` : ''}
+          </div>`;
       }
       document.getElementById('step-indicator').innerHTML = indHtml;
-      
-      // Show correct step
-      [1,2,3,4,5].forEach(s => document.getElementById(`step-${s}`).classList.toggle('hidden', state.step !== s));
-      
-      // Update Buttons
+
+      for (let s = 1; s <= TOTAL_STEPS; s++) {
+        document.getElementById(`step-${s}`).classList.toggle('hidden', state.step !== s);
+      }
+
       const btnBack = document.getElementById('btn-back');
       const btnNext = document.getElementById('btn-next');
-      
       btnBack.disabled = state.step === 1;
-      
+
       let canNext = false;
-      if (state.step === 1) canNext = !!state.front && !!state.back && !!state.bandColor;
-      if (state.step === 2) canNext = !!state.delivery;
-      if (state.step === 3) canNext = state.social !== null;
-      if (state.step === 4) canNext = state.email.includes('@') && state.phone.length > 5;
-      if (state.step === 5) canNext = true;
-      
+      if (state.step === 1) canNext = !!state.qty;
+      if (state.step === 2) canNext = state.keyrings.length === state.qty && state.keyrings.every(k => k.front && k.back && k.color);
+      if (state.step === 3) canNext = !!state.delivery;
+      if (state.step === 4) canNext = state.social !== null;
+      if (state.step === 5) canNext = state.email.includes('@') && state.phone.length > 5;
+      if (state.step === 6) canNext = true;
+
       btnNext.disabled = !canNext;
-      btnNext.innerHTML = state.step === 5 
-        ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order' 
+      btnNext.innerHTML = state.step === TOTAL_STEPS
+        ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order'
         : 'Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>';
 
       lucide.createIcons();
     }
 
-    // Step 1: Photos
-    let activeSlot = null;
+    // ── Step 1: Quantity ──
+    function qtyCardClass(sel) {
+      return `relative p-6 rounded-xl border-2 transition-all text-center bg-white ${sel ? 'border-primary gold-glow' : 'border-border hover:border-primary/40'}`;
+    }
+    window.setQty = (q) => {
+      state.qty = q;
+      const arr = state.keyrings.slice(0, q);
+      while (arr.length < q) arr.push({ front: null, back: null, color: null });
+      state.keyrings = arr;
+      document.getElementById('qty-1').className = qtyCardClass(q === 1);
+      document.getElementById('qty-2').className = qtyCardClass(q === 2);
+      renderDesign();
+      render();
+    };
+
+    // ── Step 2: Design (one card per keyring) ──
+    function renderDesign() {
+      const wrap = document.getElementById('design-container');
+      wrap.innerHTML = state.keyrings.map((k, i) => `
+        <div class="bg-white border border-border rounded-2xl p-5 space-y-5 shadow-sm">
+          <h3 class="font-semibold text-lg text-center">${state.qty > 1 ? 'Keyring ' + (i + 1) : 'Your Keyring'}</h3>
+          <div class="flex items-center justify-center gap-6">
+            <div class="flex flex-col items-center gap-2">
+              <p class="text-xs font-medium">Front</p>
+              <div onclick="triggerUpload(${i},'front')" class="relative w-28 h-28 rounded-full border-2 border-dashed border-primary/40 hover:border-primary transition-all cursor-pointer bg-secondary flex items-center justify-center overflow-hidden group">
+                <img id="preview-${i}-front" src="" class="w-full h-full object-cover hidden" />
+                <div id="empty-${i}-front" class="flex flex-col items-center text-muted-foreground group-hover:text-primary transition-colors"><i data-lucide="upload" class="w-6 h-6"></i></div>
+              </div>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+              <p class="text-xs font-medium">Back</p>
+              <div onclick="triggerUpload(${i},'back')" class="relative w-28 h-28 rounded-full border-2 border-dashed border-primary/40 hover:border-primary transition-all cursor-pointer bg-secondary flex items-center justify-center overflow-hidden group">
+                <img id="preview-${i}-back" src="" class="w-full h-full object-cover hidden" />
+                <div id="empty-${i}-back" class="flex flex-col items-center text-muted-foreground group-hover:text-primary transition-colors"><i data-lucide="upload" class="w-6 h-6"></i></div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center">
+            <p class="text-sm font-medium mb-2">Strap colour</p>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+              ${COLORS.map(c => `<button type="button" onclick="setBand(${i},'${c.id}')" data-kr="${i}" data-band="${c.id}" title="${cap(c.id)}" class="band-swatch w-9 h-9 rounded-full border-2 border-border transition-all" style="background:${c.hex}"></button>`).join('')}
+            </div>
+            <p class="text-xs text-muted-foreground mt-2 band-label" data-kr="${i}">No colour selected</p>
+          </div>
+        </div>`).join('');
+
+      // Restore any previously chosen photos / colours
+      state.keyrings.forEach((k, i) => {
+        ['front', 'back'].forEach(slot => {
+          if (k[slot]) {
+            const img = document.getElementById(`preview-${i}-${slot}`);
+            img.src = k[slot].preview;
+            img.classList.remove('hidden');
+            document.getElementById(`empty-${i}-${slot}`).classList.add('hidden');
+          }
+        });
+        if (k.color) applyBandUI(i, k.color);
+      });
+      lucide.createIcons();
+    }
+
+    function applyBandUI(idx, colour) {
+      document.querySelectorAll(`.band-swatch[data-kr="${idx}"]`).forEach(el => {
+        const sel = el.dataset.band === colour;
+        el.classList.toggle('ring-2', sel);
+        el.classList.toggle('ring-offset-2', sel);
+        el.classList.toggle('ring-primary', sel);
+      });
+      const lbl = document.querySelector(`.band-label[data-kr="${idx}"]`);
+      if (lbl) lbl.textContent = 'Strap colour: ' + cap(colour);
+    }
+
+    window.setBand = (idx, colour) => {
+      state.keyrings[idx].color = colour;
+      applyBandUI(idx, colour);
+      render();
+    };
+
+    // ── Photo upload + cropping ──
+    let activeTarget = null; // { idx, slot }
     const fileInput = document.getElementById('fileInput');
-    
-    window.triggerUpload = (slot) => { activeSlot = slot; fileInput.click(); };
-    
+    window.triggerUpload = (idx, slot) => { activeTarget = { idx, slot }; fileInput.click(); };
     fileInput.addEventListener('change', (e) => {
-      if(e.target.files.length) openCropper(e.target.files[0]);
+      if (e.target.files.length) openCropper(e.target.files[0]);
       fileInput.value = '';
     });
 
@@ -328,13 +377,9 @@
       reader.onload = (e) => {
         document.getElementById('crop-image').src = e.target.result;
         document.getElementById('crop-modal').style.display = 'flex';
-        if(cropper) cropper.destroy();
-        cropper = new Cropper(document.getElementById('crop-image'), { 
-          aspectRatio: 1, 
-          viewMode: 1, 
-          autoCropArea: 1, 
-          dragMode: 'move',
-          background: false 
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(document.getElementById('crop-image'), {
+          aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false
         });
       };
       reader.readAsDataURL(file);
@@ -343,27 +388,26 @@
     document.getElementById('crop-save').onclick = () => {
       cropper.getCroppedCanvas({ width: 800, height: 800 }).toBlob(blob => {
         const preview = URL.createObjectURL(blob);
-        state[activeSlot] = { blob, preview };
-        
-        document.getElementById(`preview-${activeSlot}`).src = preview;
-        document.getElementById(`preview-${activeSlot}`).classList.remove('hidden');
-        document.getElementById(`empty-${activeSlot}`).classList.add('hidden');
-        
+        const { idx, slot } = activeTarget;
+        state.keyrings[idx][slot] = { blob, preview };
+        const img = document.getElementById(`preview-${idx}-${slot}`);
+        img.src = preview;
+        img.classList.remove('hidden');
+        document.getElementById(`empty-${idx}-${slot}`).classList.add('hidden');
         closeCropper();
         render();
       }, 'image/jpeg', 0.95);
     };
-    
-    window.closeCropper = () => { document.getElementById('crop-modal').style.display = 'none'; if(cropper) cropper.destroy(); };
 
-    // Step 2 & 3: Options
+    window.closeCropper = () => { document.getElementById('crop-modal').style.display = 'none'; if (cropper) cropper.destroy(); };
+
+    // ── Step 3 & 4: Options ──
     window.setDelivery = (val) => {
       state.delivery = val;
       const act = "border-primary bg-primary/10 gold-glow";
       const inact = "bg-white border-border";
       document.getElementById('del-collect').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_COLLECT' ? act : inact}`;
       document.getElementById('del-deliver').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_DELIVER' ? act : inact}`;
-      
       document.getElementById('icon-collect').classList.toggle('text-primary', val === 'GI_COLLECT');
       document.getElementById('icon-deliver').classList.toggle('text-primary', val === 'GI_DELIVER');
       render();
@@ -375,42 +419,51 @@
       const inact = "bg-white border-border";
       document.getElementById('soc-yes').className = `p-6 rounded-xl border-2 transition-all duration-300 text-center ${val === true ? act : inact}`;
       document.getElementById('soc-no').className = `p-6 rounded-xl border-2 transition-all duration-300 text-center ${val === false ? act : inact}`;
-      
       document.getElementById('icon-yes').classList.toggle('text-primary', val === true);
       document.getElementById('icon-no').classList.toggle('text-primary', val === false);
       render();
     };
 
-    // Step 4: Contact
+    // ── Step 5: Contact ──
     window.checkContact = () => {
       state.email = document.getElementById('email').value.trim();
       state.phone = document.getElementById('phone').value.trim();
       render();
     };
 
-    // Navigation
-    window.goBack = () => { if(state.step > 1) { state.step--; render(); } };
+    // ── Review ──
+    function buildReview() {
+      const isDel = state.delivery === 'GI_DELIVER';
+      const product = priceFor(state.qty);
+      document.getElementById('review-thumbs').innerHTML = state.keyrings.map((k, i) => `
+        <div class="bg-white border border-border rounded-xl p-3 flex items-center justify-center gap-4">
+          <img src="${k.front ? k.front.preview : ''}" class="w-16 h-16 rounded-full border-2 border-primary/40 object-cover" />
+          <img src="${k.back ? k.back.preview : ''}" class="w-16 h-16 rounded-full border-2 border-primary/40 object-cover" />
+          <div class="text-left text-sm">
+            <p class="font-medium">${state.qty > 1 ? 'Keyring ' + (i + 1) : 'Keyring'}</p>
+            <p class="text-muted-foreground text-xs">Strap: ${cap(k.color)}</p>
+          </div>
+        </div>`).join('');
+      document.getElementById('sum-qty').innerText = `${state.qty} Keyring${state.qty > 1 ? 's' : ''}`;
+      document.getElementById('sum-product-price').innerText = `£${product.toFixed(2)}`;
+      document.getElementById('sum-delivery').innerText = isDel ? 'Delivery' : 'Collection';
+      document.getElementById('sum-delivery-price').innerText = isDel ? '£3.00' : 'Free';
+      document.getElementById('sum-total').innerText = `£${(product + (isDel ? 3 : 0)).toFixed(2)}`;
+
+      window.mmBasketPrefill = {
+        email: state.email,
+        phone: state.phone,
+        shipping: state.delivery,
+        social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined
+      };
+    }
+
+    // ── Navigation ──
+    window.goBack = () => { if (state.step > 1) { state.step--; render(); } };
     window.goNext = () => {
-      if (state.step < 5) {
+      if (state.step < TOTAL_STEPS) {
         state.step++;
-        if (state.step === 5) {
-          // Setup Summary
-          document.getElementById('sum-front').src = state.front.preview;
-          document.getElementById('sum-back').src = state.back.preview;
-
-          const isDel = state.delivery === 'GI_DELIVER';
-          document.getElementById('sum-delivery').innerText = isDel ? "Delivery" : "Collection";
-          document.getElementById('sum-delivery-price').innerText = isDel ? "£3.00" : "Free";
-          document.getElementById('sum-total').innerText = `£${(PRICE + (isDel ? 3 : 0)).toFixed(2)}`;
-          document.getElementById('sum-band').innerText = state.bandColor ? (state.bandColor.charAt(0).toUpperCase() + state.bandColor.slice(1)) : '—';
-
-          window.mmBasketPrefill = {
-            email: state.email,
-            phone: state.phone,
-            shipping: state.delivery,
-            social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined
-          };
-        }
+        if (state.step === TOTAL_STEPS) buildReview();
         render();
       } else {
         submitOrder();
@@ -422,26 +475,27 @@
       const btn = addToBasket
         ? document.getElementById('basket-btn-keyrings')
         : document.getElementById('btn-next');
+
       if (!addToBasket && window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
         const count = window.mmBasket.getCount();
-        const yes = confirm(`You have ${count} item${count>1?'s':''} in your basket. Add this to your basket and pay for everything together?`);
+        const yes = confirm(`You have ${count} item${count > 1 ? 's' : ''} in your basket. Add this to your basket and pay for everything together?`);
         if (yes) { submitOrder({ addToBasket: true }); return; }
       }
 
       btn.disabled = true;
-      btn.innerHTML = addToBasket
-        ? `Adding...`
-        : `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+      btn.innerHTML = addToBasket ? `Adding...` : `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
 
       try {
+        const colors = state.keyrings.map(k => k.color);
         const payload = {
           email: addToBasket ? 'basket@draft.local' : state.email,
           phone: addToBasket ? '00000000000' : state.phone,
           socialPermission: addToBasket ? 'yes' : state.social,
           shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
           productType: 'keyring',
-          packSize: 1,
-          bandColor: state.bandColor,
+          packSize: state.qty,
+          bandColor: colors[0] || null,
+          bandColors: colors,
           basketDraft: addToBasket || undefined
         };
 
@@ -449,29 +503,27 @@
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-
-        if(!res.ok) throw new Error("API Error");
+        if (!res.ok) throw new Error("API Error");
         const { orderId } = await res.json();
 
         btn.innerText = "Uploading photos...";
-        const photos = [
-          { blob: state.front.blob, name: 'front.jpg' },
-          { blob: state.back.blob, name: 'back.jpg' }
-        ];
-        for(let i=0; i<photos.length; i++) {
-          const form = new FormData();
-          form.append("file", photos[i].blob, photos[i].name);
-          await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(photos[i].name)}`, { method: "POST", body: form });
+        for (let i = 0; i < state.keyrings.length; i++) {
+          const k = state.keyrings[i];
+          const uploads = [
+            { blob: k.front.blob, name: `keyring${i + 1}-front.jpg` },
+            { blob: k.back.blob,  name: `keyring${i + 1}-back.jpg` }
+          ];
+          for (const u of uploads) {
+            const form = new FormData();
+            form.append("file", u.blob, u.name);
+            await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(u.name)}`, { method: "POST", body: form });
+          }
         }
 
         if (addToBasket) {
-          const colourTxt = state.bandColor ? ` (${state.bandColor.charAt(0).toUpperCase() + state.bandColor.slice(1)})` : '';
-          window.mmBasket.add(orderId, '🔑 Double-Sided Keyring' + colourTxt, 6);
+          window.mmBasket.add(orderId, `🔑 Keyring${state.qty > 1 ? 's ×' + state.qty : ''}`, priceFor(state.qty));
           btn.innerHTML = `🛒 Added!`;
-          setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = `🛒 Add to Basket`;
-          }, 2000);
+          setTimeout(() => { btn.disabled = false; btn.innerHTML = `🛒 Add to Basket`; }, 2000);
           return;
         }
 
@@ -480,11 +532,10 @@
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'keyring' })
         });
-
         const { checkoutUrl } = await ckRes.json();
         window.location.href = checkoutUrl;
 
-      } catch(e) {
+      } catch (e) {
         console.error(e);
         alert("Error creating order. Please try again.");
         btn.disabled = false;

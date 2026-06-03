@@ -628,9 +628,13 @@
 
       function keyringLabel(key, idx) {
         const k = String(key).toLowerCase();
-        if (k.includes('front') || k.includes('photo-1') || /[-_]1\./.test(k)) return 'FRONT';
-        if (k.includes('back') || k.includes('photo-2') || /[-_]2\./.test(k)) return 'BACK';
-        return idx === 0 ? 'FRONT' : 'BACK';
+        const m = k.match(/keyring(\d+)/);             // keyring1-front.jpg → "1"
+        const num = m ? m[1] : '';
+        let side;
+        if (k.includes('front') || k.includes('photo-1') || /[-_]1\./.test(k)) side = 'FRONT';
+        else if (k.includes('back') || k.includes('photo-2') || /[-_]2\./.test(k)) side = 'BACK';
+        else side = (idx % 2 === 0) ? 'FRONT' : 'BACK';
+        return num ? `K${num} ${side}` : side;
       }
 
       // Fetch + crop photos for a set of orders, split into magnet & keyring items
@@ -995,10 +999,15 @@
                        <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
                        <div class="field-value">Type: ${type}</div>`;
           } else if (order.productType === 'keyring') {
-              const band = order.bandColor ? (order.bandColor.charAt(0).toUpperCase() + order.bandColor.slice(1)) : 'Not specified';
+              const krQty = Number(order.packSize) === 2 ? 2 : 1;
+              const cols = (order.bandColors && order.bandColors.length) ? order.bandColors
+                         : (order.bandColor ? [order.bandColor] : []);
+              const colsTxt = cols.length
+                ? cols.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')
+                : 'Not specified';
               html += `<div class="field-label" style="color:#fbbf24;">Product</div>
-                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring</div>
-                       <div class="field-value">Strap colour: <span style="font-weight:bold;">${band}</span></div>`;
+                       <div class="field-value" style="font-size:1.2em; font-weight:bold;">🔑 Double-Sided Keyring ×${krQty}</div>
+                       <div class="field-value">Strap colour${cols.length > 1 ? 's' : ''}: <span style="font-weight:bold;">${colsTxt}</span></div>`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>

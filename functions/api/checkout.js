@@ -64,8 +64,9 @@ export async function onRequestPost({ request, env }) {
       productDesc = "Digital code sent via email upon payment.";
       isVoucherPurchase = true;
     } else if (productType === 'keyring') {
-      price = 6.00;
-      productName = "Double-Sided Photo Keyring";
+      const krQty = Number(packSizeRaw) === 2 ? 2 : 1;
+      price = krQty === 2 ? 10.00 : 6.00; // 1 for £6, 2 for £10
+      productName = krQty === 2 ? "2 Double-Sided Photo Keyrings" : "Double-Sided Photo Keyring";
       productDesc = "Premium keyring with front and back photos";
     } else {
       let size = Number(packSizeRaw);
