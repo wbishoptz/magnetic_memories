@@ -217,6 +217,8 @@
       /* Show basket-only elements when basket mode is active */
       .basket-show { display: none !important; }
       body.mm-basket-mode .basket-show { display: revert !important; }
+      /* ...but pages can hide the CTA until the order is actually addable */
+      body.mm-basket-mode .basket-show.mm-hide { display: none !important; }
 
       @media (max-width: 480px) {
         #mm-float-btn { bottom: 16px; right: 16px; }

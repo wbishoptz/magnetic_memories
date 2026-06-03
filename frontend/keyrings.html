@@ -187,7 +187,7 @@
         <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
       </button>
       <div class="flex gap-3 items-center">
-        <button id="basket-btn-keyrings" onclick="submitOrder({addToBasket:true})" class="basket-show px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000; display:none;">
+        <button id="basket-btn-keyrings" onclick="submitOrder({addToBasket:true})" class="basket-show mm-hide px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000;">
           🛒 Add to Basket
         </button>
         <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">
@@ -280,6 +280,12 @@
       btnNext.innerHTML = state.step === TOTAL_STEPS
         ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order'
         : 'Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>';
+
+      // Add to Basket: only show once every keyring is fully designed
+      const krReady = !!state.qty && state.keyrings.length === state.qty
+        && state.keyrings.every(k => k.front && k.back && k.color);
+      const kb = document.getElementById('basket-btn-keyrings');
+      if (kb) kb.classList.toggle('mm-hide', !krReady);
 
       lucide.createIcons();
     }

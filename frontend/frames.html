@@ -295,7 +295,7 @@
       <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
       </button>
-      <button id="basket-btn-frames" class="basket-show w-full h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2" style="background:#59c9a5; color:#000; border:none; cursor:pointer; display:none;" onclick="submitOrder({addToBasket:true})">
+      <button id="basket-btn-frames" class="basket-show mm-hide w-full h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2" style="background:#59c9a5; color:#000; border:none; cursor:pointer; display:none;" onclick="submitOrder({addToBasket:true})">
         🛒 Add to Basket instead
       </button>
     </div>
@@ -437,9 +437,8 @@
       if (basketBtn) {
         const photosReady = !state.withMagnets || (state.product && state.photos.length === state.product.size);
         const basketReady = !!state.product && photosReady;
+        basketBtn.classList.toggle('mm-hide', !basketReady);  // only show when addable
         basketBtn.disabled = !basketReady;
-        basketBtn.style.opacity = basketReady ? '1' : '0.4';
-        basketBtn.style.cursor = basketReady ? 'pointer' : 'not-allowed';
       }
 
       btn.innerHTML = state.step === 5 && valid ? `<i data-lucide="check" class="w-5 h-5 mr-2"></i> ${text}` : `${text}${state.step < 5 ? priceLabel : ''} <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>`;

@@ -223,6 +223,14 @@ function updatePayButtonAppearance() {
   } else {
     payBtn.classList.add("disabled-look");
   }
+
+  // Add to Basket: only show once the photos are ready (count + all cropped).
+  // Email/phone/shipping aren't needed — they're collected at basket checkout.
+  const basketBtnEl = document.getElementById("basketBtn");
+  if (basketBtnEl) {
+    const basketReady = isCountValid() && isAllCropped();
+    basketBtnEl.classList.toggle("mm-hide", !basketReady);
+  }
 }
 
 function updateVisibility() {
