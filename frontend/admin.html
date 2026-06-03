@@ -439,7 +439,19 @@
         });
       }
 
-      // Load an <img> and resolve once decoded (same-origin, so canvas-safe)
+      // ─── PRINT SHEET GENERATOR (US Letter, 3×3, recreated magnet template) ───
+      const IN = 25.4;                       // mm per inch
+      const TILE = 2.8 * IN;                 // 71.12mm — full tile incl. bleed/wrap
+      const PHOTO = 2.05 * IN;               // 52.07mm — visible photo face
+      const PHOTO_OFF = (TILE - PHOTO) / 2;  // 9.525mm border each side
+      const CHAMFER = 11;                    // octagon corner cut (mm)
+      const COLS = 3, ROWS = 3, PER_PAGE = 9;
+      const PAGE_W = 8.5 * IN, PAGE_H = 11 * IN; // US Letter
+      const GRID_W = COLS * TILE;
+      const LEFT = (PAGE_W - GRID_W) / 2;    // centred horizontally
+      const TOP = 0.33 * IN;                 // matches your Canva top margin
+
+      // Load an <img> and resolve once decoded
       function loadImg(src) {
         return new Promise((resolve, reject) => {
           const im = new Image();
@@ -449,77 +461,128 @@
         });
       }
 
+      // Centre-crop any photo to a square JPEG data URL (event photos are uncropped)
+      function squareDataUrl(img, px = 620) {
+        const canvas = document.createElement('canvas');
+        canvas.width = px; canvas.height = px;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+        const s = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - s) / 2, sy = (img.naturalHeight - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, px, px);
+        return canvas.toDataURL('image/jpeg', 0.92);
+      }
+
+      // Draw one magnet tile: photo + octagon cut outline + branding + ticket #
+      function drawMagnetTile(pdf, x, y, item) {
+        // Photo (centre-cropped square) in the middle of the tile
+        pdf.addImage(item.data, 'JPEG', x + PHOTO_OFF, y + PHOTO_OFF, PHOTO, PHOTO);
+
+        // Octagon cut outline (faint grey)
+        pdf.setDrawColor(170); pdf.setLineWidth(0.15);
+        const c = CHAMFER, T = TILE;
+        const pts = [
+          [x + c, y], [x + T - c, y],
+          [x + T, y + c], [x + T, y + T - c],
+          [x + T - c, y + T], [x + c, y + T],
+          [x, y + T - c], [x, y + c]
+        ];
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i], b = pts[(i + 1) % pts.length];
+          pdf.line(a[0], a[1], b[0], b[1]);
+        }
+
+        // Branding text, mirrored (rotated 180°) to match the wrap-around design
+        pdf.setTextColor(60); pdf.setFont('helvetica', 'normal');
+        const cx = x + T / 2;
+        pdf.setFontSize(7);
+        pdf.text('Magnetic Memories', cx, y + PHOTO_OFF - 2.5, { angle: 180, align: 'center' });
+        pdf.setFontSize(6);
+        pdf.text('Snap it  Send it  Stick it', cx, y + T - PHOTO_OFF + 4, { angle: 180, align: 'center' });
+
+        // Ticket number in the corner cut (trims off when cut) — keeps tracking
+        pdf.setFontSize(7); pdf.setTextColor(120);
+        pdf.text(`#${item.ticket ?? '?'}`, x + 1.5, y + 4);
+      }
+
+      // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
+      function buildSheetPdf(items, filenameBase) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'mm', format: 'letter' });
+        let idx = 0;
+        while (idx < items.length) {
+          if (idx > 0) pdf.addPage();
+          for (let r = 0; r < ROWS; r++) {
+            for (let col = 0; col < COLS; col++) {
+              const it = items[idx];
+              if (!it) continue;
+              drawMagnetTile(pdf, LEFT + col * TILE, TOP + r * TILE, it);
+              idx++;
+            }
+          }
+        }
+        const safe = (filenameBase || 'magnets').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+        pdf.save(`${safe}-print-sheets.pdf`);
+        return Math.ceil(items.length / PER_PAGE);
+      }
+
+      // Fetch + square-crop all photos for a set of orders, return [{ticket, data}]
+      async function preparePhotos(orderList, onProgress) {
+        const photos = [];
+        for (const o of orderList) {
+          const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
+          const data = await res.json();
+          (data.images || []).forEach(img => {
+            photos.push({
+              ticket: o.raffleNumber,
+              src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
+            });
+          });
+        }
+        const items = [];
+        for (let i = 0; i < photos.length; i++) {
+          if (onProgress) onProgress(i + 1, photos.length);
+          const img = await loadImg(photos[i].src);
+          items.push({ ticket: photos[i].ticket, data: squareDataUrl(img) });
+        }
+        return items;
+      }
+
       async function generatePrintSheets(ev) {
         const btn = document.getElementById('ev-print');
         const orig = btn.innerHTML;
         btn.disabled = true; btn.textContent = 'Gathering photos…';
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
-
           const evOrders = orders
             .filter(o => o.eventId === ev.id)
             .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
 
-          // Build the flat photo list (in ticket order), each tagged with its ticket #
-          const photos = [];
-          for (const o of evOrders) {
-            const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
-            const data = await res.json();
-            (data.images || []).forEach(img => {
-              photos.push({
-                ticket: o.raffleNumber,
-                src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
-              });
-            });
-          }
+          const items = await preparePhotos(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
+          if (items.length === 0) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
 
-          if (photos.length === 0) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
-
-          // Preload every image
-          const items = [];
-          for (let i = 0; i < photos.length; i++) {
-            btn.textContent = `Loading ${i + 1}/${photos.length}…`;
-            items.push({ ...photos[i], img: await loadImg(photos[i].src) });
-          }
-
-          // ── Build A4 PDF, 3×3 grid of 50mm magnets ──
           btn.textContent = 'Building PDF…';
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-          const M = 50, gap = 12, cols = 3, rows = 3;
-          const pageW = 210, pageH = 297;
-          const gridW = cols * M + (cols - 1) * gap;
-          const gridH = rows * M + (rows - 1) * gap;
-          const left = (pageW - gridW) / 2;
-          const top = (pageH - gridH) / 2;
-
-          let idx = 0;
-          while (idx < items.length) {
-            if (idx > 0) pdf.addPage();
-            for (let r = 0; r < rows; r++) {
-              for (let c = 0; c < cols; c++) {
-                const it = items[idx];
-                if (!it) continue;
-                const x = left + c * (M + gap);
-                const y = top + r * (M + gap);
-                pdf.addImage(it.img, 'JPEG', x, y, M, M);
-                // faint cut border
-                pdf.setDrawColor(180); pdf.setLineWidth(0.1); pdf.rect(x, y, M, M);
-                // ticket number in the margin above each magnet (trims off when cut)
-                pdf.setFontSize(9); pdf.setTextColor(90);
-                pdf.text(`#${it.ticket ?? '?'}`, x + 1, y - 2);
-                idx++;
-              }
-            }
-          }
-
-          const safe = (ev.name || 'event').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
-          pdf.save(`${safe}-print-sheets.pdf`);
-          btn.textContent = `✅ ${Math.ceil(items.length / 9)} sheet(s) downloaded`;
+          const sheets = buildSheetPdf(items, ev.name);
+          btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
         } catch (e) {
           alert('Print sheet error: ' + e.message);
           btn.disabled = false; btn.innerHTML = orig;
+        }
+      }
+
+      async function generateOrderSheet(order, btn) {
+        const orig = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
+        try {
+          if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
+          const items = await preparePhotos([order], (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
+          if (items.length === 0) { alert('No photos on this ticket.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+          buildSheetPdf(items, `ticket-${order.raffleNumber ?? order.orderId}`);
+          if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
+        } catch (e) {
+          alert('Print sheet error: ' + e.message);
+          if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         }
       }
 
@@ -800,10 +863,17 @@
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
+          if (order.eventId && !isVoucher) {
+            html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Print this ticket's sheet</button>`;
+          }
+
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
           detailsContainer.innerHTML = html;
 
           // Wire up interactions
+          const printOneBtn = document.getElementById("print-one-btn");
+          if (printOneBtn) printOneBtn.onclick = () => generateOrderSheet(order, printOneBtn);
+
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
              await fetch(`/api/admin-order-update`, { method: "POST", headers: { Authorization: `Bearer ${adminKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ orderId, status: document.getElementById("status-select").value }) });
