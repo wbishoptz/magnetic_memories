@@ -953,10 +953,9 @@
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
-          // Print sheet: magnet products only (not keyrings, frames, flexi, vouchers)
+          // Print sheet: anything with magnet photos (incl. frames). Not keyrings/flexi/vouchers.
           const canPrintSheet = !isVoucher
             && order.productType !== 'keyring'
-            && order.productType !== 'frame' && order.productType !== 'frames'
             && order.productType !== 'flexi';
           if (canPrintSheet) {
             const printLabel = order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
