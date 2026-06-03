@@ -192,8 +192,8 @@
     lucide.createIcons();
 
     const TYPES = {
-      bottle_opener: { label: 'Bottle Opener', sub: 'Magnet + opener', icon: '🍺', short: 'opener' },
-      mirror_keyring: { label: 'Mirror Keyring', sub: 'Photo + mirror', icon: '🪞', short: 'mirror' }
+      bottle_opener: { label: 'Bottle Opener', sub: 'Magnet + opener', icon: '🍺', img: './bottleopen.jpeg', short: 'opener' },
+      mirror_keyring: { label: 'Mirror Keyring', sub: 'Photo + mirror', icon: '🪞', img: './mirroropen.jpeg', short: 'mirror' }
     };
     const LABELS = ["Items", "Delivery", "Share", "Contact", "Review"];
     const TOTAL_STEPS = 5;
@@ -270,7 +270,7 @@
             ${Object.entries(TYPES).map(([key, t]) => `
               <button type="button" onclick="setType(${i},'${key}')" data-type-btn="${i}" data-type="${key}"
                 class="type-btn p-4 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40">
-                <div class="text-2xl mb-1">${t.icon}</div>
+                <img src="${t.img}" alt="${t.label}" class="w-16 h-16 rounded-full object-cover mx-auto mb-2" />
                 <p class="font-semibold text-sm text-foreground">${t.label}</p>
                 <p class="text-[11px] text-muted-foreground">${t.sub}</p>
               </button>`).join('')}
