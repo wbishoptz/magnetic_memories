@@ -451,7 +451,7 @@
       const PAGE_W = 8.5 * IN, PAGE_H = 11 * IN; // US Letter
       const GRID_W = COLS * TILE;
       const LEFT = (PAGE_W - GRID_W) / 2;    // centred horizontally
-      const TOP = 0.33 * IN;                 // matches your Canva top margin
+      const ROW_GAP = 16;                    // vertical gap between rows (room for cut lines)
 
       // Load an <img> and resolve once decoded
       function loadImg(src) {
@@ -475,7 +475,7 @@
         return canvas.toDataURL('image/jpeg', 0.92);
       }
 
-      // Draw one magnet tile: photo + octagon cut outline + branding + ticket #
+      // Draw one magnet tile: photo + octagon cut outline + number in the border
       function drawMagnetTile(pdf, x, y, item) {
         // Photo (centre-cropped square) in the middle of the tile
         pdf.addImage(item.data, 'JPEG', x + PHOTO_OFF, y + PHOTO_OFF, PHOTO, PHOTO);
@@ -494,38 +494,42 @@
           pdf.line(a[0], a[1], b[0], b[1]);
         }
 
-        // Branding text, mirrored (rotated 180°) to match the wrap-around design
-        pdf.setTextColor(60); pdf.setFont('helvetica', 'normal');
-        const cx = x + T / 2;
-        pdf.setFontSize(7);
-        pdf.text('Magnetic Memories', cx, y + PHOTO_OFF - 2.5, { angle: 180, align: 'center' });
-        pdf.setFontSize(6);
-        pdf.text('Snap it  Send it  Stick it', cx, y + T - PHOTO_OFF + 4, { angle: 180, align: 'center' });
-
-        // Ticket number in the corner cut (trims off when cut) — keeps tracking
-        pdf.setFontSize(7); pdf.setTextColor(120);
-        pdf.text(`#${item.ticket ?? '?'}`, x + 1.5, y + 4);
+        // Magnet number, centred in the bottom border (upright, easy to read)
+        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(40);
+        pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, y + T - (PHOTO_OFF / 2) + 1.5, { align: 'center' });
       }
 
       // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
       function buildSheetPdf(items, filenameBase) {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ unit: 'mm', format: 'letter' });
-        let idx = 0;
-        while (idx < items.length) {
-          if (idx > 0) pdf.addPage();
-          for (let r = 0; r < ROWS; r++) {
-            for (let col = 0; col < COLS; col++) {
-              const it = items[idx];
-              if (!it) continue;
-              drawMagnetTile(pdf, LEFT + col * TILE, TOP + r * TILE, it);
-              idx++;
-            }
+        const totalH = ROWS * TILE + (ROWS - 1) * ROW_GAP;
+        const topMargin = (PAGE_H - totalH) / 2;     // centre the grid vertically
+        const rowPitch = TILE + ROW_GAP;
+        const pageCount = Math.ceil(items.length / PER_PAGE);
+
+        for (let p = 0; p < pageCount; p++) {
+          if (p > 0) pdf.addPage();
+          const pageItems = items.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
+          const rowsUsed = Math.ceil(pageItems.length / COLS);
+
+          // Tiles
+          for (let k = 0; k < pageItems.length; k++) {
+            const r = Math.floor(k / COLS), col = k % COLS;
+            drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k]);
+          }
+
+          // Horizontal cut guides in the gap between each row of magnets
+          pdf.setDrawColor(120); pdf.setLineWidth(0.3);
+          for (let i = 1; i < rowsUsed; i++) {
+            const lineY = topMargin + i * rowPitch - ROW_GAP / 2;
+            pdf.line(LEFT, lineY, LEFT + GRID_W, lineY);
           }
         }
+
         const safe = (filenameBase || 'magnets').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
         pdf.save(`${safe}-print-sheets.pdf`);
-        return Math.ceil(items.length / PER_PAGE);
+        return pageCount;
       }
 
       // Fetch + square-crop all photos for a set of orders, return [{ticket, data}]
