@@ -5,6 +5,13 @@
 export const onRequestGet = async ({ request, env }) => {
   try {
     const url = new URL(request.url);
+
+    // Require the admin key (header or ?key=) — this exposes full customer data
+    const authKey = request.headers.get("Authorization")?.replace("Bearer ", "") || url.searchParams.get("key");
+    if (authKey !== env.ADMIN_KEY && authKey !== env.ADMIN_DASH_KEY) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
     const orderId = url.searchParams.get("orderId");
 
     if (!orderId) {
