@@ -447,7 +447,7 @@
       const PHOTO = 2.05 * IN;               // 52.07mm — visible photo face
       const PHOTO_OFF = (TILE - PHOTO) / 2;  // 9.525mm border each side
       const CHAMFER = 11;                    // octagon corner cut (mm)
-      const LBL_BAND = 3.8;                  // thickness of the text band
+      const LBL_BAND = 2.9;                  // thickness of the text band
       const LBL_GAP = 0.4;                   // tiny gap between text and photo edge
       const COLS = 3, ROWS = 3, PER_PAGE = 9;
       const PAGE_W = 8.5 * IN, PAGE_H = 11 * IN; // US Letter
@@ -491,7 +491,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         // Perpendicular-to-text dimension (the narrow strip width) sets the font size
-        ctx.font = `bold ${Math.round(2.8 * PX)}px Arial, Helvetica, sans-serif`; // ~8pt
+        ctx.font = `bold ${Math.round(2.1 * PX)}px Arial, Helvetica, sans-serif`; // ~6pt
         ctx.fillText(text, 0, 0);
         return cv.toDataURL('image/png');
       }
