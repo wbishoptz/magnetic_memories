@@ -490,7 +490,7 @@
         ctx.textBaseline = 'middle';
         // Perpendicular-to-text dimension (the narrow strip width) sets the font size
         const shortPx = Math.abs(Math.sin(rot)) > 0.5 ? cv.width : cv.height;
-        ctx.font = `bold ${Math.round(shortPx * 0.42)}px Arial, Helvetica, sans-serif`;
+        ctx.font = `bold ${Math.round(shortPx * 0.30)}px Arial, Helvetica, sans-serif`;
         ctx.fillText(text, 0, 0);
         return cv.toDataURL('image/png');
       }
