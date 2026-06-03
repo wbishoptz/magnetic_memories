@@ -496,19 +496,22 @@
 
         const cx = x + T / 2, cy = y + T / 2;
 
+        // All border text: bold + dark for crisp, legible printing
+        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30);
+
         // Top border: "Magnetic Memories" — rotated 180° so it reads upright when folded round the back
-        pdf.setFont('helvetica', 'normal'); pdf.setTextColor(70); pdf.setFontSize(6.5);
-        pdf.text('Magnetic Memories', cx, y + (PHOTO_OFF / 2) + 1, { angle: 180, align: 'center' });
+        pdf.setFontSize(7);
+        pdf.text('MAGNETIC MEMORIES', cx, y + (PHOTO_OFF / 2) + 1.2, { angle: 180, align: 'center' });
 
         // Left side (vertical): "Made in Gibraltar"
-        pdf.setFontSize(6); pdf.setTextColor(90);
-        pdf.text('Made in Gibraltar', x + (PHOTO_OFF / 2) + 1, cy, { angle: 90, align: 'center' });
+        pdf.setFontSize(6.5);
+        pdf.text('MADE IN GIBRALTAR', x + (PHOTO_OFF / 2) + 1.2, cy, { angle: 90, align: 'center' });
 
         // Right side (vertical): "Personalised Magnets"
-        pdf.text('Personalised Magnets', x + T - (PHOTO_OFF / 2) - 1, cy, { angle: 270, align: 'center' });
+        pdf.text('PERSONALISED MAGNETS', x + T - (PHOTO_OFF / 2) - 1.2, cy, { angle: 270, align: 'center' });
 
         // Bottom border: magnet number (upright, easy to read while sorting)
-        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(40);
+        pdf.setFontSize(11);
         pdf.text(`#${item.ticket ?? '?'}`, cx, y + T - (PHOTO_OFF / 2) + 1.5, { align: 'center' });
       }
 
