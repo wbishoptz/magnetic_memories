@@ -317,8 +317,9 @@
 
       function renderEventManager() {
         document.getElementById('list-count').textContent = `${events.length}`;
-        let html = `<div style="margin-bottom:16px;">
-          <button id="new-event-btn" class="btn-action" style="width:100%;">＋ New Event</button>
+        let html = `<div style="margin-bottom:16px; display:flex; gap:8px;">
+          <button id="new-event-btn" class="btn-action" style="flex:1;">＋ New Event</button>
+          <button id="test-sheet-btn" class="btn-action" style="flex:1;" title="Print a placeholder sheet to check cut sizing">📏 Test Sheet</button>
         </div>`;
 
         if (events.length === 0) {
@@ -342,6 +343,7 @@
         listContainer.innerHTML = html;
 
         document.getElementById('new-event-btn').onclick = createEvent;
+        document.getElementById('test-sheet-btn').onclick = generateTestSheet;
         listContainer.querySelectorAll('tbody tr').forEach(row => {
           row.addEventListener('click', () => selectAdminEvent(row.getAttribute('data-event-id')));
         });
@@ -546,6 +548,44 @@
           items.push({ ticket: photos[i].ticket, data: squareDataUrl(img) });
         }
         return items;
+      }
+
+      // Placeholder tile so you can check cut alignment without real photos
+      function makeTestTileDataUrl(px = 620) {
+        const cv = document.createElement('canvas');
+        cv.width = px; cv.height = px;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#eef6f3'; ctx.fillRect(0, 0, px, px);
+        // Edge border = exact photo boundary (2.05in / 52mm)
+        ctx.strokeStyle = '#059669'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, px - 4, px - 4);
+        // Diagonals to find the centre
+        ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(px, px); ctx.moveTo(px, 0); ctx.lineTo(0, px); ctx.stroke();
+        // Centre circle
+        ctx.beginPath(); ctx.arc(px / 2, px / 2, px * 0.18, 0, Math.PI * 2);
+        ctx.strokeStyle = '#059669'; ctx.lineWidth = 3; ctx.stroke();
+        // Labels
+        ctx.fillStyle = '#065f46'; ctx.textAlign = 'center';
+        ctx.font = 'bold 34px sans-serif'; ctx.fillText('PHOTO', px / 2, px / 2 - 8);
+        ctx.font = '24px sans-serif'; ctx.fillText('2.05in / 52mm', px / 2, px / 2 + 28);
+        return cv.toDataURL('image/jpeg', 0.92);
+      }
+
+      function generateTestSheet() {
+        const btn = document.getElementById('test-sheet-btn');
+        const orig = btn.innerHTML;
+        try {
+          if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
+          btn.disabled = true; btn.textContent = 'Building…';
+          const data = makeTestTileDataUrl();
+          const items = Array.from({ length: PER_PAGE }, (_, i) => ({ ticket: 'T' + (i + 1), data }));
+          buildSheetPdf(items, 'TEST-SHEET');
+          btn.textContent = '✅ Downloaded';
+          setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000);
+        } catch (e) {
+          alert('Test sheet error: ' + e.message);
+          btn.disabled = false; btn.innerHTML = orig;
+        }
       }
 
       async function generatePrintSheets(ev) {
