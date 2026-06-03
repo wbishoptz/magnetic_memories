@@ -495,24 +495,29 @@
         }
 
         const cx = x + T / 2, cy = y + T / 2;
+        // Centres of each border strip (the bleed/wrap area outside the photo)
+        const topMid = y + PHOTO_OFF / 2;
+        const botMid = y + T - PHOTO_OFF / 2;
+        const leftMid = x + PHOTO_OFF / 2;
+        const rightMid = x + T - PHOTO_OFF / 2;
 
-        // All border text: bold + dark for crisp, legible printing
+        // All border text: bold + dark, centred in its strip both ways (baseline:middle)
         pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30);
 
-        // Top border: "Magnetic Memories" — rotated 180° so it reads upright when folded round the back
-        pdf.setFontSize(7);
-        pdf.text('MAGNETIC MEMORIES', cx, y + (PHOTO_OFF / 2) + 1.2, { angle: 180, align: 'center' });
-
-        // Left side (vertical): "Made in Gibraltar"
+        // Top border: "Magnetic Memories" — flipped 180° so it reads upright when folded round the back
         pdf.setFontSize(6.5);
-        pdf.text('MADE IN GIBRALTAR', x + (PHOTO_OFF / 2) + 1.2, cy, { angle: 90, align: 'center' });
+        pdf.text('MAGNETIC MEMORIES', cx, topMid, { angle: 180, align: 'center', baseline: 'middle' });
 
-        // Right side (vertical): "Personalised Magnets"
-        pdf.text('PERSONALISED MAGNETS', x + T - (PHOTO_OFF / 2) - 1.2, cy, { angle: 270, align: 'center' });
+        // Left side (vertical, reads bottom→top): "Made in Gibraltar"
+        pdf.setFontSize(6);
+        pdf.text('MADE IN GIBRALTAR', leftMid, cy, { angle: 90, align: 'center', baseline: 'middle' });
+
+        // Right side (vertical, reads top→bottom): "Personalised Magnets"
+        pdf.text('PERSONALISED MAGNETS', rightMid, cy, { angle: 270, align: 'center', baseline: 'middle' });
 
         // Bottom border: magnet number (upright, easy to read while sorting)
         pdf.setFontSize(11);
-        pdf.text(`#${item.ticket ?? '?'}`, cx, y + T - (PHOTO_OFF / 2) + 1.5, { align: 'center' });
+        pdf.text(`#${item.ticket ?? '?'}`, cx, botMid, { align: 'center', baseline: 'middle' });
       }
 
       // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
