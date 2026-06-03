@@ -44,6 +44,7 @@ export async function onRequest({ request, env }) {
             eventId: o.eventId,
             raffleNumber: o.raffleNumber,
             bingoNumber: o.bingoNumber,
+            stripeSessionId: o.stripeSessionId,
             price: o.price,
             wasRecovered: o.wasRecovered,
             usedVoucher: o.usedVoucher,

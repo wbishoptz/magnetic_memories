@@ -542,60 +542,124 @@
         }
       }
 
-      // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
-      function buildSheetPdf(items, filenameBase, showNumbers) {
+      // ── Keyring template: 37mm circle discs ──
+      const KR_CUT = 37;            // circle cut diameter (mm)
+      const KR_PHOTO = 39;          // square photo incl. ~1mm bleed all round
+      const KR_LABEL_H = 4.5;       // space under circle for Front/Back label
+      const KR_COLS = 4, KR_ROWS = 4, KR_PER = KR_COLS * KR_ROWS;
+      const KR_GAP_X = 10, KR_GAP_Y = 9;
+      const KR_CELL_W = KR_PHOTO;
+      const KR_CELL_H = KR_PHOTO + KR_LABEL_H;
+      const KR_GRID_W = KR_COLS * KR_CELL_W + (KR_COLS - 1) * KR_GAP_X;
+      const KR_LEFT = (PAGE_W - KR_GRID_W) / 2;
+
+      function newLetterPdf() {
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ unit: 'mm', format: 'letter' });
+        return new jsPDF({ unit: 'mm', format: 'letter' });
+      }
+
+      // Add magnet pages to an existing pdf. freshStart=true adds a page first.
+      function layoutMagnets(pdf, items, showNumbers, freshStart) {
         const totalH = ROWS * TILE + (ROWS - 1) * ROW_GAP;
-        const topMargin = (PAGE_H - totalH) / 2;     // centre the grid vertically
+        const topMargin = (PAGE_H - totalH) / 2;
         const rowPitch = TILE + ROW_GAP;
         const pageCount = Math.ceil(items.length / PER_PAGE);
-        const labels = makeBorderLabels();            // built once, reused on every tile
-
+        const labels = makeBorderLabels();
         for (let p = 0; p < pageCount; p++) {
-          if (p > 0) pdf.addPage();
+          if (p > 0 || freshStart) pdf.addPage();
           const pageItems = items.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
           const rowsUsed = Math.ceil(pageItems.length / COLS);
-
-          // Tiles
           for (let k = 0; k < pageItems.length; k++) {
             const r = Math.floor(k / COLS), col = k % COLS;
             drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k], labels, showNumbers);
           }
-
-          // Horizontal cut guides in the gap between each row of magnets
           pdf.setDrawColor(120); pdf.setLineWidth(0.3);
           for (let i = 1; i < rowsUsed; i++) {
             const lineY = topMargin + i * rowPitch - ROW_GAP / 2;
             pdf.line(LEFT, lineY, LEFT + GRID_W, lineY);
           }
         }
-
-        const safe = (filenameBase || 'magnets').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
-        pdf.save(`${safe}-print-sheets.pdf`);
-        return pageCount;
       }
 
-      // Fetch + square-crop all photos for a set of orders, return [{ticket, data}]
-      async function preparePhotos(orderList, onProgress) {
-        const photos = [];
+      // Add keyring (circle) pages to an existing pdf.
+      function layoutKeyrings(pdf, items, freshStart) {
+        const totalH = KR_ROWS * KR_CELL_H + (KR_ROWS - 1) * KR_GAP_Y;
+        const topMargin = (PAGE_H - totalH) / 2;
+        const rowPitch = KR_CELL_H + KR_GAP_Y;
+        const colPitch = KR_CELL_W + KR_GAP_X;
+        const pageCount = Math.ceil(items.length / KR_PER);
+        for (let p = 0; p < pageCount; p++) {
+          if (p > 0 || freshStart) pdf.addPage();
+          const pageItems = items.slice(p * KR_PER, (p + 1) * KR_PER);
+          for (let k = 0; k < pageItems.length; k++) {
+            const r = Math.floor(k / KR_COLS), col = k % KR_COLS;
+            const x = KR_LEFT + col * colPitch;
+            const y = topMargin + r * rowPitch;
+            pdf.addImage(pageItems[k].data, 'JPEG', x, y, KR_PHOTO, KR_PHOTO);  // square photo w/ bleed
+            pdf.setDrawColor(120); pdf.setLineWidth(0.3);
+            pdf.circle(x + KR_PHOTO / 2, y + KR_PHOTO / 2, KR_CUT / 2, 'S');     // 37mm cut line
+            if (pageItems[k].label) {
+              pdf.setFont('helvetica', 'bold'); pdf.setTextColor(40); pdf.setFontSize(8);
+              pdf.text(pageItems[k].label, x + KR_PHOTO / 2, y + KR_PHOTO + KR_LABEL_H - 1.2, { align: 'center', baseline: 'middle' });
+            }
+          }
+        }
+      }
+
+      // Compose a PDF from magnet + keyring items and download it
+      function buildAndSave(magnets, keyrings, filenameBase, showNumbers) {
+        const pdf = newLetterPdf();
+        let started = false;
+        if (magnets.length) { layoutMagnets(pdf, magnets, showNumbers, false); started = true; }
+        if (keyrings.length) { layoutKeyrings(pdf, keyrings, started); started = true; }
+        const safe = (filenameBase || 'print').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+        pdf.save(`${safe}-print-sheets.pdf`);
+        return Math.ceil(magnets.length / PER_PAGE) + Math.ceil(keyrings.length / KR_PER);
+      }
+
+      // What template does a product need?  'magnet' | 'keyring' | null(skip)
+      function productKind(o) {
+        if (o.productType === 'keyring') return 'keyring';
+        if (o.productType === 'flexi') return null;
+        if (String(o.packSize).startsWith('voucher_')) return null;
+        return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
+      }
+
+      function keyringLabel(key, idx) {
+        const k = String(key).toLowerCase();
+        if (k.includes('front') || k.includes('photo-1') || /[-_]1\./.test(k)) return 'FRONT';
+        if (k.includes('back') || k.includes('photo-2') || /[-_]2\./.test(k)) return 'BACK';
+        return idx === 0 ? 'FRONT' : 'BACK';
+      }
+
+      // Fetch + crop photos for a set of orders, split into magnet & keyring items
+      async function prepareItems(orderList, onProgress) {
+        const raw = [];
         for (const o of orderList) {
+          const kind = productKind(o);
+          if (!kind) continue;
           const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
           const data = await res.json();
-          (data.images || []).forEach(img => {
-            photos.push({
+          const imgs = (data.images || []).slice().sort((a, b) => String(a.key).localeCompare(String(b.key)));
+          imgs.forEach((img, idx) => {
+            raw.push({
+              kind,
               ticket: o.raffleNumber,
+              isEvent: !!o.eventId,
+              label: kind === 'keyring' ? keyringLabel(img.key, idx) : null,
               src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
             });
           });
         }
-        const items = [];
-        for (let i = 0; i < photos.length; i++) {
-          if (onProgress) onProgress(i + 1, photos.length);
-          const img = await loadImg(photos[i].src);
-          items.push({ ticket: photos[i].ticket, data: squareDataUrl(img) });
+        const magnets = [], keyrings = [];
+        for (let i = 0; i < raw.length; i++) {
+          if (onProgress) onProgress(i + 1, raw.length);
+          const data = squareDataUrl(await loadImg(raw[i].src));
+          if (raw[i].kind === 'keyring') keyrings.push({ data, label: raw[i].label });
+          else magnets.push({ data, ticket: raw[i].ticket });
         }
-        return items;
+        const showNumbers = raw.some(r => r.kind === 'magnet' && r.isEvent);
+        return { magnets, keyrings, showNumbers };
       }
 
       // Placeholder tile so you can check cut alignment without real photos
@@ -627,7 +691,7 @@
           btn.disabled = true; btn.textContent = 'Building…';
           const data = makeTestTileDataUrl();
           const items = Array.from({ length: PER_PAGE }, (_, i) => ({ ticket: 'T' + (i + 1), data }));
-          buildSheetPdf(items, 'TEST-SHEET');
+          buildAndSave(items, [], 'TEST-SHEET', true);
           btn.textContent = '✅ Downloaded';
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000);
         } catch (e) {
@@ -646,11 +710,11 @@
             .filter(o => o.eventId === ev.id)
             .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
 
-          const items = await preparePhotos(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
-          if (items.length === 0) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
+          const { magnets, keyrings, showNumbers } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
 
           btn.textContent = 'Building PDF…';
-          const sheets = buildSheetPdf(items, ev.name, true);
+          const sheets = buildAndSave(magnets, keyrings, ev.name, showNumbers);
           btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
         } catch (e) {
@@ -659,21 +723,30 @@
         }
       }
 
-      async function generateOrderSheet(order, btn) {
+      // Build sheets for any set of orders (one order, or a whole basket)
+      async function printOrders(orderList, filenameBase, btn) {
         const orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
-          const items = await preparePhotos([order], (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
-          if (items.length === 0) { alert('No photos on this order.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
-          const isEvent = !!order.eventId;  // only event sheets carry the border number
-          const fname = isEvent ? `ticket-${order.raffleNumber ?? order.orderId}` : `order-${order.orderId}`;
-          buildSheetPdf(items, fname, isEvent);
+          const { magnets, keyrings, showNumbers } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length) { alert('No printable photos found.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+          buildAndSave(magnets, keyrings, filenameBase, showNumbers);
           if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
         } catch (e) {
           alert('Print sheet error: ' + e.message);
           if (btn) { btn.disabled = false; btn.innerHTML = orig; }
         }
+      }
+
+      function generateOrderSheet(order, btn) {
+        const isEvent = !!order.eventId;
+        const fname = isEvent ? `ticket-${order.raffleNumber ?? order.orderId}` : `order-${order.orderId}`;
+        return printOrders([order], fname, btn);
+      }
+
+      function generateBasketSheet(orderList, btn) {
+        return printOrders(orderList, `purchase-${orderList[0]?.orderId || 'multi'}`, btn);
       }
 
       document.getElementById("search-input").addEventListener("input", applyFilters);
@@ -953,13 +1026,20 @@
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
-          // Print sheet: anything with magnet photos (incl. frames). Not keyrings/flexi/vouchers.
+          // Print sheet: anything with photos (magnets, frames, keyrings). Not flexi/vouchers.
           const canPrintSheet = !isVoucher
-            && order.productType !== 'keyring'
             && order.productType !== 'flexi';
           if (canPrintSheet) {
             const printLabel = order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
             html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">${printLabel}</button>`;
+          }
+
+          // Basket: orders paid together (same Stripe checkout) → print everything at once
+          const basketMates = (order.stripeSessionId)
+            ? orders.filter(o => o.stripeSessionId === order.stripeSessionId)
+            : [];
+          if (basketMates.length > 1) {
+            html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${basketMates.length} items)</button>`;
           }
 
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
@@ -968,6 +1048,9 @@
           // Wire up interactions
           const printOneBtn = document.getElementById("print-one-btn");
           if (printOneBtn) printOneBtn.onclick = () => generateOrderSheet(order, printOneBtn);
+
+          const printBasketBtn = document.getElementById("print-basket-btn");
+          if (printBasketBtn) printBasketBtn.onclick = () => generateBasketSheet(basketMates, printBasketBtn);
 
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {

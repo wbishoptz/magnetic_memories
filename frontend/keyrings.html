@@ -421,11 +421,14 @@
         const { orderId } = await res.json();
 
         btn.innerText = "Uploading photos...";
-        const photos = [state.front.blob, state.back.blob];
+        const photos = [
+          { blob: state.front.blob, name: 'front.jpg' },
+          { blob: state.back.blob, name: 'back.jpg' }
+        ];
         for(let i=0; i<photos.length; i++) {
           const form = new FormData();
-          form.append("file", photos[i], `photo-${i+1}.jpg`);
-          await fetch(`/api/upload?orderId=${orderId}`, { method: "POST", body: form });
+          form.append("file", photos[i].blob, photos[i].name);
+          await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(photos[i].name)}`, { method: "POST", body: form });
         }
 
         if (addToBasket) {
