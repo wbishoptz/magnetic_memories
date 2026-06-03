@@ -505,8 +505,8 @@
         };
       }
 
-      // Draw one magnet tile: photo + octagon cut outline + branding + number
-      function drawMagnetTile(pdf, x, y, item, labels) {
+      // Draw one magnet tile: photo + octagon cut outline + branding + (event) number
+      function drawMagnetTile(pdf, x, y, item, labels, showNumber) {
         // Photo (centre-cropped square) in the middle of the tile
         pdf.addImage(item.data, 'JPEG', x + PHOTO_OFF, y + PHOTO_OFF, PHOTO, PHOTO);
 
@@ -535,13 +535,15 @@
           pdf.addImage(labels.right, 'PNG', pRight + LBL_GAP, pTop, LBL_BAND, PHOTO);
         }
 
-        // Magnet number, just below the photo (upright, easy to read while sorting)
-        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30); pdf.setFontSize(11);
-        pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, pBottom + LBL_GAP + 2.0, { align: 'center', baseline: 'middle' });
+        // Magnet number — events only — flipped to match the rest of the wrap text
+        if (showNumber) {
+          pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30); pdf.setFontSize(11);
+          pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, pBottom + LBL_GAP + 2.0, { align: 'center', baseline: 'middle', angle: 180 });
+        }
       }
 
       // Build a multi-page Letter PDF from preloaded items [{ticket, data}]
-      function buildSheetPdf(items, filenameBase) {
+      function buildSheetPdf(items, filenameBase, showNumbers) {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ unit: 'mm', format: 'letter' });
         const totalH = ROWS * TILE + (ROWS - 1) * ROW_GAP;
@@ -558,7 +560,7 @@
           // Tiles
           for (let k = 0; k < pageItems.length; k++) {
             const r = Math.floor(k / COLS), col = k % COLS;
-            drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k], labels);
+            drawMagnetTile(pdf, LEFT + col * TILE, topMargin + r * rowPitch, pageItems[k], labels, showNumbers);
           }
 
           // Horizontal cut guides in the gap between each row of magnets
@@ -648,7 +650,7 @@
           if (items.length === 0) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
 
           btn.textContent = 'Building PDF…';
-          const sheets = buildSheetPdf(items, ev.name);
+          const sheets = buildSheetPdf(items, ev.name, true);
           btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
         } catch (e) {
@@ -663,8 +665,10 @@
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
           const items = await preparePhotos([order], (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
-          if (items.length === 0) { alert('No photos on this ticket.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
-          buildSheetPdf(items, `ticket-${order.raffleNumber ?? order.orderId}`);
+          if (items.length === 0) { alert('No photos on this order.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+          const isEvent = !!order.eventId;  // only event sheets carry the border number
+          const fname = isEvent ? `ticket-${order.raffleNumber ?? order.orderId}` : `order-${order.orderId}`;
+          buildSheetPdf(items, fname, isEvent);
           if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
         } catch (e) {
           alert('Print sheet error: ' + e.message);
@@ -949,8 +953,14 @@
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
-          if (order.eventId && !isVoucher) {
-            html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Print this ticket's sheet</button>`;
+          // Print sheet: magnet products only (not keyrings, frames, flexi, vouchers)
+          const canPrintSheet = !isVoucher
+            && order.productType !== 'keyring'
+            && order.productType !== 'frame' && order.productType !== 'frames'
+            && order.productType !== 'flexi';
+          if (canPrintSheet) {
+            const printLabel = order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
+            html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">${printLabel}</button>`;
           }
 
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
