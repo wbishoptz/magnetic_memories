@@ -565,7 +565,7 @@
             const src = `/api/admin-order-image?orderId=${slice[i].orderId}&objectKey=${encodeURIComponent(slice[i].key)}&key=${encodeURIComponent(adminKey)}`;
             items.push({ data: squareDataUrl(await loadImg(src)), ticket: slice[i].ticket });
           }
-          buildAndSave(items, [], [], `${ev.name}-sheet-${sheetIdx + 1}`, true);
+          buildAndSave(items, [], [], `${ev.name}-sheet-${sheetIdx + 1}`, true, ev.name);
           markSheetDownloaded(ev.id, sheetIdx + 1);
           renderSheetsUI(ev);
         } catch (e) {
@@ -631,12 +631,14 @@
         return cv.toDataURL('image/png');
       }
 
-      // Build the three branding labels once (identical on every tile)
-      function makeBorderLabels() {
+      // Build the three branding labels once (identical on every tile).
+      // For events, the right side shows the EVENT NAME instead of "Personalised Magnets".
+      function makeBorderLabels(rightText) {
+        const right = (rightText || 'PERSONALISED MAGNETS').toUpperCase();
         return {
           top:   labelCanvas('MAGNETIC MEMORIES', PHOTO, LBL_BAND, Math.PI),       // flipped for back fold
           left:  labelCanvas('MADE IN GIBRALTAR', LBL_BAND, PHOTO, -Math.PI / 2),  // reads bottom→top
-          right: labelCanvas('PERSONALISED MAGNETS', LBL_BAND, PHOTO, Math.PI / 2) // reads top→bottom
+          right: labelCanvas(right, LBL_BAND, PHOTO, Math.PI / 2)                  // reads top→bottom
         };
       }
 
@@ -670,10 +672,11 @@
           pdf.addImage(labels.right, 'PNG', pRight + LBL_GAP, pTop, LBL_BAND, PHOTO);
         }
 
-        // Magnet number — events only — flipped to match the rest of the wrap text
+        // Magnet number — events only — as a band flush under the photo (same as the
+        // other wrap text), flipped to match. Generated per-tile since it varies.
         if (showNumber) {
-          pdf.setFont('helvetica', 'bold'); pdf.setTextColor(30); pdf.setFontSize(11);
-          pdf.text(`#${item.ticket ?? '?'}`, x + T / 2, pBottom + LBL_GAP + 2.0, { align: 'center', baseline: 'middle', angle: 180 });
+          const numImg = labelCanvas(`#${item.ticket ?? '?'}`, PHOTO, LBL_BAND, Math.PI);
+          pdf.addImage(numImg, 'PNG', pLeft, pBottom + LBL_GAP, PHOTO, LBL_BAND);
         }
       }
 
@@ -694,12 +697,12 @@
       }
 
       // Add magnet pages to an existing pdf. freshStart=true adds a page first.
-      function layoutMagnets(pdf, items, showNumbers, freshStart) {
+      function layoutMagnets(pdf, items, showNumbers, freshStart, eventName) {
         const totalH = ROWS * TILE + (ROWS - 1) * ROW_GAP;
         const topMargin = (PAGE_H - totalH) / 2;
         const rowPitch = TILE + ROW_GAP;
         const pageCount = Math.ceil(items.length / PER_PAGE);
-        const labels = makeBorderLabels();
+        const labels = makeBorderLabels(eventName);
         for (let p = 0; p < pageCount; p++) {
           if (p > 0 || freshStart) pdf.addPage();
           const pageItems = items.slice(p * PER_PAGE, (p + 1) * PER_PAGE);
@@ -775,10 +778,10 @@
       }
 
       // Compose a PDF from magnet + keyring + badge items and download it
-      function buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers) {
+      function buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers, eventName) {
         const pdf = newLetterPdf();
         let started = false;
-        if (magnets.length) { layoutMagnets(pdf, magnets, showNumbers, false); started = true; }
+        if (magnets.length) { layoutMagnets(pdf, magnets, showNumbers, false, eventName); started = true; }
         if (keyrings.length) { layoutKeyrings(pdf, keyrings, started); started = true; }
         if (badges.length) { layoutBadges(pdf, badges, started); started = true; }
         const safe = (filenameBase || 'print').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
@@ -896,7 +899,7 @@
           if (!magnets.length && !keyrings.length && !badges.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
 
           btn.textContent = 'Building PDF…';
-          const sheets = buildAndSave(magnets, keyrings, badges, ev.name, showNumbers);
+          const sheets = buildAndSave(magnets, keyrings, badges, ev.name, showNumbers, ev.name);
           btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
         } catch (e) {
@@ -906,14 +909,14 @@
       }
 
       // Build sheets for any set of orders (one order, or a whole basket)
-      async function printOrders(orderList, filenameBase, btn) {
+      async function printOrders(orderList, filenameBase, btn, eventName) {
         const orig = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
           const { magnets, keyrings, badges, showNumbers } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
           if (!magnets.length && !keyrings.length && !badges.length) { alert('No printable photos found.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
-          buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers);
+          buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers, eventName);
           if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
         } catch (e) {
           alert('Print sheet error: ' + e.message);
@@ -924,7 +927,8 @@
       function generateOrderSheet(order, btn) {
         const isEvent = !!order.eventId;
         const fname = isEvent ? `ticket-${order.raffleNumber ?? order.orderId}` : `order-${order.orderId}`;
-        return printOrders([order], fname, btn);
+        const evName = isEvent ? (events.find(e => e.id === order.eventId) || {}).name : undefined;
+        return printOrders([order], fname, btn, evName);
       }
 
       function generateBasketSheet(orderList, btn) {
