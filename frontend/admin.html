@@ -305,6 +305,10 @@
             fetch('/api/events'),
             fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } })
           ]);
+          if (!evRes.ok || !ordRes.ok) {
+            listContainer.innerHTML = '<div class="empty-state" style="color:#fbbf24;">⚠️ Cloudflare is rate-limiting reads (daily KV limit). Your data is safe — upgrade to Workers Paid, or wait until 00:00 UTC. This is NOT data loss.</div>';
+            return;
+          }
           events = (await evRes.json()).events || [];
           orders = (await ordRes.json()).orders || [];
           renderEventManager();
@@ -454,10 +458,8 @@
           row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
         });
         loadEventSheets(ev);
-
-        // Auto-refresh sheets every 30s while this event is open
-        stopEventPolling();
-        eventPollTimer = setInterval(() => pollEventSheets(ev), 30000);
+        // NOTE: auto-refresh polling removed — it burned through Cloudflare's free
+        // daily KV limits during events. Use the 🔄 Refresh button to pull new captures.
       }
 
       // ─── Per-sheet (real-time) event printing ───
