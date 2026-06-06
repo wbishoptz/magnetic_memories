@@ -94,6 +94,7 @@
             <select id="date-filter"><option value="all">All time</option><option value="today">Today</option><option value="last_week" selected>Last 7 days</option><option value="last_month">Last 30 days</option></select>
             <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select>
             <button id="download-csv-btn">Export CSV</button>
+            <button id="purge-photos-btn" title="Delete photos from orders older than 30 days (order records are kept)">🧹 Purge old photos</button>
           </div>
 
           <div class="toolbar" id="voucher-toolbar" style="display:none;">
@@ -958,6 +959,24 @@
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      });
+
+      document.getElementById("purge-photos-btn").addEventListener("click", async () => {
+        if (!adminKey) { alert("Unlock admin first."); return; }
+        if (!confirm("Delete photos from all orders older than 30 days?\n\nOrder records are kept — only the images are removed. This can't be undone.")) return;
+        const btn = document.getElementById("purge-photos-btn");
+        const orig = btn.textContent;
+        btn.disabled = true; btn.textContent = "Purging…";
+        try {
+          const res = await fetch("/api/cleanup-images", { method: "POST", headers: { Authorization: `Bearer ${adminKey}` } });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed");
+          alert(`Done. Removed photos from ${data.ordersPurged} order(s) (${data.filesDeleted} files deleted).`);
+        } catch (e) {
+          alert("Purge failed: " + e.message);
+        } finally {
+          btn.disabled = false; btn.textContent = orig;
+        }
       });
 
       async function loadOrders() {
