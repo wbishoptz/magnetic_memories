@@ -47,11 +47,19 @@ export async function onRequestPost({ request, env }) {
   const existingRaw = await env.ORDERS_KV.get(`event:meta:${id}`);
   const existing = existingRaw ? JSON.parse(existingRaw) : {};
 
+  // Per-ticket photo limit (0 = unlimited). Preserve existing when not provided.
+  let perTicketLimit = existing.perTicketLimit || 0;
+  if (body?.perTicketLimit !== undefined) {
+    const n = Number(body.perTicketLimit);
+    perTicketLimit = (Number.isInteger(n) && n > 0) ? n : 0;
+  }
+
   const event = {
     id,
     name,
     rangeStart,
     rangeEnd,
+    perTicketLimit,
     active: body?.active !== undefined ? !!body.active : (existing.active !== undefined ? existing.active : true),
     createdAt: existing.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),

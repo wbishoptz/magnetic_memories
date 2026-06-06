@@ -362,11 +362,14 @@
         if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeEnd < rangeStart) {
           return alert('Invalid range.');
         }
+        const limStr = prompt('Photos allowed per ticket? (leave blank for no limit)', '');
+        if (limStr === null) return;
+        const perTicketLimit = limStr.trim() ? parseInt(limStr, 10) : 0;
         try {
           const res = await fetch('/api/admin-event', {
             method: 'POST',
             headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'save', name, rangeStart, rangeEnd, active: true })
+            body: JSON.stringify({ action: 'save', name, rangeStart, rangeEnd, perTicketLimit, active: true })
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Failed');
@@ -412,6 +415,7 @@
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${ev.name}</div>`;
         html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · ${evOrders.length} uploaded</div>`;
+        html += `<div class="field-label">Photos per ticket</div><div class="field-value">${ev.perTicketLimit ? ev.perTicketLimit : 'No limit'}</div>`;
         html += `<button id="ev-print" class="btn-action" style="width:100%; margin:10px 0 6px; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Download ALL Sheets (PDF)</button>`;
         html += `<div class="field-value" style="display:flex; gap:8px; margin:0 0 10px;">
           <button id="ev-toggle" class="btn-action" style="flex:1;">${ev.active ? 'Set Inactive' : 'Set Active'}</button>
