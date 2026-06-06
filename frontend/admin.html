@@ -411,13 +411,20 @@
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${ev.name}</div>`;
         html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · ${evOrders.length} uploaded</div>`;
-        html += `<button id="ev-print" class="btn-action" style="width:100%; margin:10px 0; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Generate Print Sheets (9-up PDF)</button>`;
+        html += `<button id="ev-print" class="btn-action" style="width:100%; margin:10px 0 6px; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Download ALL Sheets (PDF)</button>`;
         html += `<div class="field-value" style="display:flex; gap:8px; margin:0 0 10px;">
           <button id="ev-toggle" class="btn-action" style="flex:1;">${ev.active ? 'Set Inactive' : 'Set Active'}</button>
           <button id="ev-delete" class="btn-danger" style="flex:1; margin:0;">Delete Event</button>
         </div>`;
 
-        html += `<div class="field-label">Uploads by Ticket #</div>`;
+        // Per-sheet (real-time) download section
+        html += `<div class="field-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Print one sheet at a time (9 each)</span>
+          <button id="ev-refresh" class="btn-action" style="padding:3px 10px; font-size:12px;">🔄 Refresh</button>
+        </div>`;
+        html += `<div id="event-sheets"><div class="field-value" style="color:#9ca3af;">Loading sheets…</div></div>`;
+
+        html += `<div class="field-label" style="margin-top:14px;">Uploads by Ticket #</div>`;
         if (evOrders.length === 0) {
           html += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
         } else {
@@ -437,9 +444,106 @@
         document.getElementById('ev-toggle').onclick = () => toggleEventActive(ev);
         document.getElementById('ev-delete').onclick = () => deleteEvent(ev);
         document.getElementById('ev-print').onclick = () => generatePrintSheets(ev);
+        document.getElementById('ev-refresh').onclick = () => refreshEventData(ev);
         detailsContainer.querySelectorAll('tbody tr').forEach(row => {
           row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
         });
+        loadEventSheets(ev);
+      }
+
+      // ─── Per-sheet (real-time) event printing ───
+      let eventSheets = { eventId: null, photos: [] };
+
+      // Pull fresh orders (new tickets captured during the event) then re-render
+      async function refreshEventData(ev) {
+        try {
+          const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
+          if (r.ok) orders = (await r.json()).orders || orders;
+        } catch {}
+        selectAdminEvent(ev.id);
+      }
+
+      function getDownloadedSheets(id) {
+        try { return JSON.parse(localStorage.getItem('mm_evsheets_' + id)) || []; } catch { return []; }
+      }
+      function markSheetDownloaded(id, n) {
+        const arr = getDownloadedSheets(id);
+        if (!arr.includes(n)) { arr.push(n); localStorage.setItem('mm_evsheets_' + id, JSON.stringify(arr)); }
+      }
+
+      // Fetch the event's photo index (image keys only — no downloads) and render
+      async function loadEventSheets(ev) {
+        const box = document.getElementById('event-sheets');
+        if (!box) return;
+        box.innerHTML = '<div class="field-value" style="color:#9ca3af;">Loading sheets…</div>';
+        try {
+          const evOrders = orders.filter(o => o.eventId === ev.id)
+            .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
+          const photos = [];
+          for (const o of evOrders) {
+            const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
+            const data = await res.json();
+            (data.images || []).slice().sort((a, b) => String(a.key).localeCompare(String(b.key)))
+              .forEach(img => photos.push({ orderId: o.orderId, key: img.key, ticket: o.raffleNumber }));
+          }
+          eventSheets = { eventId: ev.id, photos };
+          renderSheetsUI(ev);
+        } catch (e) {
+          box.innerHTML = '<div class="field-value" style="color:#ef4444;">Could not load sheets.</div>';
+        }
+      }
+
+      function renderSheetsUI(ev) {
+        const box = document.getElementById('event-sheets');
+        if (!box || eventSheets.eventId !== ev.id) return;
+        const photos = eventSheets.photos;
+        if (photos.length === 0) {
+          box.innerHTML = '<div class="field-value" style="color:#9ca3af;">No photos captured yet.</div>';
+          return;
+        }
+        const sheetCount = Math.ceil(photos.length / PER_PAGE);
+        const done = getDownloadedSheets(ev.id);
+        let h = '';
+        for (let i = 0; i < sheetCount; i++) {
+          const slice = photos.slice(i * PER_PAGE, i * PER_PAGE + PER_PAGE);
+          const n = i + 1;
+          const full = slice.length === PER_PAGE;
+          const tickets = slice.map(p => p.ticket).filter(t => t != null);
+          const range = tickets.length ? `#${tickets[0]}–#${tickets[tickets.length - 1]}` : '';
+          const isDone = done.includes(n);
+          h += `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #1f2933; border-radius:8px; margin-bottom:6px;">
+            <div>
+              <div style="font-weight:700;">Sheet ${n} ${isDone ? '<span style="color:#66d19e;">✓ done</span>' : ''}</div>
+              <div style="font-size:12px; color:#9ca3af;">${slice.length}/9 ${range ? '· ' + range : ''}${full ? '' : ' · waiting for more'}</div>
+            </div>
+            <button class="btn-action ev-sheet-btn" data-sheet="${i}" style="padding:6px 12px; ${full && !isDone ? 'background:#059669; border-color:#059669; color:#fff;' : ''}">${isDone ? 'Re-download' : 'Download'}</button>
+          </div>`;
+        }
+        box.innerHTML = h;
+        box.querySelectorAll('.ev-sheet-btn').forEach(btn => {
+          btn.onclick = () => downloadEventSheet(ev, Number(btn.dataset.sheet), btn);
+        });
+      }
+
+      async function downloadEventSheet(ev, sheetIdx, btn) {
+        const slice = eventSheets.photos.slice(sheetIdx * PER_PAGE, sheetIdx * PER_PAGE + PER_PAGE);
+        if (!slice.length) return;
+        const orig = btn.innerHTML;
+        btn.disabled = true; btn.textContent = '…';
+        try {
+          const items = [];
+          for (let i = 0; i < slice.length; i++) {
+            btn.textContent = `${i + 1}/${slice.length}`;
+            const src = `/api/admin-order-image?orderId=${slice[i].orderId}&objectKey=${encodeURIComponent(slice[i].key)}&key=${encodeURIComponent(adminKey)}`;
+            items.push({ data: squareDataUrl(await loadImg(src)), ticket: slice[i].ticket });
+          }
+          buildAndSave(items, [], [], `${ev.name}-sheet-${sheetIdx + 1}`, true);
+          markSheetDownloaded(ev.id, sheetIdx + 1);
+          renderSheetsUI(ev);
+        } catch (e) {
+          alert('Sheet download error: ' + e.message);
+          btn.disabled = false; btn.innerHTML = orig;
+        }
       }
 
       // ─── PRINT SHEET GENERATOR (US Letter, 3×3, recreated magnet template) ───
