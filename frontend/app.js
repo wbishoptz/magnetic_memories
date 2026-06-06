@@ -723,6 +723,7 @@ payBtn.addEventListener("click", async () => {
     if (!ckRes.ok) throw new Error((await ckRes.text().catch(() => "")) || "Checkout creation failed");
 
     const { checkoutUrl } = await ckRes.json();
+    if (!checkoutUrl) throw new Error("Couldn't start checkout. Please try again.");
 
     statusEl.textContent = "Redirecting...";
     window.location.href = checkoutUrl;

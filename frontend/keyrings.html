@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Magnetic Memories | Double-Sided Keyring</title>
   <link rel="icon" href="/logo.png" type="image/png" />
   <meta name="description" content="Double-sided photo keyrings with a premium faux leather strap. A perfect personalised gift." />
@@ -538,7 +538,8 @@
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'keyring' })
         });
-        const { checkoutUrl } = await ckRes.json();
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
         window.location.href = checkoutUrl;
 
       } catch (e) {

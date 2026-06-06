@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Magnetic Memories | Bottle Openers &amp; Mirror Keyrings</title>
   <link rel="icon" href="/logo.png" type="image/png" />
   <meta name="description" content="Personalised bottle-opener magnets and mirror keyrings. Mix &amp; match any 2 for £7." />
@@ -439,7 +439,8 @@
 
         btn.innerText = "Redirecting...";
         const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'bundle' }) });
-        const { checkoutUrl } = await ckRes.json();
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
         window.location.href = checkoutUrl;
       } catch (e) {
         console.error(e);

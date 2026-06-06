@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Magnetic Memories | Frames Collection</title>
   <link rel="icon" href="/logo.png" type="image/png" />
   <meta name="description" content="Premium photo frames with magnetic slots. Choose your style, size and colour." />
@@ -753,9 +753,10 @@
 
         btn.innerHTML = "Redirecting...";
         const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email, country: state.shipping }) });
-        const { checkoutUrl } = await ckRes.json();
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("checkout");
         window.location.href = checkoutUrl;
-      } catch(e) { alert("Error processing order"); btn.disabled = false; render(); }
+      } catch(e) { alert("Couldn't start checkout. Your order is saved — please try again."); btn.disabled = false; render(); }
     };
 
     render();

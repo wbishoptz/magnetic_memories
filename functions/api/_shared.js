@@ -13,6 +13,13 @@ export const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
 
 export const FLEXI_PRICE = 12.50;
 
+// Double-sided keyrings: 1 for £6, 2 for £10
+export const KEYRING_PRICES = { 1: 6.00, 2: 10.00 };
+export const keyringPrice = (qty) => KEYRING_PRICES[Number(qty) === 2 ? 2 : 1];
+
+// Bottle-opener / mirror-keyring bundle: any 2 for £7
+export const BUNDLE_PRICE = 7.00;
+
 export const MOTHERS_PACKAGES = {
   "Box 1": 12.50,
   "Box 2": 25.00,

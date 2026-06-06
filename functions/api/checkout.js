@@ -3,6 +3,7 @@ import {
   BINGO_PACKS, BINGO_PRICES,
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES, VOUCHERS,
+  keyringPrice, BUNDLE_PRICE,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -65,11 +66,11 @@ export async function onRequestPost({ request, env }) {
       isVoucherPurchase = true;
     } else if (productType === 'keyring') {
       const krQty = Number(packSizeRaw) === 2 ? 2 : 1;
-      price = krQty === 2 ? 10.00 : 6.00; // 1 for £6, 2 for £10
+      price = keyringPrice(krQty);
       productName = krQty === 2 ? "2 Double-Sided Photo Keyrings" : "Double-Sided Photo Keyring";
       productDesc = "Premium keyring with front and back photos";
     } else if (productType === 'bundle') {
-      price = 7.00; // any 2 for £7
+      price = BUNDLE_PRICE;
       productName = "Any 2 Bundle (Bottle Opener / Mirror Keyring)";
       productDesc = "Two personalised 58mm pieces — mix & match";
     } else {

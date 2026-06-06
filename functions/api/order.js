@@ -3,6 +3,7 @@ import {
   BINGO_PACKS, BINGO_PRICES,
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES,
+  keyringPrice, BUNDLE_PRICE,
   jsonResponse
 } from './_shared.js';
 
@@ -86,9 +87,9 @@ export async function onRequestPost({ request, env }) {
       if (!BINGO_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid Bingo pack." }, 400);
       price = BINGO_PRICES[packSize];
     } else if (productType === 'keyring') {
-      price = Number(packSize) === 2 ? 10.00 : 6.00; // 1 for £6, 2 for £10
+      price = keyringPrice(packSize);
     } else if (productType === 'bundle') {
-      price = 7.00; // any 2 (bottle opener / mirror keyring) for £7
+      price = BUNDLE_PRICE;
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
