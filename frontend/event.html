@@ -203,7 +203,31 @@
       closePreview();
     };
 
-    // ── Submit ────────────────────────────────────────────────────
+    // ── Submit (with upload verification + auto-retry) ─────────────
+    // Tracks an in-progress upload so a weak-signal failure can be retried
+    // without re-uploading photos that already went through.
+    let activeUpload = null; // { orderId, raffle, count, done: boolean[] }
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Upload one photo, retrying on failure. Returns true only if the SERVER
+    // confirmed it was saved (HTTP 200 + a key in the response).
+    async function uploadWithRetry(orderId, file, fileName, attempts = 4) {
+      for (let a = 1; a <= attempts; a++) {
+        try {
+          const form = new FormData();
+          form.append('file', file, fileName);
+          const r = await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(fileName)}`, { method: 'POST', body: form });
+          if (r.ok) {
+            const j = await r.json().catch(() => ({}));
+            if (j && (j.ok || j.key)) return true;
+          }
+        } catch (e) { /* network blip — fall through to retry */ }
+        if (a < attempts) await sleep(700 * a); // backoff: 0.7s, 1.4s, 2.1s
+      }
+      return false;
+    }
+
     async function submitManualOrder() {
       const raffle = raffleSelect.value;
       const btn = document.getElementById('submit-btn');
@@ -214,58 +238,76 @@
       if (selectedFiles.length === 0) return alert('Select at least 1 photo.');
 
       btn.disabled = true;
-      btn.innerHTML = 'Creating Order...';
       status.classList.remove('hidden');
-      status.textContent = '';
+      status.innerHTML = '';
 
       try {
-        const res = await fetch('/api/order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'MANUAL',
-            eventId: currentEvent.id,
-            raffleNumber: raffle,
-            packSize: selectedFiles.length,
-            email: `raffle-${currentEvent.id}-${raffle}@event.local`,
-            phone: '00000000',
-            status: 'paid'
-          })
-        });
+        let orderId, done;
 
-        if (res.status === 409) {
-          const d = await res.json().catch(() => ({}));
-          alert(d.error || 'That number was just taken. Refreshing list.');
-          await selectEvent(currentEvent.id);
+        // Resume a previous attempt for the same ticket + same photos, or start fresh
+        if (activeUpload && activeUpload.raffle === raffle && activeUpload.count === selectedFiles.length) {
+          orderId = activeUpload.orderId;
+          done = activeUpload.done;
+          btn.innerHTML = 'Retrying…';
+        } else {
+          btn.innerHTML = 'Creating Order...';
+          const res = await fetch('/api/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'MANUAL',
+              eventId: currentEvent.id,
+              raffleNumber: raffle,
+              packSize: selectedFiles.length,
+              email: `raffle-${currentEvent.id}-${raffle}@event.local`,
+              phone: '00000000',
+              status: 'paid'
+            })
+          });
+          if (res.status === 409) {
+            const d = await res.json().catch(() => ({}));
+            alert(d.error || 'That number was just taken. Refreshing list.');
+            activeUpload = null;
+            await selectEvent(currentEvent.id);
+            btn.disabled = false;
+            btn.innerHTML = 'Confirm & Upload';
+            return;
+          }
+          if (!res.ok) throw new Error('Order creation failed');
+          orderId = (await res.json()).orderId;
+          done = new Array(selectedFiles.length).fill(false);
+          activeUpload = { orderId, raffle, count: selectedFiles.length, done };
+        }
+
+        // Upload every photo that hasn't been confirmed yet
+        let failed = 0;
+        for (let i = 0; i < selectedFiles.length; i++) {
+          if (done[i]) continue;
+          btn.innerHTML = `Uploading ${i + 1}/${selectedFiles.length}…`;
+          const ok = await uploadWithRetry(orderId, selectedFiles[i], `Ticket-${raffle}-${i + 1}.jpg`);
+          if (ok) done[i] = true; else failed++;
+        }
+
+        if (failed > 0) {
+          // Keep the photos + order so they can simply tap again to retry the missing ones
+          status.innerHTML = `<span class="text-amber-400">⚠️ ${failed} photo(s) didn't upload (weak signal). Tap "Retry Upload" to try just the missing ${failed}.</span>`;
           btn.disabled = false;
-          btn.innerHTML = 'Confirm & Upload';
+          btn.innerHTML = `🔁 Retry Upload (${failed} left)`;
           return;
         }
-        if (!res.ok) throw new Error('Order creation failed');
-        const { orderId } = await res.json();
 
-        btn.innerHTML = `Uploading 0/${selectedFiles.length}...`;
-        for (let i = 0; i < selectedFiles.length; i++) {
-          const formData = new FormData();
-          formData.append('file', selectedFiles[i]);
-          const fileName = `Ticket-${raffle}-${i + 1}.jpg`;
-          await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(fileName)}`, {
-            method: 'POST', body: formData
-          });
-          btn.innerHTML = `Uploading ${i + 1}/${selectedFiles.length}...`;
-        }
-
-        // Mark number used locally + reset for next person
+        // All photos confirmed saved — now it's safe to finish
+        activeUpload = null;
         usedNumbers.add(Number(raffle));
         selectedFiles = [];
         renderPreviews();
         populateNumbers();
-        status.innerHTML = `<span class="text-emerald-400">✅ Saved ticket #${raffle}</span>`;
+        status.innerHTML = `<span class="text-emerald-400">✅ Saved ticket #${raffle} — all ${done.length} photo(s) confirmed.</span>`;
         btn.disabled = false;
         btn.innerHTML = 'Confirm & Upload';
 
       } catch (e) {
-        alert('Error: ' + e.message);
+        status.innerHTML = `<span class="text-amber-400">⚠️ ${e.message}. Tap to try again.</span>`;
         btn.disabled = false;
         btn.innerText = 'Try Again';
       }

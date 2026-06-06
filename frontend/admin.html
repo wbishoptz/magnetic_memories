@@ -542,6 +542,21 @@
         const sheetCount = Math.ceil(photos.length / PER_PAGE);
         const done = getDownloadedSheets(ev.id);
         let h = '';
+
+        // Safety net: flag tickets whose actual photo count is below what was ordered
+        const actualByOrder = {};
+        photos.forEach(p => { actualByOrder[p.orderId] = (actualByOrder[p.orderId] || 0) + 1; });
+        const missing = orders
+          .filter(o => o.eventId === ev.id)
+          .map(o => ({ ticket: o.raffleNumber, short: (Number(o.packSize) || 0) - (actualByOrder[o.orderId] || 0) }))
+          .filter(m => m.short > 0);
+        if (missing.length) {
+          const list = missing.map(m => `#${m.ticket} (${m.short} missing)`).join(', ');
+          h += `<div style="padding:10px 12px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-bottom:10px; color:#fbbf24; font-size:13px;">
+            ⚠️ Possible failed uploads — these tickets have fewer photos than ordered: <strong>${list}</strong>. Recapture them on the event page.
+          </div>`;
+        }
+
         for (let i = 0; i < sheetCount; i++) {
           const slice = photos.slice(i * PER_PAGE, i * PER_PAGE + PER_PAGE);
           const n = i + 1;
