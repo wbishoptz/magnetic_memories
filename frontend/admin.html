@@ -416,7 +416,7 @@
 
         const evOrders = orders
           .filter(o => o.eventId === id)
-          .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
+          .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${ev.name}</div>`;
         html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · ${evOrders.length} uploaded</div>`;
@@ -434,7 +434,7 @@
         </div>`;
         html += `<div id="event-sheets"><div class="field-value" style="color:#9ca3af;">Loading sheets…</div></div>`;
 
-        html += `<div class="field-label" style="margin-top:14px;">Uploads by Ticket #</div>`;
+        html += `<div class="field-label" style="margin-top:14px;">Uploads (in capture order)</div>`;
         if (evOrders.length === 0) {
           html += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
         } else {
@@ -516,7 +516,7 @@
         box.innerHTML = '<div class="field-value" style="color:#9ca3af;">Loading sheets…</div>';
         try {
           const evOrders = orders.filter(o => o.eventId === ev.id)
-            .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
+            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
           const photos = [];
           for (const o of evOrders) {
             const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
@@ -904,7 +904,7 @@
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
           const evOrders = orders
             .filter(o => o.eventId === ev.id)
-            .sort((a, b) => (Number(a.raffleNumber) || 0) - (Number(b.raffleNumber) || 0));
+            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
           const { magnets, keyrings, badges, showNumbers } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
           if (!magnets.length && !keyrings.length && !badges.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
