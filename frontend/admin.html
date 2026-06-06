@@ -150,16 +150,26 @@
           keyInput.value = "••••••••"; keyInput.type = "password"; 
           keyBadge.style.display = "inline-flex"; 
           keyForm.style.opacity = "0.3"; keyForm.style.pointerEvents = "none"; 
-          headerSubtitle.textContent = "Loading..."; 
-          loadOrders(); 
+          headerSubtitle.textContent = "Loading...";
+          loadOrders();
+          maybeAutoCleanup();
         }
       })();
+
+      // Fire-and-forget: asks the server to purge 30-day-old photos.
+      // The server only actually runs it once per ~24h, so opening the admin
+      // regularly keeps cleanup happening automatically — no external scheduler.
+      function maybeAutoCleanup() {
+        if (!adminKey) return;
+        fetch('/api/cleanup-images?auto=1', { method: 'POST', headers: { Authorization: `Bearer ${adminKey}` } }).catch(() => {});
+      }
 
       saveKeyBtn.addEventListener("click", () => {
         const value = keyInput.value.trim(); if (!value) return;
         adminKey = value; localStorage.setItem("mm_admin_key", adminKey);
-        keyBadge.style.display = "inline-flex"; 
+        keyBadge.style.display = "inline-flex";
         loadOrders();
+        maybeAutoCleanup();
       });
 
       navOrders.onclick = () => switchMode('orders');

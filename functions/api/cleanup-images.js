@@ -24,6 +24,15 @@ async function handle(request, env) {
     return json({ error: "Storage bindings missing." }, 500);
   }
 
+  // Auto mode (called on admin load): only actually run once per ~day
+  const auto = url.searchParams.get("auto") === "1";
+  if (auto) {
+    const last = await env.ORDERS_KV.get("config:cleanup_last");
+    if (last && (Date.now() - Number(last) < 23 * 60 * 60 * 1000)) {
+      return json({ ok: true, skipped: true, reason: "ran within last 24h" });
+    }
+  }
+
   const days = Number(url.searchParams.get("days")) > 0 ? Number(url.searchParams.get("days")) : RETENTION_DAYS;
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
@@ -66,6 +75,9 @@ async function handle(request, env) {
     await env.ORDERS_KV.put(k.name, JSON.stringify(order));
     ordersPurged++;
   }
+
+  // Record the run so auto mode waits ~a day before running again
+  await env.ORDERS_KV.put("config:cleanup_last", String(Date.now()));
 
   return json({ ok: true, retentionDays: days, scanned, ordersPurged, filesDeleted });
 }
