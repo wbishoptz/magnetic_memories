@@ -195,6 +195,7 @@
 
       function switchMode(mode) {
         currentMode = mode;
+        stopEventPolling(); // halt event auto-refresh; restarts when an event is reopened
         navOrders.classList.toggle('active', mode === 'orders');
         navDrafts.classList.toggle('active', mode === 'drafts');
         navVouchers.classList.toggle('active', mode === 'vouchers');
@@ -449,10 +450,36 @@
           row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
         });
         loadEventSheets(ev);
+
+        // Auto-refresh sheets every 30s while this event is open
+        stopEventPolling();
+        eventPollTimer = setInterval(() => pollEventSheets(ev), 30000);
       }
 
       // ─── Per-sheet (real-time) event printing ───
       let eventSheets = { eventId: null, photos: [] };
+      let eventPollTimer = null;
+      let sheetBusy = false;
+
+      function stopEventPolling() {
+        if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
+      }
+
+      // Lightweight poll: check order summaries (which carry photo counts) and only
+      // do the heavier image-index rebuild when new photos have actually arrived.
+      async function pollEventSheets(ev) {
+        if (sheetBusy || currentMode !== 'events' || selectedEventId !== ev.id) return;
+        try {
+          const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
+          if (!r.ok) return;
+          orders = (await r.json()).orders || orders;
+          const total = orders.filter(o => o.eventId === ev.id)
+            .reduce((s, o) => s + (Number(o.packSize) || 0), 0);
+          if (total !== (eventSheets.eventId === ev.id ? eventSheets.photos.length : -1)) {
+            await loadEventSheets(ev);
+          }
+        } catch {}
+      }
 
       // Pull fresh orders (new tickets captured during the event) then re-render
       async function refreshEventData(ev) {
@@ -530,6 +557,7 @@
         if (!slice.length) return;
         const orig = btn.innerHTML;
         btn.disabled = true; btn.textContent = '…';
+        sheetBusy = true;
         try {
           const items = [];
           for (let i = 0; i < slice.length; i++) {
@@ -543,6 +571,8 @@
         } catch (e) {
           alert('Sheet download error: ' + e.message);
           btn.disabled = false; btn.innerHTML = orig;
+        } finally {
+          sheetBusy = false;
         }
       }
 
