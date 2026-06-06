@@ -458,8 +458,11 @@
           row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
         });
         loadEventSheets(ev);
-        // NOTE: auto-refresh polling removed — it burned through Cloudflare's free
-        // daily KV limits during events. Use the 🔄 Refresh button to pull new captures.
+
+        // Auto-refresh every 60s while this event is open (paused when the tab is hidden,
+        // and it only does the heavier image rebuild when the photo count actually changes).
+        stopEventPolling();
+        eventPollTimer = setInterval(() => pollEventSheets(ev), 60000);
       }
 
       // ─── Per-sheet (real-time) event printing ───
@@ -474,7 +477,8 @@
       // Lightweight poll: check order summaries (which carry photo counts) and only
       // do the heavier image-index rebuild when new photos have actually arrived.
       async function pollEventSheets(ev) {
-        if (sheetBusy || currentMode !== 'events' || selectedEventId !== ev.id) return;
+        // Skip while downloading, off-tab, off-mode, or when the browser tab is hidden
+        if (sheetBusy || document.hidden || currentMode !== 'events' || selectedEventId !== ev.id) return;
         try {
           const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
           if (!r.ok) return;
