@@ -99,9 +99,11 @@ export async function onRequestPost({ request, env }) {
         await env.ORDERS_KV.put(`order:${order.orderId}`, JSON.stringify(order));
       }
 
-      const firstOrder = { ...orders[0], basketOrderIds: allOrderIds };
-      await Promise.allSettled([sendAdminEmail(firstOrder, env), sendPaidTelegram(firstOrder, env)]);
-      for (const order of orders) await sendPaidEmail(order, env);
+      await Promise.allSettled([
+        ...orders.map(o => sendAdminEmail(o, env)),
+        ...orders.map(o => sendPaidTelegram(o, env)),
+        ...orders.map(o => sendPaidEmail(o, env))
+      ]);
 
       return jsonResponse({ checkoutUrl: successUrl });
     }

@@ -112,12 +112,12 @@ export const onRequestPost = async ({ request, env }) => {
         await ordersKV.put(bKey, JSON.stringify(bOrder), { expirationTtl: 60 * 60 * 24 * 30 });
         paidOrders.push(bOrder);
       }
-      // One admin notification, individual confirmation emails
+      // Notify for EVERY item in the basket (admin email + telegram per item, plus
+      // the customer's confirmation per item) so nothing is hidden.
       if (paidOrders.length > 0) {
-        const summary = { ...paidOrders[0], basketOrderIds: session.metadata.basketOrderIds };
         await Promise.allSettled([
-          sendAdminEmail(summary, env),
-          sendPaidTelegram(summary, env),
+          ...paidOrders.map(o => sendAdminEmail(o, env)),
+          ...paidOrders.map(o => sendPaidTelegram(o, env)),
           ...paidOrders.map(o => sendPaidEmail(o, env))
         ]);
       }

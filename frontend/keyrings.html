@@ -525,9 +525,17 @@
             { blob: k.back.blob,  name: `keyring${i + 1}-back.jpg` }
           ];
           for (const u of uploads) {
-            const form = new FormData();
-            form.append("file", u.blob, u.name);
-            await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(u.name)}`, { method: "POST", body: form });
+            let ok = false;
+            for (let attempt = 1; attempt <= 4 && !ok; attempt++) {
+              try {
+                const form = new FormData();
+                form.append("file", u.blob, u.name);
+                const r = await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(u.name)}`, { method: "POST", body: form });
+                if (r.ok) { const j = await r.json().catch(() => ({})); if (j.ok || j.key) ok = true; }
+              } catch (e) {}
+              if (!ok && attempt < 4) await new Promise(res => setTimeout(res, 700 * attempt));
+            }
+            if (!ok) throw new Error("A photo didn't upload — please check your connection and try again.");
           }
         }
 
