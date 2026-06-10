@@ -1071,11 +1071,17 @@
         document.getElementById('list-count').textContent = `${filteredOrders.length}`;
         let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
         let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Product</th><th>£</th></tr></thead><tbody>`;
-        
+
+        // Count how many orders share each Stripe checkout (i.e. were bought together as a basket)
+        const sessionCounts = {};
+        orders.forEach(o => { if (o.stripeSessionId) sessionCounts[o.stripeSessionId] = (sessionCounts[o.stripeSessionId] || 0) + 1; });
+
         for (const o of filteredOrders) {
           const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "–";
           const isSelected = o.orderId === selectedOrderId ? " selected" : "";
-          
+
+          const basketCount = o.stripeSessionId ? (sessionCounts[o.stripeSessionId] || 1) : 1;
+
           let statusDisplay = `<span class="status-pill ${o.status}">${o.status}</span>`;
           if (currentMode === 'drafts') {
               if (o.recoverySent || o.status === 'abandoned') {
@@ -1097,6 +1103,11 @@
               statusDisplay += ` <span class="tag" style="background:#be185d; color:white; border:none; font-weight:700; font-size:10px;">🌸 MOTHER'S DAY</span>`;
           } else if (o.event === 'FRAMES') {
               statusDisplay += ` <span class="tag" style="background:#ea580c; color:white; border:none; font-weight:700; font-size:10px;">🖼️ FRAMES</span>`;
+          }
+
+          // Basket badge — paid together with other orders
+          if (basketCount > 1) {
+              statusDisplay += ` <span class="tag" style="background:#0f766e; color:white; border:none; font-weight:700; font-size:10px;">🛒 BASKET ×${basketCount}</span>`;
           }
 
           // SMART PACK DISPLAY
@@ -1294,6 +1305,15 @@
             ? orders.filter(o => o.stripeSessionId === order.stripeSessionId)
             : [];
           if (basketMates.length > 1) {
+            const others = basketMates.filter(m => m.orderId !== order.orderId).map(m => {
+              let lbl = m.productType === 'keyring' ? `🔑 Keyring${Number(m.packSize) === 2 ? ' ×2' : ''}`
+                      : m.productType === 'bundle' ? '🎁 Bundle'
+                      : (m.frameStyle ? `🖼️ ${m.frameStyle.charAt(0).toUpperCase() + m.frameStyle.slice(1)} Frame` : `🧲 ${m.packSize} magnets`);
+              return `<a href="#" onclick="loadOrderDetails('${m.orderId}');return false;" style="color:#5eead4; text-decoration:underline;">${lbl} (£${Number(m.price || 0).toFixed(2)})</a>`;
+            }).join(' · ');
+            html += `<div style="background:rgba(15,118,110,0.18); border:1px solid #0f766e; border-radius:10px; padding:11px 13px; margin:12px 0; font-size:13px; color:#a7f3d0;">
+              🛒 <strong>Part of a ${basketMates.length}-item purchase</strong> (paid together). Other item(s): ${others}
+            </div>`;
             html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${basketMates.length} items)</button>`;
           }
 
