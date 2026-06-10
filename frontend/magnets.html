@@ -53,80 +53,71 @@
       display: none !important;
     }
 
-    /* --- FULL SCREEN CROPPER MODAL (IG WEBVIEW PROOF) --- */
+    /* --- CROP MODAL (centered card — matches the rest of the site) --- */
     #crop-modal {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      height: 100dvh !important; /* The magic property for mobile nav bars */
-      background: #000000 !important;
-      z-index: 99999 !important;
-      display: flex !important;
-      flex-direction: column !important;
-    }
-    #crop-modal.hidden {
-      display: none !important;
-    }
-    
-    .crop-top-bar {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 99999;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: center;
       padding: 16px;
-      padding-top: calc(16px + env(safe-area-inset-top));
-      background: #111111;
-      border-bottom: 1px solid #333333;
     }
-    
-    .crop-top-bar button {
-      padding: 10px 20px;
-      border-radius: 8px;
+    #crop-modal.hidden { display: none; }
+
+    .crop-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .crop-title {
+      margin: 0 0 14px;
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .cropper-container {
+      height: 300px;
+      width: 100%;
+      background: #f0f0f0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .cropper-container img { display: block; max-width: 100%; }
+    .crop-hint {
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.8rem;
+      margin: 10px 0 0;
+    }
+    .crop-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .crop-actions button {
+      padding: 12px 22px;
+      border-radius: 10px;
       font-weight: 700;
       font-size: 15px;
       cursor: pointer;
     }
-    
     #crop-save {
-      background: #25D366; 
+      background: #25D366;
       color: #000;
       border: none;
-    }
-    
-    #crop-remove {
-      background: transparent;
-      color: #ff6b6b;
-      border: 1px solid #ff6b6b;
-    }
-    
-    .crop-workspace {
       flex: 1;
-      position: relative;
-      background: #000000;
-      min-height: 0; /* CRITICAL: stops image from pushing buttons off screen */
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
-    
-    .crop-workspace img {
-      max-width: 100%;
-      max-height: 100%;
-      display: block;
-    }
-    
-    .crop-bottom-bar {
-      padding: 16px;
-      padding-bottom: calc(16px + env(safe-area-inset-bottom));
-      background: #111111;
-      text-align: center;
-      color: #aaaaaa;
-      font-size: 14px;
-      border-top: 1px solid #333333;
+    #crop-remove {
+      background: #fff;
+      color: #ef4444;
+      border: 1px solid #e5e7eb;
     }
   </style>
 </head>
@@ -306,15 +297,16 @@
   </div>
 
   <div id="crop-modal" class="hidden" role="dialog" aria-modal="true">
-    <div class="crop-top-bar">
-      <button id="crop-remove" type="button">Cancel</button>
-      <button id="crop-save" type="button">Save Crop</button>
-    </div>
-    <div class="crop-workspace">
-      <img id="crop-image" src="" alt="Crop preview" />
-    </div>
-    <div class="crop-bottom-bar">
-      Adjust the box to fit perfectly. This is how it will print.
+    <div class="crop-card">
+      <h3 class="crop-title">Adjust Photo</h3>
+      <div class="cropper-container">
+        <img id="crop-image" src="" alt="Crop preview" />
+      </div>
+      <p class="crop-hint">Adjust the box to fit. This is how it will print.</p>
+      <div class="crop-actions">
+        <button id="crop-remove" type="button">Cancel</button>
+        <button id="crop-save" type="button">Save</button>
+      </div>
     </div>
   </div>
 
