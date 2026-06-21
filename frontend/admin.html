@@ -95,6 +95,7 @@
             <select id="status-filter"><option value="">All statuses</option><option value="paid">paid</option><option value="printing">printing</option><option value="shipped">shipped</option><option value="completed">completed</option></select>
             <button id="download-csv-btn">Export CSV</button>
             <button id="purge-photos-btn" title="Delete photos from orders older than 30 days (order records are kept)">🧹 Purge old photos</button>
+            <button id="print-selected-btn" style="display:none; background:#0f766e; color:#fff; border-color:#0f766e; font-weight:700;">🖨️ Print selected (0)</button>
           </div>
 
           <div class="toolbar" id="voucher-toolbar" style="display:none;">
@@ -136,6 +137,7 @@
 
       let adminKey = null;
       let orders = [], filteredOrders = [], selectedOrderId = null, lastImagesForOrder = {};
+      let selectedForPrint = new Set(); // orders ticked to combine onto one print sheet
       let events = [], selectedEventId = null;
       let vouchers = [], filteredVouchers = [], selectedVoucher = null;
 
@@ -207,6 +209,7 @@
       function switchMode(mode) {
         currentMode = mode;
         stopEventPolling(); // halt event auto-refresh; restarts when an event is reopened
+        selectedForPrint.clear(); // reset print selection when changing views
         navOrders.classList.toggle('active', mode === 'orders');
         navDrafts.classList.toggle('active', mode === 'drafts');
         navVouchers.classList.toggle('active', mode === 'vouchers');
@@ -1004,6 +1007,12 @@
         }
       });
 
+      document.getElementById("print-selected-btn").addEventListener("click", () => {
+        const list = orders.filter(o => selectedForPrint.has(o.orderId));
+        if (!list.length) return;
+        printOrders(list, `combined-${list.length}-orders`, document.getElementById("print-selected-btn"));
+      });
+
       async function loadOrders() {
         if (!adminKey) return;
         listContainer.innerHTML = '<div class="empty-state">Loading orders…</div>';
@@ -1070,7 +1079,8 @@
       function renderOrders() {
         document.getElementById('list-count').textContent = `${filteredOrders.length}`;
         let headerStatus = (currentMode === 'drafts') ? 'Status' : 'Status';
-        let html = `<div class="table-wrapper"><table><thead><tr><th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Product</th><th>£</th></tr></thead><tbody>`;
+        const showSelect = currentMode === 'orders'; // tick-to-combine only in Orders view
+        let html = `<div class="table-wrapper"><table><thead><tr>${showSelect ? '<th title="Tick to combine on one print sheet">🖨️</th>' : ''}<th>Created</th><th>${headerStatus}</th><th>Email</th><th>Pack / Product</th><th>£</th></tr></thead><tbody>`;
 
         // Count how many orders share each Stripe checkout (i.e. were bought together as a basket)
         const sessionCounts = {};
@@ -1138,17 +1148,38 @@
 
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
-          html += `<tr data-order-id="${o.orderId}" class="${isSelected}"><td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
+          const selectCell = showSelect
+            ? `<td><input type="checkbox" class="row-select" data-id="${o.orderId}" ${selectedForPrint.has(o.orderId) ? 'checked' : ''} onclick="event.stopPropagation()" style="width:16px; height:16px; cursor:pointer;"></td>`
+            : '';
+          html += `<tr data-order-id="${o.orderId}" class="${isSelected}">${selectCell}<td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
         listContainer.innerHTML = html;
         listContainer.querySelectorAll("tbody tr").forEach(row => {
           row.addEventListener("click", () => {
             selectedOrderId = row.getAttribute("data-order-id");
-            renderOrders(); 
+            renderOrders();
             loadOrderDetails(selectedOrderId);
           });
         });
+        // Tick-to-combine checkboxes
+        listContainer.querySelectorAll(".row-select").forEach(cb => {
+          cb.addEventListener("change", (e) => {
+            e.stopPropagation();
+            if (cb.checked) selectedForPrint.add(cb.dataset.id);
+            else selectedForPrint.delete(cb.dataset.id);
+            updatePrintSelectedBtn();
+          });
+        });
+        updatePrintSelectedBtn();
+      }
+
+      function updatePrintSelectedBtn() {
+        const btn = document.getElementById('print-selected-btn');
+        if (!btn) return;
+        const n = selectedForPrint.size;
+        btn.style.display = (currentMode === 'orders' && n > 0) ? 'inline-flex' : 'none';
+        btn.textContent = `🖨️ Print selected (${n})`;
       }
 
       async function loadOrderDetails(orderId) {
