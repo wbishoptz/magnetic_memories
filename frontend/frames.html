@@ -114,7 +114,32 @@
       </div>
 
       <div class="grid grid-cols-2 gap-3 sm:gap-4">
-        
+
+        <div onclick="selectStyle('message')" class="col-span-2 cursor-pointer rounded-xl border-2 border-primary/40 hover:border-primary transition-all overflow-hidden bg-white group flex items-center gap-3 p-3 relative">
+          <span class="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wide bg-primary text-white px-2 py-0.5 rounded-full">New ✨</span>
+          <div class="w-24 h-24 shrink-0 rounded-md overflow-hidden">
+            <div class="w-full h-full rounded-md p-1.5 flex transition-transform duration-500 group-hover:scale-105" style="background:#222;">
+              <div class="w-full h-full bg-white rounded-sm flex flex-col justify-between p-1">
+                <div class="flex justify-between gap-0.5">
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                </div>
+                <div class="text-center font-serif italic text-slate-700" style="font-size:7px;">Your message ♥</div>
+                <div class="flex justify-between gap-0.5">
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[1px]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-bold text-base flex items-center gap-1.5"><i data-lucide="message-circle-heart" class="w-4 h-4 text-primary"></i> Message Frame</h3>
+            <p class="text-xs text-muted-foreground leading-snug mt-1">6 magnets around your own custom words. Pick your border, body &amp; text colours.</p>
+          </div>
+        </div>
+
         <div onclick="selectStyle('bohemian')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
           <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./bohemian.jpeg" alt="Bohemian" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -162,31 +187,6 @@
           <div class="p-3 flex-1 flex flex-col">
             <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
             <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Modern, minimalist look.</p>
-          </div>
-        </div>
-
-        <div onclick="selectStyle('message')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
-          <div class="w-full aspect-square bg-muted overflow-hidden p-3">
-            <!-- CSS mock of the Message Frame (swap for a product photo anytime) -->
-            <div class="w-full h-full rounded-md p-2 flex transition-transform duration-500 group-hover:scale-105" style="background:#222;">
-              <div class="w-full h-full bg-white rounded-sm flex flex-col justify-between p-1.5">
-                <div class="flex justify-between gap-1">
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                </div>
-                <div class="text-center font-serif italic text-slate-700" style="font-size:10px;">Your message ♥</div>
-                <div class="flex justify-between gap-1">
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="p-3 flex-1 flex flex-col">
-            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="message-circle-heart" class="w-4 h-4 text-primary"></i> Message Frame</h3>
-            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">6 magnets + your own words.</p>
           </div>
         </div>
 
@@ -458,9 +458,14 @@
 
       [1,2,3,4,5].forEach(s => {
         const el = document.getElementById(`step-${s}`);
-        if(s === state.step) { el.classList.remove('hidden'); setTimeout(() => window.scrollTo(0,0), 50); } 
+        if(s === state.step) { el.classList.remove('hidden'); }
         else { el.classList.add('hidden'); }
       });
+      // Only jump to top when the STEP changes — not on every keystroke/colour tap
+      if (state.step !== window._lastRenderStep) {
+        window._lastRenderStep = state.step;
+        setTimeout(() => window.scrollTo(0,0), 50);
+      }
 
       const totalSteps = state.withMagnets ? 5 : 4;
       const currentProgressStep = state.step;
