@@ -40,6 +40,12 @@ export async function onRequestPost({ request, env }) {
     const includeMagnets = body?.includeMagnets;
     const bandColor = body?.bandColor;
 
+    // Message Frame personalisation (text hard-capped at 20 chars server-side)
+    const customText = body?.customText != null ? String(body.customText).trim().slice(0, 20) : undefined;
+    const borderColor = body?.borderColor;
+    const bodyColor = body?.bodyColor;
+    const textColor = body?.textColor;
+
     const mothersPackage = body?.mothersPackage;
 
     const isBasketDraft = body?.basketDraft === true;
@@ -137,6 +143,10 @@ export async function onRequestPost({ request, env }) {
       frameSize: frameSize || existingOrder.frameSize,
       frameColor: frameColor || existingOrder.frameColor,
       includeMagnets: includeMagnets !== undefined ? includeMagnets : existingOrder.includeMagnets,
+      customText: customText !== undefined ? customText : (existingOrder.customText || null),
+      borderColor: borderColor || existingOrder.borderColor || null,
+      bodyColor: bodyColor || existingOrder.bodyColor || null,
+      textColor: textColor || existingOrder.textColor || null,
       bandColor: bandColor || existingOrder.bandColor || null,
       bandColors: body?.bandColors || existingOrder.bandColors || null,
       bundleItems: body?.bundleItems || existingOrder.bundleItems || null,

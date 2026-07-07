@@ -50,6 +50,9 @@ export const FRAME_PRICES = {
   },
   rattan: {
     4: { frame: 15, full: 20 }
+  },
+  message: {
+    6: { frame: 12, full: 25 }   // Message Frame: 6 slots + custom text
   }
 };
 
@@ -127,7 +130,8 @@ function buildProductLabel(order) {
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
     const slots = order.frameSize ? ` (${order.frameSize} slots)` : '';
-    return `🖼️ ${style} Frame${slots}`;
+    const txt = order.customText ? ` — “${order.customText}”` : '';
+    return `🖼️ ${style} Frame${slots}${txt}`;
   }
   return `${order.packSize} items (${order.packType || 'standard'})`;
 }

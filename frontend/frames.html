@@ -155,13 +155,38 @@
           </div>
         </div>
 
-        <div onclick="selectStyle('sleek')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full col-span-2 sm:col-span-1">
-          <div class="w-full aspect-[2/1] sm:aspect-square bg-muted overflow-hidden">
+        <div onclick="selectStyle('sleek')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./sleek.jpeg" alt="Sleek" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           </div>
           <div class="p-3 flex-1 flex flex-col">
             <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
             <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Modern, minimalist look.</p>
+          </div>
+        </div>
+
+        <div onclick="selectStyle('message')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
+          <div class="w-full aspect-square bg-muted overflow-hidden p-3">
+            <!-- CSS mock of the Message Frame (swap for a product photo anytime) -->
+            <div class="w-full h-full rounded-md p-2 flex transition-transform duration-500 group-hover:scale-105" style="background:#222;">
+              <div class="w-full h-full bg-white rounded-sm flex flex-col justify-between p-1.5">
+                <div class="flex justify-between gap-1">
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                </div>
+                <div class="text-center font-serif italic text-slate-700" style="font-size:10px;">Your message ♥</div>
+                <div class="flex justify-between gap-1">
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                  <div class="flex-1 aspect-square bg-slate-200 rounded-[2px]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="p-3 flex-1 flex flex-col">
+            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="message-circle-heart" class="w-4 h-4 text-primary"></i> Message Frame</h3>
+            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">6 magnets + your own words.</p>
           </div>
         </div>
 
@@ -205,10 +230,52 @@
         </div>
       </div>
 
-      <div class="mb-6">
+      <div class="mb-6" id="single-color-wrapper">
         <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Frame Color</label>
         <div id="color-grid" class="grid grid-cols-4 gap-2">
           </div>
+      </div>
+
+      <!-- Message Frame personalisation (shown only for that style) -->
+      <div id="message-options" class="hidden">
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Live Preview</label>
+          <div class="rounded-xl p-3 transition-colors" id="msg-preview-border" style="background:#222;">
+            <div class="rounded-lg flex flex-col justify-between p-3 transition-colors" id="msg-preview-body" style="background:#fff; min-height:150px;">
+              <div class="flex justify-between gap-2">
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+              </div>
+              <div class="text-center font-serif italic font-semibold py-2 break-words" id="msg-preview-text" style="color:#222;">Your message here</div>
+              <div class="flex justify-between gap-2">
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+                <div class="flex-1 aspect-square bg-black/10 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Your Message</label>
+          <input id="msg-text" type="text" maxlength="20" placeholder="e.g. The Smith Family" oninput="setMsgText(this.value)"
+                 class="w-full p-3 rounded-xl bg-white border-2 border-border focus:outline-none focus:border-primary text-center font-semibold" />
+          <p class="text-[11px] text-muted-foreground text-right mt-1"><span id="msg-count">0</span>/20 characters</p>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Border Colour</label>
+          <div id="border-grid" class="grid grid-cols-4 gap-2"></div>
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Body Colour</label>
+          <div id="body-grid" class="grid grid-cols-4 gap-2"></div>
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Text Colour</label>
+          <div id="text-grid" class="grid grid-cols-4 gap-2"></div>
+        </div>
       </div>
     </div>
 
@@ -343,6 +410,9 @@
       ],
       flexi: [
         { id: 'fh', size: 1, framePrice: 12.50, fullPrice: 12.50, img: './frame-flexi.png' }
+      ],
+      message: [
+        { id: 'msg6', size: 6, framePrice: 12, fullPrice: 25, img: './frame-message.jpg' }
       ]
     };
 
@@ -367,8 +437,16 @@
 
     let state = {
       step: 1, style: null, product: null, color: 'White Marble',
-      withMagnets: false, photos: [], shipping: null, social: null
+      withMagnets: false, photos: [], shipping: null, social: null,
+      // Message Frame personalisation
+      msgText: '', borderColor: null, bodyColor: null, textColor: null
     };
+
+    // Is the Message Frame personalisation complete?
+    function msgComplete() {
+      const t = state.msgText.trim();
+      return t.length > 0 && t.length <= 20 && !!state.borderColor && !!state.bodyColor && !!state.textColor;
+    }
 
     function render() {
       const uploadStepNav = document.getElementById('nav-step-upload');
@@ -419,7 +497,10 @@
 
       if (state.step === 1) { valid = !!state.style; } 
       else if (state.step === 2) { valid = !!state.product; } 
-      else if (state.step === 3) { valid = !!state.color; text = state.withMagnets ? "Go to Upload" : "Confirm Details"; } 
+      else if (state.step === 3) {
+        valid = state.style === 'message' ? msgComplete() : !!state.color;
+        text = state.withMagnets ? "Go to Upload" : "Confirm Details";
+      }
       else if (state.step === 4) { valid = state.photos.length === state.product.size; text = "Confirm Details"; } 
       else if (state.step === 5) { 
         valid = state.shipping && state.social !== null; 
@@ -441,7 +522,8 @@
       const basketBtn = document.getElementById('basket-btn-frames');
       if (basketBtn) {
         const photosReady = !state.withMagnets || (state.product && state.photos.length === state.product.size);
-        const basketReady = !!state.product && photosReady;
+        const personalised = state.style !== 'message' || msgComplete();
+        const basketReady = !!state.product && photosReady && personalised;
         basketBtn.classList.toggle('mm-hide', !basketReady);  // only show when addable
         basketBtn.disabled = !basketReady;
       }
@@ -451,9 +533,9 @@
     }
 
     // Skips step 2 for single-size items
-    window.selectStyle = (style) => { 
-      state.style = style; 
-      if (style === 'rollercube' || style === 'rattan' || style === 'flexi') { 
+    window.selectStyle = (style) => {
+      state.style = style;
+      if (style === 'rollercube' || style === 'rattan' || style === 'flexi' || style === 'message') {
         state.product = PRODUCTS[style][0]; 
         state.photos = [];
         if (style === 'flexi') state.withMagnets = true; // Force photo upload for flexi
@@ -516,6 +598,52 @@
       if(container) container.innerHTML = html;
     }
 
+    // ── Message Frame personalisation ──
+    window.setMsgText = (v) => {
+      state.msgText = v.slice(0, 20);
+      document.getElementById('msg-count').innerText = state.msgText.length;
+      updateMsgPreview();
+      render();
+    };
+
+    window.setMsgColor = (part, name) => {   // part: 'border' | 'body' | 'text'
+      state[part + 'Color'] = name;
+      renderMsgGrids();
+      updateMsgPreview();
+      render();
+    };
+
+    function renderMsgGrids() {
+      [['border', 'border-grid'], ['body', 'body-grid'], ['text', 'text-grid']].forEach(([part, gridId]) => {
+        const container = document.getElementById(gridId);
+        if (!container) return;
+        let html = '';
+        FRAME_COLORS.forEach(c => {
+          const isActive = state[part + 'Color'] === c.name;
+          const activeClass = isActive ? "border-primary bg-accent ring-1 ring-primary shadow-sm" : "border-transparent bg-white hover:border-primary/50 border-2";
+          html += `
+            <div onclick="setMsgColor('${part}','${c.name}')" class="cursor-pointer rounded-xl p-2 text-center transition-all ${activeClass}">
+              <div class="w-6 h-6 rounded-full mx-auto mb-1 shadow-sm" style="background-color: ${c.hex}; border: 1px solid ${c.border}"></div>
+              <div class="font-semibold text-[9px] leading-tight text-slate-700">${c.name}</div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      });
+    }
+
+    function updateMsgPreview() {
+      const hexOf = (name) => (FRAME_COLORS.find(c => c.name === name) || {}).hex;
+      const borderEl = document.getElementById('msg-preview-border');
+      const bodyEl = document.getElementById('msg-preview-body');
+      const textEl = document.getElementById('msg-preview-text');
+      if (!borderEl) return;
+      if (state.borderColor) borderEl.style.background = hexOf(state.borderColor);
+      if (state.bodyColor) bodyEl.style.background = hexOf(state.bodyColor);
+      if (state.textColor) textEl.style.color = hexOf(state.textColor);
+      textEl.innerText = state.msgText.trim() || 'Your message here';
+    }
+
     function updateCustomUI() {
       const activeClass = "border-primary bg-accent ring-1 ring-primary";
       const inactiveClass = "cursor-pointer border-2 rounded-xl p-4 bg-white hover:border-primary/50 flex items-center gap-3 transition-all";
@@ -532,20 +660,34 @@
           if (optionsWrapper) optionsWrapper.style.display = 'block';
       }
 
+      // Message Frame: swap the single colour picker for text + 3 colour choices
+      const msgOptions = document.getElementById('message-options');
+      const singleColor = document.getElementById('single-color-wrapper');
+      if (state.style === 'message') {
+        msgOptions.classList.remove('hidden');
+        singleColor.style.display = 'none';
+        renderMsgGrids();
+        updateMsgPreview();
+      } else {
+        msgOptions.classList.add('hidden');
+        singleColor.style.display = 'block';
+      }
+
       if(state.product) {
         document.getElementById('price-frame').innerText = `£${state.product.framePrice.toFixed(2)}`;
         document.getElementById('price-magnets').innerText = `£${state.product.fullPrice.toFixed(2)}`;
-        
+
         let subTitleText = `${state.product.size} Magnet${state.product.size>1?'s':''} Frame`;
         if (state.style === 'flexi') subTitleText = "1 Photo Face";
-        
+        if (state.style === 'message') subTitleText = "6 Magnets + Your Message";
+
         document.getElementById('customize-subtitle').innerText = subTitleText;
         document.getElementById('photo-target').innerText = state.product.size;
         document.getElementById('photo-req').innerText = state.product.size;
       }
 
       renderColors();
-      render(); 
+      render();
     }
 
     function renderPhotos() {
@@ -624,16 +766,22 @@
       const ship = state.shipping === 'GI_DELIVER' ? 3.00 : 0;
       const total = price + ship;
       
-      let name = state.style === 'bohemian' ? "Bohemian Frame" 
-               : state.style === 'sleek' ? "Sleek Frame" 
-               : state.style === 'rattan' ? "Rattan Frame" 
+      let name = state.style === 'bohemian' ? "Bohemian Frame"
+               : state.style === 'sleek' ? "Sleek Frame"
+               : state.style === 'rattan' ? "Rattan Frame"
                : state.style === 'flexi' ? "Heart Buddy"
+               : state.style === 'message' ? "Message Frame"
                : "Rollercube";
-               
+
       document.getElementById('summary-product').innerText = name;
-      
+
       const subDesc = state.style === 'flexi' ? '1 Photo Face' : `${state.product.size} Magnet Slots`;
-      document.getElementById('summary-desc').innerText = `${subDesc} • ${state.color} • ${state.withMagnets ? 'With Photo' : 'Frame Only'}`;
+      if (state.style === 'message') {
+        document.getElementById('summary-desc').innerText =
+          `${subDesc} • “${state.msgText.trim()}” • Border: ${state.borderColor} • Body: ${state.bodyColor} • Text: ${state.textColor} • ${state.withMagnets ? 'With Photos' : 'Frame Only'}`;
+      } else {
+        document.getElementById('summary-desc').innerText = `${subDesc} • ${state.color} • ${state.withMagnets ? 'With Photo' : 'Frame Only'}`;
+      }
       
       document.getElementById('summary-price').innerText = `£${price.toFixed(2)}`;
       document.getElementById('summary-total').innerText = `£${total.toFixed(2)}`;
@@ -644,7 +792,7 @@
       if (state.step === 2 && !state.product) return;
       
       if (state.step === 1) {
-          state.step = (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi') ? 3 : 2;
+          state.step = (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi' || state.style === 'message') ? 3 : 2;
       }
       else if (state.step === 2) {
           state.step = 3;
@@ -672,7 +820,7 @@
 
     window.goBack = () => {
       if (state.step === 5 && !state.withMagnets) state.step = 3;
-      else if (state.step === 3 && (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi')) state.step = 1;
+      else if (state.step === 3 && (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi' || state.style === 'message')) state.step = 1;
       else state.step--;
 
       if (state.step < 1) window.location.href = "/";
@@ -727,9 +875,13 @@
             productType: pType,
             frameStyle: state.style,
             frameSize: state.product.size,
-            frameColor: state.color,
+            frameColor: state.style === 'message' ? state.bodyColor : state.color,
             flexiColor: state.color,
             includeMagnets: state.withMagnets,
+            customText: state.style === 'message' ? state.msgText.trim() : undefined,
+            borderColor: state.style === 'message' ? state.borderColor : undefined,
+            bodyColor: state.style === 'message' ? state.bodyColor : undefined,
+            textColor: state.style === 'message' ? state.textColor : undefined,
             shippingMethod: addToBasket ? 'GI_COLLECT' : state.shipping,
             socialPermission: addToBasket ? null : state.social,
             basketDraft: addToBasket,

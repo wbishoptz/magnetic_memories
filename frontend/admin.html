@@ -1275,9 +1275,16 @@
               const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
               const type = order.includeMagnets ? `With ${order.frameSize} Magnets` : "Frame Only";
               html += `<div class="field-label" style="color:#ea580c;">Frame Configuration</div>
-                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize || '?'} slots)</div>
-                       <div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>
-                       <div class="field-value">Type: ${type}</div>`;
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">${style} Frame (${order.frameSize || '?'} slots)</div>`;
+              if (order.frameStyle === 'message') {
+                  const escTxt = String(order.customText || '').replace(/</g, '&lt;');
+                  html += `<div class="field-label" style="color:#f0c36a;">✏️ Custom Message (print exactly as shown)</div>
+                           <div class="field-value" style="font-size:1.5em; font-weight:bold; font-family:serif; font-style:italic; background:#111827; padding:12px; border-radius:8px; text-align:center;">“${escTxt}”</div>
+                           <div class="field-value">Border: <span style="font-weight:bold;">${order.borderColor || '?'}</span> · Body: <span style="font-weight:bold;">${order.bodyColor || '?'}</span> · Text: <span style="font-weight:bold;">${order.textColor || '?'}</span></div>`;
+              } else {
+                  html += `<div class="field-value">Color: <span style="font-weight:bold;">${order.frameColor || 'Unknown'}</span></div>`;
+              }
+              html += `<div class="field-value">Type: ${type}</div>`;
           } else if (order.productType === 'keyring') {
               const krQty = Number(order.packSize) === 2 ? 2 : 1;
               const cols = (order.bandColors && order.bandColors.length) ? order.bandColors

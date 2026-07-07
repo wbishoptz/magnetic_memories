@@ -111,6 +111,10 @@ export async function onRequestPost({ request, env }) {
             const styleName = style.charAt(0).toUpperCase() + style.slice(1);
             productName = `${styleName} Frame (${color})`;
             productDesc = withMags ? `With ${fSize} personalised magnets` : `Frame only (${fSize} slots)`;
+            if (style === 'message' && kvOrder.customText) {
+              productName = `Message Frame — “${kvOrder.customText}”`;
+              productDesc += ` • Border: ${kvOrder.borderColor || '?'} • Body: ${kvOrder.bodyColor || '?'} • Text: ${kvOrder.textColor || '?'}`;
+            }
           } else {
             price = 0; productName = "Unknown Frame Configuration";
           }
