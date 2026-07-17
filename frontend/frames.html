@@ -350,6 +350,14 @@
             <span class="font-bold text-xl text-primary" id="summary-total">£0.00</span>
           </div>
 
+          <div>
+            <div class="flex gap-2">
+              <input id="fr-promo" type="text" placeholder="Promo code" class="flex-1 p-2.5 rounded-xl border bg-background text-center uppercase text-sm focus:ring-2 focus:ring-primary outline-none" />
+              <button type="button" onclick="applyFrPromo()" class="px-4 rounded-xl bg-muted font-semibold text-sm">Apply</button>
+            </div>
+            <p id="fr-promo-msg" class="text-xs mt-2" style="display:none;"></p>
+          </div>
+
           <div class="space-y-3">
             <label class="block text-xs font-bold uppercase tracking-wider text-muted-foreground">3. Contact</label>
             <input type="email" id="email" placeholder="Email address" class="w-full p-3 rounded-xl border bg-background text-sm focus:ring-2 focus:ring-primary outline-none" />
@@ -439,7 +447,29 @@
       step: 1, style: null, product: null, color: 'White Marble',
       withMagnets: false, photos: [], shipping: null, social: null,
       // Message Frame personalisation
-      msgText: '', borderColor: null, bodyColor: null, textColor: null
+      msgText: '', borderColor: null, bodyColor: null, textColor: null,
+      voucherCode: ''
+    };
+
+    window.applyFrPromo = async () => {
+      const code = document.getElementById('fr-promo').value.trim();
+      const msg = document.getElementById('fr-promo-msg');
+      if (!code) return;
+      try {
+        const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        msg.style.display = 'block';
+        if (data.valid) {
+          state.voucherCode = data.code;
+          msg.style.color = '#16a34a';
+          msg.textContent = data.percent ? `${data.percent}% off applied at checkout! 🌞` : `Voucher applied! −£${data.value}`;
+          document.getElementById('fr-promo').disabled = true;
+        } else {
+          state.voucherCode = '';
+          msg.style.color = '#dc2626';
+          msg.textContent = data.error || 'Invalid code';
+        }
+      } catch (e) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Error checking code'; }
     };
 
     // Is the Message Frame personalisation complete?
@@ -914,7 +944,7 @@
         }
 
         btn.innerHTML = "Redirecting...";
-        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email, country: state.shipping }) });
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email, country: state.shipping, voucherCode: state.voucherCode || undefined }) });
         const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
         if (!checkoutUrl) throw new Error("checkout");
         window.location.href = checkoutUrl;

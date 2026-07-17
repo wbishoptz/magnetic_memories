@@ -3,7 +3,7 @@ import {
   BINGO_PACKS, BINGO_PRICES,
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES, VOUCHERS,
-  keyringPrice, BUNDLE_PRICE,
+  keyringPrice, BUNDLE_PRICE, promoPercent,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -160,20 +160,27 @@ export async function onRequestPost({ request, env }) {
     let voucherKey = null;
 
     if (voucherCode && !isVoucherPurchase) {
-      voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
-      const vRaw = await env.ORDERS_KV.get(voucherKey);
-      if (vRaw) {
-        voucherData = JSON.parse(vRaw);
-        const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-        if (!voucherData.redeemed && currentBalance > 0) {
-          discountAmount = Math.min(price, currentBalance);
-          finalPrice = Math.max(0, price - discountAmount);
+      const pct = promoPercent(voucherCode);
+      if (pct > 0) {
+        // Percentage sale code (e.g. SUN20) — reusable, no stored balance
+        discountAmount = Math.round(price * pct) / 100;
+        finalPrice = Math.max(0, price - discountAmount);
+      } else {
+        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        const vRaw = await env.ORDERS_KV.get(voucherKey);
+        if (vRaw) {
+          voucherData = JSON.parse(vRaw);
+          const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
+          if (!voucherData.redeemed && currentBalance > 0) {
+            discountAmount = Math.min(price, currentBalance);
+            finalPrice = Math.max(0, price - discountAmount);
+          }
         }
       }
     }
 
-    // Fully covered by voucher — skip Stripe
-    if (voucherCode && discountAmount > 0 && finalPrice === 0) {
+    // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this)
+    if (voucherCode && discountAmount > 0 && finalPrice === 0 && voucherData) {
       const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
       const newBalance = currentBalance - discountAmount;
       voucherData.balance = newBalance;
@@ -208,12 +215,6 @@ export async function onRequestPost({ request, env }) {
       params.append("metadata[voucherValue]", String(price));
     }
     if (voucherCode) params.append("metadata[usedVoucher]", voucherCode);
-
-    // Enable Stripe's promo-code box (e.g. SUN20) on the payment page — but not for
-    // gift-voucher purchases, and not when an on-site gift voucher is already applied.
-    if (!isVoucherPurchase && discountAmount === 0) {
-      params.append("allow_promotion_codes", "true");
-    }
 
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");

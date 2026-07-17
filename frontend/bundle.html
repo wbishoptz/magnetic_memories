@@ -161,6 +161,14 @@
           <span class="font-bold text-lg text-primary" id="sum-total">£7.00</span>
         </div>
       </div>
+
+      <div class="max-w-xs mx-auto mt-4">
+        <div class="flex gap-2">
+          <input id="bn-promo" type="text" placeholder="Promo code" class="flex-1 p-2.5 rounded-lg bg-white border border-border text-center uppercase text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button type="button" onclick="applyBnPromo()" class="px-4 rounded-lg bg-secondary font-semibold text-sm">Apply</button>
+        </div>
+        <p id="bn-promo-msg" class="text-xs mt-2" style="display:none;"></p>
+      </div>
     </div>
 
     <div class="flex justify-between mt-10 pt-6 border-t border-border">
@@ -210,7 +218,29 @@
       delivery: null,
       social: null,
       email: '',
-      phone: ''
+      phone: '',
+      voucherCode: ''
+    };
+
+    window.applyBnPromo = async () => {
+      const code = document.getElementById('bn-promo').value.trim();
+      const msg = document.getElementById('bn-promo-msg');
+      if (!code) return;
+      try {
+        const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        msg.style.display = 'block';
+        if (data.valid) {
+          state.voucherCode = data.code;
+          msg.style.color = '#16a34a';
+          msg.textContent = data.percent ? `${data.percent}% off applied at checkout! 🌞` : `Voucher applied! −£${data.value}`;
+          document.getElementById('bn-promo').disabled = true;
+        } else {
+          state.voucherCode = '';
+          msg.style.color = '#dc2626';
+          msg.textContent = data.error || 'Invalid code';
+        }
+      } catch (e) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Error checking code'; }
     };
 
     // Preselect from ?type=opener|mirror (homepage cards)
@@ -451,7 +481,7 @@
         }
 
         btn.innerText = "Redirecting...";
-        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'bundle' }) });
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'bundle', voucherCode: state.voucherCode || undefined }) });
         const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
         if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
         window.location.href = checkoutUrl;

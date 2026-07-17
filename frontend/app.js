@@ -358,14 +358,20 @@ promoBtn.addEventListener("click", async () => {
         const data = await res.json();
         
         if (data.valid) {
-            voucherApplied = data.value;
             voucherCode = data.code;
             promoMsg.style.color = "#66d19e";
-            promoMsg.textContent = `Voucher applied! -£${data.value}`;
             promoMsg.style.display = "block";
             promoInput.disabled = true;
             promoBtn.style.display = "none";
-            showToast(`Discount applied: -£${data.value}`, "ok");
+            if (data.percent) {
+                voucherApplied = 0;
+                promoMsg.textContent = `${data.percent}% off applied at checkout! 🌞`;
+                showToast(`${data.percent}% discount applied`, "ok");
+            } else {
+                voucherApplied = data.value;
+                promoMsg.textContent = `Voucher applied! -£${data.value}`;
+                showToast(`Discount applied: -£${data.value}`, "ok");
+            }
         } else {
             promoMsg.style.color = "#ff6666";
             promoMsg.textContent = data.error || "Invalid code";

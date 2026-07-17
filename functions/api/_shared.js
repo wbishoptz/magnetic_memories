@@ -56,6 +56,16 @@ export const FRAME_PRICES = {
   }
 };
 
+// Percentage discount codes (site-wide sale codes). code → % off.
+// Reusable (no balance), case-insensitive. Add/remove/edit here.
+export const PROMO_CODES = {
+  SUN20: 20
+};
+export function promoPercent(code) {
+  if (!code) return 0;
+  return PROMO_CODES[String(code).trim().toUpperCase()] || 0;
+}
+
 export const VOUCHERS = {
   "voucher_14": { price: 14, label: "£14 Gift Voucher" },
   "voucher_20": { price: 20, label: "£20 Gift Voucher" },

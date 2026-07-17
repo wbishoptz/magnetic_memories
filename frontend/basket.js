@@ -458,10 +458,15 @@
       });
       const data = await res.json();
       if (data.valid) {
-        voucherApplied = data.value;
         voucherCode = data.code;
+        if (data.percent) {
+          voucherApplied = Math.round(getSubtotal() * data.percent) / 100;
+          msgEl.textContent = `${data.percent}% off applied! −£${voucherApplied.toFixed(2)}`;
+        } else {
+          voucherApplied = data.value;
+          msgEl.textContent = `Voucher applied! −£${data.value}`;
+        }
         msgEl.style.color = '#59c9a5';
-        msgEl.textContent = `Voucher applied! −£${data.value}`;
         msgEl.style.display = 'block';
         document.getElementById('mm-promo').disabled = true;
         document.getElementById('mm-promo-btn').style.display = 'none';

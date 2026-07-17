@@ -1,12 +1,23 @@
 // functions/api/voucher-check.js
 // POST /api/voucher-check { code: "ABC-123" }
 
+import { promoPercent } from './_shared.js';
+
 export async function onRequestPost({ request, env }) {
   try {
     const { code } = await request.json();
     if (!code) return new Response("Missing code", { status: 400 });
 
     const cleanCode = code.trim().toUpperCase();
+
+    // Percentage sale code (e.g. SUN20) — reusable, no stored balance
+    const pct = promoPercent(cleanCode);
+    if (pct > 0) {
+      return new Response(JSON.stringify({ valid: true, percent: pct, code: cleanCode, promo: true }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     const kvKey = `voucher:${cleanCode}`;
     
     const raw = await env.ORDERS_KV.get(kvKey);

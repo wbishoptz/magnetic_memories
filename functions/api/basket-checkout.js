@@ -2,7 +2,7 @@
 // Creates one Stripe checkout session for multiple draft orders (basket).
 // Body: { orderIds, email, phone, shippingMethod, socialPermission, voucherCode? }
 
-import { jsonResponse, VOUCHERS, sendAdminEmail, sendPaidTelegram, sendPaidEmail } from './_shared.js';
+import { jsonResponse, VOUCHERS, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail } from './_shared.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -52,19 +52,26 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'All basket items are already paid.' }, 400);
     }
 
-    // Voucher discount
+    // Voucher / promo discount
     let discountAmount = 0;
     let voucherData = null;
     let voucherKey = null;
+    let promoPct = 0;
 
     if (voucherCode) {
-      voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
-      const vRaw = await env.ORDERS_KV.get(voucherKey);
-      if (vRaw) {
-        voucherData = JSON.parse(vRaw);
-        const balance = typeof voucherData.balance === 'number' ? voucherData.balance : voucherData.value;
-        if (!voucherData.redeemed && balance > 0) {
-          discountAmount = Math.min(itemsTotal, balance);
+      promoPct = promoPercent(voucherCode);
+      if (promoPct > 0) {
+        // Percentage sale code (e.g. SUN20) — applied to every line item below
+        discountAmount = Math.round(itemsTotal * promoPct) / 100;
+      } else {
+        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        const vRaw = await env.ORDERS_KV.get(voucherKey);
+        if (vRaw) {
+          voucherData = JSON.parse(vRaw);
+          const balance = typeof voucherData.balance === 'number' ? voucherData.balance : voucherData.value;
+          if (!voucherData.redeemed && balance > 0) {
+            discountAmount = Math.min(itemsTotal, balance);
+          }
         }
       }
     }
@@ -82,8 +89,8 @@ export async function onRequestPost({ request, env }) {
     const successUrl = `https://magnetic-memories.pages.dev/return.html?status=success&orderId=${encodeURIComponent(firstOrderId)}&basketIds=${encodeURIComponent(allOrderIds)}`;
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(firstOrderId)}`;
 
-    // Fully covered by voucher — skip Stripe
-    if (discountAmount > 0 && finalItemsTotal === 0 && shipCost === 0) {
+    // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this)
+    if (discountAmount > 0 && finalItemsTotal === 0 && shipCost === 0 && voucherData) {
       const balance = typeof voucherData.balance === 'number' ? voucherData.balance : voucherData.value;
       const newBalance = balance - discountAmount;
       voucherData.balance = Math.max(0, newBalance);
@@ -117,12 +124,13 @@ export async function onRequestPost({ request, env }) {
     params.append('metadata[basketOrderIds]', allOrderIds);
     if (voucherCode && discountAmount > 0) params.append('metadata[usedVoucher]', voucherCode);
 
-    // Enable Stripe's promo-code box (e.g. SUN20) unless an on-site gift voucher is applied
-    if (discountAmount === 0) params.append('allow_promotion_codes', 'true');
-
     // Product line items
     orders.forEach((order, i) => {
-      const itemPrice = Math.max(0, (Number(order.price) || 0) - (i === 0 ? discountAmount : 0));
+      const base = Number(order.price) || 0;
+      // Percentage code: take % off each item. Gift voucher: subtract balance from the first item.
+      const itemPrice = promoPct > 0
+        ? Math.round(base * (100 - promoPct)) / 100
+        : Math.max(0, base - (i === 0 ? discountAmount : 0));
       let name = '';
       if (order.productType === 'keyring') name = 'Double-Sided Photo Keyring';
       else if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
