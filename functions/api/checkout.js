@@ -209,6 +209,12 @@ export async function onRequestPost({ request, env }) {
     }
     if (voucherCode) params.append("metadata[usedVoucher]", voucherCode);
 
+    // Enable Stripe's promo-code box (e.g. SUN20) on the payment page — but not for
+    // gift-voucher purchases, and not when an on-site gift voucher is already applied.
+    if (!isVoucherPurchase && discountAmount === 0) {
+      params.append("allow_promotion_codes", "true");
+    }
+
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
     params.append("line_items[0][price_data][product_data][name]", productName);

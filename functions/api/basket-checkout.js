@@ -117,6 +117,9 @@ export async function onRequestPost({ request, env }) {
     params.append('metadata[basketOrderIds]', allOrderIds);
     if (voucherCode && discountAmount > 0) params.append('metadata[usedVoucher]', voucherCode);
 
+    // Enable Stripe's promo-code box (e.g. SUN20) unless an on-site gift voucher is applied
+    if (discountAmount === 0) params.append('allow_promotion_codes', 'true');
+
     // Product line items
     orders.forEach((order, i) => {
       const itemPrice = Math.max(0, (Number(order.price) || 0) - (i === 0 ? discountAmount : 0));
