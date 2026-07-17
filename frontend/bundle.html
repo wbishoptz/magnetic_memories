@@ -152,6 +152,10 @@
           <span class="font-medium text-muted-foreground">Bundle (2 items)</span>
           <span class="font-bold">£7.00</span>
         </div>
+        <div class="flex items-center justify-between border-b pb-2" id="sum-discount-row" style="display:none;">
+          <span class="font-medium text-green-600" id="sum-discount-label">Discount</span>
+          <span class="font-bold text-green-600" id="sum-discount-amt">-£0.00</span>
+        </div>
         <div class="flex items-center justify-between border-b pb-2">
           <span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span>
           <span class="font-bold" id="sum-delivery-price">£0.00</span>
@@ -219,7 +223,7 @@
       social: null,
       email: '',
       phone: '',
-      voucherCode: ''
+      voucherCode: '', discountPct: 0
     };
 
     window.applyBnPromo = async () => {
@@ -232,11 +236,14 @@
         msg.style.display = 'block';
         if (data.valid) {
           state.voucherCode = data.code;
+          state.discountPct = data.percent || 0;
           msg.style.color = '#16a34a';
-          msg.textContent = data.percent ? `${data.percent}% off applied at checkout! 🌞` : `Voucher applied! −£${data.value}`;
+          msg.textContent = data.percent ? `${data.percent}% off applied! 🌞` : `Voucher applied! −£${data.value}`;
           document.getElementById('bn-promo').disabled = true;
+          buildReview();
         } else {
           state.voucherCode = '';
+          state.discountPct = 0;
           msg.style.color = '#dc2626';
           msg.textContent = data.error || 'Invalid code';
         }
@@ -408,9 +415,16 @@
             <p class="text-muted-foreground text-xs">${TYPES[it.type].icon} ${TYPES[it.type].label}</p>
           </div>
         </div>`).join('');
+      const discount = state.discountPct ? Math.round(PRICE * state.discountPct) / 100 : 0;
+      const dRow = document.getElementById('sum-discount-row');
+      if (discount > 0) {
+        dRow.style.display = 'flex';
+        document.getElementById('sum-discount-label').innerText = `Discount (${state.voucherCode})`;
+        document.getElementById('sum-discount-amt').innerText = `-£${discount.toFixed(2)}`;
+      } else { dRow.style.display = 'none'; }
       document.getElementById('sum-delivery').innerText = isDel ? 'Delivery' : 'Collection';
       document.getElementById('sum-delivery-price').innerText = isDel ? '£3.00' : 'Free';
-      document.getElementById('sum-total').innerText = `£${(PRICE + (isDel ? 3 : 0)).toFixed(2)}`;
+      document.getElementById('sum-total').innerText = `£${((PRICE - discount) + (isDel ? 3 : 0)).toFixed(2)}`;
       window.mmBasketPrefill = {
         email: state.email, phone: state.phone, shipping: state.delivery,
         social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined
