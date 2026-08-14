@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="./styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
     <style>
       body { background: #050608; color: #f9fafb; font-family: system-ui, sans-serif; min-height: 100vh; margin: 0; display: flex; justify-content: center; padding: 24px; }
       .admin-shell { width: 100%; max-width: 1200px; background: #050608; border-radius: 18px; border: 1px solid #1f2933; box-shadow: 0 24px 80px rgba(0,0,0,0.75); display: flex; flex-direction: column; overflow: hidden; }
@@ -128,18 +130,33 @@
           <h2 style="margin:0; font-size:18px;">🖼️ 2.5 × 3.5″ Print Lab</h2>
           <button id="lab-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
         </div>
-        <p style="color:#9ca3af; font-size:13px; margin:0 0 16px;">Upload photos, then download a Letter print sheet of 2.5×3.5″ magnets (9 per page, cover-cropped so nothing stretches). This is a standalone test — nothing is saved.</p>
+        <p style="color:#9ca3af; font-size:13px; margin:0 0 14px;">Upload photos, crop each one, then download a print sheet. Each magnet has an 11×8.5cm mylar cut box with branding around a 2.5×3.5″ photo. Standalone — nothing is saved.</p>
+
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <button id="lab-portrait" class="lab-orient" data-o="portrait" style="flex:1; padding:9px; border-radius:10px; border:2px solid #059669; background:rgba(5,150,105,0.15); color:#fff; font-weight:700; cursor:pointer;">📱 Portrait</button>
+          <button id="lab-landscape" class="lab-orient" data-o="landscape" style="flex:1; padding:9px; border-radius:10px; border:2px solid #1f2933; background:#0b1220; color:#9ca3af; font-weight:700; cursor:pointer;">🖼️ Landscape</button>
+        </div>
 
         <button id="lab-add-btn" style="width:100%; padding:14px; border:2px dashed #334155; border-radius:12px; background:#0b1220; color:#5eead4; font-weight:700; cursor:pointer;">＋ Add photos</button>
         <input id="lab-files" type="file" accept="image/*" multiple style="display:none;" />
 
-        <div id="lab-grid" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0;"></div>
+        <p style="color:#6b7280; font-size:11px; margin:10px 0 0;">Tap a photo to re-crop it.</p>
+        <div id="lab-grid" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:8px 0 16px;"></div>
 
         <div style="display:flex; gap:10px; align-items:center;">
           <button id="lab-generate" style="flex:1; padding:13px; border-radius:12px; background:#059669; border:none; color:#fff; font-weight:700; cursor:pointer;">🖨️ Download Print Sheet</button>
           <button id="lab-clear" style="padding:13px 16px; border-radius:12px; background:#0b1220; border:1px solid #1f2933; color:#9ca3af; cursor:pointer;">Clear</button>
         </div>
         <p id="lab-status" style="color:#9ca3af; font-size:12px; margin-top:10px;"></p>
+      </div>
+    </div>
+
+    <!-- Lab crop modal -->
+    <div id="lab-crop-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9100; flex-direction:column; align-items:center; justify-content:center; padding:16px;">
+      <div style="width:100%; max-width:520px; max-height:70vh;"><img id="lab-crop-img" style="max-width:100%; display:block;" /></div>
+      <div style="display:flex; gap:12px; margin-top:16px;">
+        <button id="lab-crop-cancel" style="padding:12px 24px; border-radius:10px; background:#1f2933; color:#fff; border:none; font-weight:700; cursor:pointer;">Cancel</button>
+        <button id="lab-crop-save" style="padding:12px 24px; border-radius:10px; background:#059669; color:#fff; border:none; font-weight:700; cursor:pointer;">✓ Save Crop</button>
       </div>
     </div>
 
@@ -1464,13 +1481,25 @@
 
       // ─── 2.5×3.5″ Print Lab (standalone, all client-side — no orders/storage) ───
       (function () {
-        const W25 = 2.5 * 25.4, H35 = 3.5 * 25.4;  // 63.5 × 88.9 mm
-        let labImages = [];                         // [{ dataUrl }]
+        const IN = 25.4;
+        const MYLAR_LONG = 110, MYLAR_SHORT = 85;           // 11 × 8.5 cm cut piece
+        const PHOTO_LONG = 3.5 * IN, PHOTO_SHORT = 2.5 * IN; // 88.9 × 63.5 mm photo
+        const LAB_BAND = 3.2, LAB_GAP = 0.5, CHAMF = 15;
+        const LTR_W = 8.5 * IN, LTR_H = 11 * IN;
+
+        let orientation = 'portrait';
+        let labImages = [];   // [{ origSrc, dataUrl }]
+        let cropper = null, cropIdx = null;
 
         const modal = document.getElementById('lab-modal');
         const grid = document.getElementById('lab-grid');
         const filesInput = document.getElementById('lab-files');
         const statusEl = document.getElementById('lab-status');
+        const cropModal = document.getElementById('lab-crop-modal');
+        const cropImgEl = document.getElementById('lab-crop-img');
+
+        // photo aspect (w/h): portrait 2.5:3.5, landscape 3.5:2.5
+        const aspect = () => orientation === 'portrait' ? (PHOTO_SHORT / PHOTO_LONG) : (PHOTO_LONG / PHOTO_SHORT);
 
         document.getElementById('print-lab-btn').onclick = () => { modal.style.display = 'flex'; };
         document.getElementById('lab-close').onclick = () => { modal.style.display = 'none'; };
@@ -1478,16 +1507,39 @@
         document.getElementById('lab-add-btn').onclick = () => filesInput.click();
         document.getElementById('lab-clear').onclick = () => { labImages = []; renderLab(); statusEl.textContent = ''; };
 
+        // Orientation toggle
+        document.querySelectorAll('.lab-orient').forEach(btn => {
+          btn.onclick = async () => {
+            orientation = btn.dataset.o;
+            document.querySelectorAll('.lab-orient').forEach(b => {
+              const on = b.dataset.o === orientation;
+              b.style.borderColor = on ? '#059669' : '#1f2933';
+              b.style.background = on ? 'rgba(5,150,105,0.15)' : '#0b1220';
+              b.style.color = on ? '#fff' : '#9ca3af';
+            });
+            // re-crop everything to the new aspect
+            if (labImages.length) {
+              statusEl.textContent = 'Re-cropping…';
+              for (const im of labImages) { const img = await loadImg(im.origSrc); im.dataUrl = coverCrop(img, aspect()); }
+              statusEl.textContent = '';
+            }
+            renderLab();
+          };
+        });
+
+        function readAsDataURL(file) {
+          return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+        }
+
         filesInput.addEventListener('change', async (e) => {
           const files = Array.from(e.target.files);
           filesInput.value = '';
           statusEl.textContent = 'Processing…';
           for (const f of files) {
             try {
-              const url = URL.createObjectURL(f);
-              const img = await loadImg(url);
-              labImages.push({ dataUrl: rectCropDataUrl(img) });
-              URL.revokeObjectURL(url);
+              const origSrc = await readAsDataURL(f);
+              const img = await loadImg(origSrc);
+              labImages.push({ origSrc, dataUrl: coverCrop(img, aspect()) });
             } catch {}
           }
           statusEl.textContent = '';
@@ -1495,19 +1547,23 @@
         });
 
         function renderLab() {
+          const ar = orientation === 'portrait' ? '2.5/3.5' : '3.5/2.5';
+          grid.style.gridTemplateColumns = orientation === 'portrait' ? 'repeat(4,1fr)' : 'repeat(3,1fr)';
           grid.innerHTML = labImages.map((im, i) =>
-            `<div style="position:relative; aspect-ratio:2.5/3.5; border-radius:6px; overflow:hidden; border:1px solid #1f2933;">
+            `<div style="position:relative; aspect-ratio:${ar}; border-radius:6px; overflow:hidden; border:1px solid #1f2933; cursor:pointer;" data-crop="${i}">
               <img src="${im.dataUrl}" style="width:100%; height:100%; object-fit:cover;">
-              <button data-i="${i}" class="lab-del" style="position:absolute; top:2px; right:2px; background:#e84545; color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; line-height:1;">✕</button>
+              <button data-del="${i}" style="position:absolute; top:2px; right:2px; background:#e84545; color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; line-height:1;">✕</button>
             </div>`).join('');
-          grid.querySelectorAll('.lab-del').forEach(b => b.onclick = () => { labImages.splice(Number(b.dataset.i), 1); renderLab(); });
+          grid.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); labImages.splice(Number(b.dataset.del), 1); renderLab(); });
+          grid.querySelectorAll('[data-crop]').forEach(d => d.onclick = () => openCrop(Number(d.dataset.crop)));
         }
 
-        // Cover-crop to 2.5:3.5 portrait (no distortion)
-        function rectCropDataUrl(img, wPx = 600, hPx = 840) {
+        // Cover-crop to the current aspect (no distortion)
+        function coverCrop(img, ar, longPx = 900) {
+          let wPx, hPx;
+          if (ar >= 1) { wPx = longPx; hPx = Math.round(longPx / ar); } else { hPx = longPx; wPx = Math.round(longPx * ar); }
           const cv = document.createElement('canvas'); cv.width = wPx; cv.height = hPx;
-          const ctx = cv.getContext('2d');
-          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, wPx, hPx);
+          const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, wPx, hPx);
           const targetAR = wPx / hPx, srcAR = img.naturalWidth / img.naturalHeight;
           let sw, sh, sx, sy;
           if (srcAR > targetAR) { sh = img.naturalHeight; sw = sh * targetAR; sx = (img.naturalWidth - sw) / 2; sy = 0; }
@@ -1516,27 +1572,79 @@
           return cv.toDataURL('image/jpeg', 0.92);
         }
 
+        // ── Manual crop (Cropper.js) ──
+        function openCrop(i) {
+          cropIdx = i;
+          cropImgEl.src = labImages[i].origSrc;
+          cropModal.style.display = 'flex';
+          if (cropper) cropper.destroy();
+          cropper = new Cropper(cropImgEl, { aspectRatio: aspect(), viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+        }
+        function closeCrop() { if (cropper) { cropper.destroy(); cropper = null; } cropModal.style.display = 'none'; cropIdx = null; }
+        document.getElementById('lab-crop-cancel').onclick = closeCrop;
+        document.getElementById('lab-crop-save').onclick = () => {
+          if (cropper && cropIdx != null) {
+            const canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
+            labImages[cropIdx].dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          }
+          closeCrop(); renderLab();
+        };
+
+        // ── Draw one 11×8.5cm tile: photo (2.5×3.5) centred, octagon cut, branding ──
+        function drawTile(pdf, x, y, dataUrl, tileW, tileH, photoW, photoH, labels) {
+          const offX = (tileW - photoW) / 2, offY = (tileH - photoH) / 2;
+          pdf.addImage(dataUrl, 'JPEG', x + offX, y + offY, photoW, photoH);
+
+          // octagon cut outline
+          pdf.setDrawColor(120); pdf.setLineWidth(0.25);
+          const c = CHAMF, T = tileW, Th = tileH;
+          const pts = [[x + c, y], [x + T - c, y], [x + T, y + c], [x + T, y + Th - c],
+                       [x + T - c, y + Th], [x + c, y + Th], [x, y + Th - c], [x, y + c]];
+          for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; pdf.line(a[0], a[1], b[0], b[1]); }
+
+          // branding bands flush against the photo
+          pdf.addImage(labels.top, 'PNG', x + offX, y + offY - LAB_GAP - LAB_BAND, photoW, LAB_BAND);
+          pdf.addImage(labels.left, 'PNG', x + offX - LAB_GAP - LAB_BAND, y + offY, LAB_BAND, photoH);
+          pdf.addImage(labels.right, 'PNG', x + offX + photoW + LAB_GAP, y + offY, LAB_BAND, photoH);
+        }
+
         document.getElementById('lab-generate').onclick = () => {
           if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
           if (!labImages.length) { statusEl.textContent = 'Add some photos first.'; return; }
-          const pdf = newLetterPdf();
-          const COLS = 3, ROWS = 3, PER = 9, GAP = 2;
-          const gridW = COLS * W25 + (COLS - 1) * GAP, gridH = ROWS * H35 + (ROWS - 1) * GAP;
-          const left = (PAGE_W - gridW) / 2, top = (PAGE_H - gridH) / 2;
+
+          const portrait = orientation === 'portrait';
+          const tileW = portrait ? MYLAR_SHORT : MYLAR_LONG;
+          const tileH = portrait ? MYLAR_LONG : MYLAR_SHORT;
+          const photoW = portrait ? PHOTO_SHORT : PHOTO_LONG;
+          const photoH = portrait ? PHOTO_LONG : PHOTO_SHORT;
+          const pageW = portrait ? LTR_W : LTR_H, pageH = portrait ? LTR_H : LTR_W;
+
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({ unit: 'mm', format: 'letter', orientation: portrait ? 'portrait' : 'landscape' });
+
+          // Branding labels (constant text) sized to this orientation's photo
+          const labels = {
+            top: labelCanvas('MAGNETIC MEMORIES', photoW, LAB_BAND, Math.PI),
+            left: labelCanvas('MADE IN GIBRALTAR', LAB_BAND, photoH, -Math.PI / 2),
+            right: labelCanvas('PERSONALISED MAGNETS', LAB_BAND, photoH, Math.PI / 2)
+          };
+
+          const COLS = 2, ROWS = 2, PER = 4, GAP = 4;
+          const gridW = COLS * tileW + (COLS - 1) * GAP, gridH = ROWS * tileH + (ROWS - 1) * GAP;
+          const left = (pageW - gridW) / 2, top = (pageH - gridH) / 2;
+
           let idx = 0;
           const pages = Math.ceil(labImages.length / PER);
           for (let p = 0; p < pages; p++) {
             if (p > 0) pdf.addPage();
-            for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            for (let r = 0; r < ROWS; r++) for (let cc = 0; cc < COLS; cc++) {
               const im = labImages[idx]; if (!im) continue;
-              const x = left + c * (W25 + GAP), y = top + r * (H35 + GAP);
-              pdf.addImage(im.dataUrl, 'JPEG', x, y, W25, H35);
-              pdf.setDrawColor(150); pdf.setLineWidth(0.2); pdf.rect(x, y, W25, H35);  // faint cut line
+              drawTile(pdf, left + cc * (tileW + GAP), top + r * (tileH + GAP), im.dataUrl, tileW, tileH, photoW, photoH, labels);
               idx++;
             }
           }
-          pdf.save('big-magnets-2.5x3.5-print-sheet.pdf');
-          statusEl.textContent = `✅ Downloaded ${pages} sheet(s) · ${labImages.length} photo(s).`;
+          pdf.save(`big-magnets-${orientation}-print-sheet.pdf`);
+          statusEl.textContent = `✅ Downloaded ${pages} sheet(s) · ${labImages.length} photo(s) · ${orientation}.`;
         };
       })();
     </script>
