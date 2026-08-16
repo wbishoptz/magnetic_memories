@@ -276,15 +276,15 @@
     };
 
     window.triggerUpload = (idx) => { activeIdx = idx; fileInput.click(); };
-    fileInput.addEventListener('change', async (e) => {
+    fileInput.addEventListener('change', (e) => {
       const f = e.target.files[0]; fileInput.value = '';
       if (!f) return;
-      const origSrc = await readAsDataURL(f);
-      state.items[activeIdx].origSrc = origSrc;
-      const img = await loadImg(origSrc);
-      state.items[activeIdx].photo = await coverCrop(img, AR[state.items[activeIdx].orientation]);
-      renderDesign(); render();
-      openCrop(activeIdx);   // jump straight into fine-crop
+      const it = state.items[activeIdx];
+      // Instant blob URL (no base64 read, no pre-encode) → crop opens immediately
+      if (it.origSrc && it.origSrc.startsWith('blob:')) { try { URL.revokeObjectURL(it.origSrc); } catch (_) {} }
+      it.origSrc = URL.createObjectURL(f);
+      it.photo = null;                 // final photo is produced when the crop is saved
+      openCrop(activeIdx);             // jump straight into fine-crop
     });
 
     // ── Manual crop ──
@@ -295,11 +295,22 @@
       if (cropper) cropper.destroy();
       cropper = new Cropper(document.getElementById('crop-image'), { aspectRatio: AR[state.items[idx].orientation], viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
     }
-    window.closeCrop = () => { if (cropper) { cropper.destroy(); cropper = null; } document.getElementById('crop-modal').style.display = 'none'; };
+    window.closeCrop = async () => {
+      if (cropper) { cropper.destroy(); cropper = null; }
+      document.getElementById('crop-modal').style.display = 'none';
+      const it = state.items[activeIdx];
+      // Cancelled a fresh upload before saving → auto-fit the whole photo so the slot isn't left empty
+      if (it && !it.photo && it.origSrc) {
+        try { const img = await loadImg(it.origSrc); it.photo = await coverCrop(img, AR[it.orientation]); } catch (_) {}
+      }
+      renderDesign(); render();
+    };
     document.getElementById('crop-save').onclick = () => {
       cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 }).toBlob(blob => {
-        state.items[activeIdx].photo = { blob, preview: URL.createObjectURL(blob) };
-        closeCrop(); renderDesign(); render();
+        const it = state.items[activeIdx];
+        if (it.photo && it.photo.preview) { try { URL.revokeObjectURL(it.photo.preview); } catch (_) {} }
+        it.photo = { blob, preview: URL.createObjectURL(blob) };
+        closeCrop();
       }, 'image/jpeg', 0.95);
     };
     // re-crop when tapping an existing photo
