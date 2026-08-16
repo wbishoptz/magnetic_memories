@@ -3,7 +3,7 @@ import {
   BINGO_PACKS, BINGO_PRICES,
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES, VOUCHERS,
-  keyringPrice, BUNDLE_PRICE, promoPercent,
+  keyringPrice, BUNDLE_PRICE, LARGE_MAGNET_PRICES, promoPercent,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -73,6 +73,11 @@ export async function onRequestPost({ request, env }) {
       price = BUNDLE_PRICE;
       productName = "Any 2 Bundle (Bottle Opener / Mirror Keyring)";
       productDesc = "Two personalised 58mm pieces — mix & match";
+    } else if (productType === 'large_magnet') {
+      const size = Number(packSizeRaw);
+      price = LARGE_MAGNET_PRICES[size] || 0;
+      productName = `${size} Large Photo Magnets (65×90mm)`;
+      productDesc = "Portrait & landscape mix";
     } else {
       let size = Number(packSizeRaw);
 

@@ -4,6 +4,7 @@ import {
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES,
   keyringPrice, BUNDLE_PRICE,
+  LARGE_MAGNET_PACKS, LARGE_MAGNET_PRICES,
   jsonResponse
 } from './_shared.js';
 
@@ -96,6 +97,9 @@ export async function onRequestPost({ request, env }) {
       price = keyringPrice(packSize);
     } else if (productType === 'bundle') {
       price = BUNDLE_PRICE;
+    } else if (productType === 'large_magnet') {
+      if (!LARGE_MAGNET_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
+      price = LARGE_MAGNET_PRICES[packSize];
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
@@ -150,6 +154,7 @@ export async function onRequestPost({ request, env }) {
       bandColor: bandColor || existingOrder.bandColor || null,
       bandColors: body?.bandColors || existingOrder.bandColors || null,
       bundleItems: body?.bundleItems || existingOrder.bundleItems || null,
+      magnetOrientations: body?.magnetOrientations || existingOrder.magnetOrientations || null,
 
       status: finalStatus,
 

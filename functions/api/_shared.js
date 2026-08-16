@@ -5,6 +5,10 @@
 export const STANDARD_PACKS = [3, 6, 9, 12, 15];
 export const STANDARD_PRICES = { 3: 7.95, 6: 14.95, 9: 20.95, 12: 25.95, 15: 30.95 };
 
+// Large 65×90mm magnets (portrait/landscape/mix)
+export const LARGE_MAGNET_PACKS = [3, 6, 9, 12, 15];
+export const LARGE_MAGNET_PRICES = { 3: 9.95, 6: 17.95, 9: 25.95, 12: 33.95, 15: 35.95 };
+
 export const BINGO_PACKS = [1, 3, 6, 12];
 export const BINGO_PRICES = { 1: 4.95, 3: 10.95, 6: 20.95, 12: 35.95 };
 
@@ -135,6 +139,7 @@ function buildTotalText(order) {
 }
 
 function buildProductLabel(order) {
+  if (order.productType === 'large_magnet') return `🧲 ${order.packSize} Large Magnets (65×90mm)`;
   if (order.productType === 'keyring') return '🔑 Double-Sided Keyring';
   if (order.generatedVoucher) return `🎁 Voucher Purchase (£${order.voucherValue})`;
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {

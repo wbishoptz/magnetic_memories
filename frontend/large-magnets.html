@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magnetic Memories | Large Photo Magnets</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#59c9a5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+  <script src="/pwa.js" defer></script>
+  <meta name="description" content="Large 65×90mm photo magnets — portrait, landscape, or a mix. From £9.95." />
+  <meta property="og:title" content="Magnetic Memories – Large Photo Magnets" />
+  <meta property="og:description" content="Large 65×90mm photo magnets — portrait, landscape, or a mix." />
+  <meta property="og:image" content="https://magnetic-memories.pages.dev/fridge.jpg" />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+        colors: {
+          background: "hsl(210 30% 97%)", foreground: "hsl(215 25% 15%)",
+          primary: "hsl(210 80% 52%)", "primary-foreground": "hsl(0 0% 100%)",
+          secondary: "hsl(210 25% 93%)", border: "hsl(210 20% 88%)", muted: "hsl(210 20% 92%)",
+        }
+      } }
+    }
+  </script>
+  <style>
+    body { background-color: hsl(210 30% 97%); color: hsl(215 25% 15%); }
+    .glow { box-shadow: 0 4px 20px hsl(210 80% 52% / 0.15); }
+    .btn-gradient { background: linear-gradient(135deg, hsl(210 80% 55%), hsl(190 75% 55%)); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: none; align-items: center; justify-content: center; flex-direction:column; padding: 16px; }
+    .cropper-container-box { width: 100%; max-width: 460px; max-height: 62vh; background: #111; border-radius: 12px; overflow: hidden; }
+    .cropper-container-box img { display: block; max-width: 100%; }
+  </style>
+</head>
+<body class="min-h-screen pb-24">
+
+  <header class="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
+    <div class="flex items-center justify-between px-4 py-3 max-w-xl mx-auto">
+      <a href="/" class="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h1 class="font-serif text-lg font-semibold text-foreground">Large Magnets · 65×90mm</h1>
+      <div class="w-10"></div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 max-w-xl">
+    <div class="flex items-center justify-center gap-2 mb-10" id="step-indicator"></div>
+
+    <!-- STEP 1: Pack size -->
+    <div id="step-1" class="space-y-6 animate-in fade-in duration-300">
+      <div class="text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Choose Your Pack</h2>
+        <p class="text-muted-foreground text-sm">Large 65×90mm magnets — mix portrait &amp; landscape however you like.</p>
+      </div>
+      <div id="pack-grid" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <!-- STEP 2: Design -->
+    <div id="step-2" class="space-y-6 hidden animate-in fade-in duration-300">
+      <div class="text-center">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Your Photos</h2>
+        <p class="text-muted-foreground text-sm">For each magnet, pick portrait or landscape, then upload &amp; crop.</p>
+      </div>
+      <div id="design-container" class="space-y-5"></div>
+    </div>
+
+    <!-- STEP 3: Delivery -->
+    <div id="step-3" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+      <div><h2 class="text-2xl sm:text-3xl font-semibold mb-2">Delivery Method</h2><p class="text-muted-foreground text-sm">Free collection, or delivery from £3.</p></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setDelivery('GI_COLLECT')" id="del-collect" class="p-6 rounded-xl border-2 transition-all text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="package" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-collect"></i>
+          <p class="font-semibold text-foreground">Collection</p><p class="text-xs text-muted-foreground mt-1">Atlantic Suites</p><p class="text-sm font-semibold text-primary mt-2">Free</p>
+        </button>
+        <button onclick="setDelivery('GI_DELIVER')" id="del-deliver" class="p-6 rounded-xl border-2 transition-all text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="truck" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-deliver"></i>
+          <p class="font-semibold text-foreground">Gibraltar Delivery</p><p class="text-xs text-muted-foreground mt-1">Within 48h</p><p class="text-sm font-semibold text-primary mt-2">£3.00</p>
+        </button>
+        <button onclick="setDelivery('GB')" id="del-uk" class="p-6 rounded-xl border-2 transition-all text-left bg-white border-border hover:border-primary/40 sm:col-span-2">
+          <i data-lucide="plane" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-uk"></i>
+          <p class="font-semibold text-foreground">🇬🇧 UK Delivery</p><p class="text-xs text-muted-foreground mt-1">Royal Mail Tracked</p><p class="text-sm font-semibold text-primary mt-2">£5.00</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 4: Share -->
+    <div id="step-4" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+      <div><h2 class="text-2xl sm:text-3xl font-semibold mb-2">Share the Love?</h2><p class="text-muted-foreground text-sm">Happy for us to feature your order on social media?</p></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setSocial(true)" id="soc-yes" class="p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40"><i data-lucide="share-2" class="w-8 h-8 mb-3 mx-auto text-muted-foreground" id="icon-yes"></i><p class="font-semibold text-foreground">Yes, share it!</p></button>
+        <button onclick="setSocial(false)" id="soc-no" class="p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40"><i data-lucide="shield-check" class="w-8 h-8 mb-3 mx-auto text-muted-foreground" id="icon-no"></i><p class="font-semibold text-foreground">No, keep it private</p></button>
+      </div>
+    </div>
+
+    <!-- STEP 5: Contact -->
+    <div id="step-5" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+      <div><h2 class="text-2xl sm:text-3xl font-semibold mb-2">Your Contact Details</h2><p class="text-muted-foreground text-sm">So we can send you order updates.</p></div>
+      <div class="max-w-sm mx-auto space-y-5 text-left">
+        <div class="space-y-2"><label class="text-sm font-medium flex items-center gap-2"><i data-lucide="mail" class="w-4 h-4 text-primary"></i> Email Address</label><input type="email" id="email" placeholder="you@example.com" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+        <div class="space-y-2"><label class="text-sm font-medium flex items-center gap-2"><i data-lucide="phone" class="w-4 h-4 text-primary"></i> Phone Number</label><input type="tel" id="phone" placeholder="+44 7XXX XXXXXX" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" /></div>
+      </div>
+    </div>
+
+    <!-- STEP 6: Review -->
+    <div id="step-6" class="text-center space-y-6 hidden animate-in fade-in duration-300">
+      <div>
+        <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4"><i data-lucide="check" class="w-8 h-8 text-primary"></i></div>
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-2">Review Your Order</h2>
+      </div>
+      <div id="review-thumbs" class="flex flex-wrap justify-center gap-3"></div>
+      <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
+        <div class="flex items-center justify-between border-b pb-2"><span class="font-medium text-muted-foreground" id="sum-qty">Magnets</span><span class="font-bold" id="sum-product-price">£0.00</span></div>
+        <div class="flex items-center justify-between border-b pb-2" id="sum-discount-row" style="display:none;"><span class="font-medium text-green-600" id="sum-discount-label">Discount</span><span class="font-bold text-green-600" id="sum-discount-amt">-£0.00</span></div>
+        <div class="flex items-center justify-between border-b pb-2"><span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span><span class="font-bold" id="sum-delivery-price">£0.00</span></div>
+        <div class="flex items-center justify-between pt-1"><span class="font-bold text-lg">Total</span><span class="font-bold text-lg text-primary" id="sum-total">£0.00</span></div>
+      </div>
+      <div class="max-w-xs mx-auto">
+        <div class="flex gap-2">
+          <input id="lm-promo" type="text" placeholder="Promo code" class="flex-1 p-2.5 rounded-lg bg-white border border-border text-center uppercase text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button type="button" onclick="applyLmPromo()" class="px-4 rounded-lg bg-secondary font-semibold text-sm">Apply</button>
+        </div>
+        <p id="lm-promo-msg" class="text-xs mt-2" style="display:none;"></p>
+      </div>
+    </div>
+
+    <div class="flex justify-between mt-10 pt-6 border-t border-border">
+      <button onclick="goBack()" id="btn-back" class="text-muted-foreground hover:text-foreground font-medium flex items-center gap-2 disabled:opacity-0 transition-opacity"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+      <div class="flex gap-3 items-center">
+        <button id="basket-btn-lm" onclick="submitOrder({addToBasket:true})" class="basket-show mm-hide px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000;">🛒 Add to Basket</button>
+        <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">Continue <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <input type="file" id="fileInput" accept="image/*" class="hidden" />
+
+  <!-- Crop modal -->
+  <div id="crop-modal" class="modal-overlay">
+    <div class="cropper-container-box"><img id="crop-image" src="" /></div>
+    <p class="text-white/70 text-sm mt-3">Drag to reposition · pinch/scroll to zoom</p>
+    <div class="flex gap-3 mt-4">
+      <button onclick="closeCrop()" class="px-6 py-3 rounded-xl bg-white/10 text-white font-bold">Cancel</button>
+      <button id="crop-save" class="px-6 py-3 rounded-xl btn-gradient text-white font-bold">✓ Save Crop</button>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    const PRICES = { 3: 9.95, 6: 17.95, 9: 25.95, 12: 33.95, 15: 35.95 };
+    const SIZES = [3, 6, 9, 12, 15];
+    const LABELS = ["Size", "Photos", "Delivery", "Share", "Contact", "Review"];
+    const TOTAL_STEPS = 6;
+    // photo aspect (w/h): portrait 65:90, landscape 90:65
+    const AR = { portrait: 65 / 90, landscape: 90 / 65 };
+
+    let state = {
+      step: 1, packSize: null,
+      items: [],           // [{ orientation, origSrc, photo:{blob,preview} }]
+      delivery: null, social: null, email: '', phone: '',
+      voucherCode: '', discountPct: 0
+    };
+    let activeIdx = null, cropper = null;
+    const fileInput = document.getElementById('fileInput');
+
+    const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+    const readAsDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+
+    function coverCrop(img, ar, longPx = 1100) {
+      let wPx, hPx;
+      if (ar >= 1) { wPx = longPx; hPx = Math.round(longPx / ar); } else { hPx = longPx; wPx = Math.round(longPx * ar); }
+      const cv = document.createElement('canvas'); cv.width = wPx; cv.height = hPx;
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, wPx, hPx);
+      const t = wPx / hPx, s = img.naturalWidth / img.naturalHeight;
+      let sw, sh, sx, sy;
+      if (s > t) { sh = img.naturalHeight; sw = sh * t; sx = (img.naturalWidth - sw) / 2; sy = 0; }
+      else { sw = img.naturalWidth; sh = sw / t; sx = 0; sy = (img.naturalHeight - sh) / 2; }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, wPx, hPx);
+      return new Promise(r => cv.toBlob(b => r({ blob: b, preview: URL.createObjectURL(b) }), 'image/jpeg', 0.95));
+    }
+
+    function render() {
+      let ind = '';
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const done = i < state.step, act = i === state.step;
+        let cls = "bg-secondary text-muted-foreground"; if (done) cls = "bg-primary text-white"; if (act) cls = "btn-gradient text-white glow scale-110";
+        ind += `<div class="flex items-center gap-1"><div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${cls}">${done ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : i}</div><span class="text-[10px] hidden sm:block ${act ? 'text-primary font-medium' : 'text-muted-foreground'}">${LABELS[i-1]}</span></div>${i < TOTAL_STEPS ? `<div class="w-4 sm:w-6 h-px mb-4 ${done ? 'bg-primary' : 'bg-border'}"></div>` : ''}</div>`;
+      }
+      document.getElementById('step-indicator').innerHTML = ind;
+      for (let s = 1; s <= TOTAL_STEPS; s++) document.getElementById(`step-${s}`).classList.toggle('hidden', state.step !== s);
+      document.getElementById('btn-back').disabled = state.step === 1;
+
+      let can = false;
+      if (state.step === 1) can = !!state.packSize;
+      if (state.step === 2) can = state.items.length === state.packSize && state.items.every(it => it.photo);
+      if (state.step === 3) can = !!state.delivery;
+      if (state.step === 4) can = state.social !== null;
+      if (state.step === 5) can = state.email.includes('@') && state.phone.length > 5;
+      if (state.step === 6) can = true;
+
+      const nb = document.getElementById('btn-next');
+      nb.disabled = !can;
+      nb.innerHTML = state.step === TOTAL_STEPS ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order' : 'Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>';
+
+      const ready = !!state.packSize && state.items.length === state.packSize && state.items.every(it => it.photo);
+      const bb = document.getElementById('basket-btn-lm'); if (bb) bb.classList.toggle('mm-hide', !ready);
+      lucide.createIcons();
+    }
+
+    // ── Step 1: pack size ──
+    function renderPacks() {
+      document.getElementById('pack-grid').innerHTML = SIZES.map(n => `
+        <button onclick="setPack(${n})" class="p-5 rounded-xl border-2 transition-all text-center bg-white ${state.packSize === n ? 'border-primary glow' : 'border-border hover:border-primary/40'}">
+          <p class="font-semibold text-lg">${n} Magnets</p>
+          <p class="text-2xl font-bold text-primary mt-1">£${PRICES[n].toFixed(2)}</p>
+        </button>`).join('');
+    }
+    window.setPack = (n) => {
+      state.packSize = n;
+      const arr = state.items.slice(0, n);
+      while (arr.length < n) arr.push({ orientation: 'portrait', origSrc: null, photo: null });
+      state.items = arr;
+      renderPacks(); renderDesign(); render();
+    };
+
+    // ── Step 2: per-magnet orientation + crop ──
+    function renderDesign() {
+      const wrap = document.getElementById('design-container');
+      wrap.innerHTML = state.items.map((it, i) => `
+        <div class="bg-white border border-border rounded-2xl p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold">Magnet ${i + 1}</h3>
+            <div class="flex gap-1 bg-secondary rounded-full p-1">
+              <button type="button" onclick="setOrient(${i},'portrait')" data-oi="${i}" data-o="portrait" class="or-btn px-3 py-1 rounded-full text-xs font-semibold">📱 Portrait</button>
+              <button type="button" onclick="setOrient(${i},'landscape')" data-oi="${i}" data-o="landscape" class="or-btn px-3 py-1 rounded-full text-xs font-semibold">🖼️ Landscape</button>
+            </div>
+          </div>
+          <div onclick="triggerUpload(${i})" class="mx-auto cursor-pointer border-2 border-dashed border-primary/40 hover:border-primary rounded-xl overflow-hidden bg-secondary flex items-center justify-center relative"
+               id="slot-${i}" style="aspect-ratio:${it.orientation === 'portrait' ? '65/90' : '90/65'}; max-width:${it.orientation === 'portrait' ? '190px' : '280px'};">
+            <img id="prev-${i}" src="${it.photo ? it.photo.preview : ''}" class="w-full h-full object-cover ${it.photo ? '' : 'hidden'}" />
+            <div id="empty-${i}" class="flex flex-col items-center text-muted-foreground ${it.photo ? 'hidden' : ''}"><i data-lucide="upload" class="w-6 h-6"></i><span class="text-[11px] mt-1">Tap to upload</span></div>
+          </div>
+          ${it.photo ? `<p class="text-center text-[11px] text-muted-foreground mt-2">Tap photo to re-crop</p>` : ''}
+        </div>`).join('');
+      state.items.forEach((it, i) => applyOrientUI(i, it.orientation));
+      lucide.createIcons();
+    }
+    function applyOrientUI(idx, o) {
+      document.querySelectorAll(`.or-btn[data-oi="${idx}"]`).forEach(b => {
+        const on = b.dataset.o === o;
+        b.style.background = on ? '#fff' : 'transparent';
+        b.style.color = on ? 'hsl(210 80% 52%)' : '#6b7280';
+        b.style.boxShadow = on ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
+      });
+    }
+    window.setOrient = async (idx, o) => {
+      if (state.items[idx].orientation === o) return;
+      state.items[idx].orientation = o;
+      if (state.items[idx].origSrc) { const img = await loadImg(state.items[idx].origSrc); state.items[idx].photo = await coverCrop(img, AR[o]); }
+      renderDesign(); render();
+    };
+
+    window.triggerUpload = (idx) => { activeIdx = idx; fileInput.click(); };
+    fileInput.addEventListener('change', async (e) => {
+      const f = e.target.files[0]; fileInput.value = '';
+      if (!f) return;
+      const origSrc = await readAsDataURL(f);
+      state.items[activeIdx].origSrc = origSrc;
+      const img = await loadImg(origSrc);
+      state.items[activeIdx].photo = await coverCrop(img, AR[state.items[activeIdx].orientation]);
+      renderDesign(); render();
+      openCrop(activeIdx);   // jump straight into fine-crop
+    });
+
+    // ── Manual crop ──
+    function openCrop(idx) {
+      activeIdx = idx;
+      document.getElementById('crop-image').src = state.items[idx].origSrc;
+      document.getElementById('crop-modal').style.display = 'flex';
+      if (cropper) cropper.destroy();
+      cropper = new Cropper(document.getElementById('crop-image'), { aspectRatio: AR[state.items[idx].orientation], viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+    }
+    window.closeCrop = () => { if (cropper) { cropper.destroy(); cropper = null; } document.getElementById('crop-modal').style.display = 'none'; };
+    document.getElementById('crop-save').onclick = () => {
+      cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 }).toBlob(blob => {
+        state.items[activeIdx].photo = { blob, preview: URL.createObjectURL(blob) };
+        closeCrop(); renderDesign(); render();
+      }, 'image/jpeg', 0.95);
+    };
+    // re-crop when tapping an existing photo
+    document.getElementById('design-container').addEventListener('click', (e) => {
+      const slot = e.target.closest('[id^="slot-"]');
+      if (slot) { const i = Number(slot.id.split('-')[1]); if (state.items[i].photo) { e.stopPropagation(); openCrop(i); } }
+    }, true);
+
+    // ── Options ──
+    window.setDelivery = (v) => {
+      state.delivery = v;
+      ['collect', 'deliver', 'uk'].forEach(k => {
+        const map = { collect: 'GI_COLLECT', deliver: 'GI_DELIVER', uk: 'GB' };
+        const el = document.getElementById('del-' + k);
+        el.className = `p-6 rounded-xl border-2 transition-all text-left ${map[k] === v ? 'border-primary bg-primary/10 glow' : 'bg-white border-border'}${k === 'uk' ? ' sm:col-span-2' : ''}`;
+      });
+      render();
+    };
+    window.setSocial = (v) => {
+      state.social = v;
+      document.getElementById('soc-yes').className = `p-6 rounded-xl border-2 transition-all text-center ${v === true ? 'border-primary bg-primary/10 glow' : 'bg-white border-border'}`;
+      document.getElementById('soc-no').className = `p-6 rounded-xl border-2 transition-all text-center ${v === false ? 'border-primary bg-primary/10 glow' : 'bg-white border-border'}`;
+      render();
+    };
+    window.checkContact = () => { state.email = document.getElementById('email').value.trim(); state.phone = document.getElementById('phone').value.trim(); render(); };
+
+    window.applyLmPromo = async () => {
+      const code = document.getElementById('lm-promo').value.trim();
+      const msg = document.getElementById('lm-promo-msg');
+      if (!code) return;
+      try {
+        const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        msg.style.display = 'block';
+        if (data.valid) {
+          state.voucherCode = data.code; state.discountPct = data.percent || 0;
+          msg.style.color = '#16a34a';
+          msg.textContent = data.percent ? `${data.percent}% off applied! 🌞` : `Voucher applied! −£${data.value}`;
+          document.getElementById('lm-promo').disabled = true;
+          buildReview();
+        } else { state.voucherCode = ''; state.discountPct = 0; msg.style.color = '#dc2626'; msg.textContent = data.error || 'Invalid code'; }
+      } catch (e) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Error checking code'; }
+    };
+
+    function buildReview() {
+      const isDel = state.delivery === 'GI_DELIVER', isUK = state.delivery === 'GB';
+      const ship = isUK ? 5 : (isDel ? 3 : 0);
+      const product = PRICES[state.packSize];
+      const discount = state.discountPct ? Math.round(product * state.discountPct) / 100 : 0;
+      document.getElementById('review-thumbs').innerHTML = state.items.map(it => `
+        <div style="width:${it.orientation === 'portrait' ? '54px' : '76px'}; aspect-ratio:${it.orientation === 'portrait' ? '65/90' : '90/65'};" class="rounded-lg overflow-hidden border border-border">
+          <img src="${it.photo ? it.photo.preview : ''}" class="w-full h-full object-cover" />
+        </div>`).join('');
+      document.getElementById('sum-qty').innerText = `${state.packSize} Large Magnets`;
+      document.getElementById('sum-product-price').innerText = `£${product.toFixed(2)}`;
+      const dRow = document.getElementById('sum-discount-row');
+      if (discount > 0) { dRow.style.display = 'flex'; document.getElementById('sum-discount-label').innerText = `Discount (${state.voucherCode})`; document.getElementById('sum-discount-amt').innerText = `-£${discount.toFixed(2)}`; }
+      else dRow.style.display = 'none';
+      document.getElementById('sum-delivery').innerText = isUK ? 'UK Delivery' : (isDel ? 'Delivery' : 'Collection');
+      document.getElementById('sum-delivery-price').innerText = ship ? `£${ship.toFixed(2)}` : 'Free';
+      document.getElementById('sum-total').innerText = `£${((product - discount) + ship).toFixed(2)}`;
+      window.mmBasketPrefill = { email: state.email, phone: state.phone, shipping: state.delivery, social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined };
+    }
+
+    window.goBack = () => { if (state.step > 1) { state.step--; render(); } };
+    window.goNext = () => {
+      if (state.step < TOTAL_STEPS) { state.step++; if (state.step === TOTAL_STEPS) buildReview(); render(); }
+      else submitOrder();
+    };
+
+    async function submitOrder(opts = {}) {
+      const { addToBasket = false } = opts;
+      const btn = addToBasket ? document.getElementById('basket-btn-lm') : document.getElementById('btn-next');
+      if (!addToBasket && window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
+        const c = window.mmBasket.getCount();
+        if (confirm(`You have ${c} item${c > 1 ? 's' : ''} in your basket. Add this and pay together?`)) { submitOrder({ addToBasket: true }); return; }
+      }
+      btn.disabled = true;
+      btn.innerHTML = addToBasket ? 'Adding...' : '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...';
+      try {
+        const orientations = state.items.map(it => it.orientation);
+        const payload = {
+          email: addToBasket ? 'basket@draft.local' : state.email,
+          phone: addToBasket ? '00000000000' : state.phone,
+          socialPermission: addToBasket ? 'yes' : state.social,
+          shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
+          productType: 'large_magnet', packSize: state.packSize,
+          magnetOrientations: orientations,
+          basketDraft: addToBasket || undefined
+        };
+        const res = await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error("API Error");
+        const { orderId } = await res.json();
+
+        btn.innerText = "Uploading photos...";
+        for (let i = 0; i < state.items.length; i++) {
+          const name = `magnet${i + 1}-${state.items[i].orientation}.jpg`;
+          let ok = false;
+          for (let a = 1; a <= 4 && !ok; a++) {
+            try {
+              const form = new FormData(); form.append("file", state.items[i].photo.blob, name);
+              const r = await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(name)}`, { method: "POST", body: form });
+              if (r.ok) { const j = await r.json().catch(() => ({})); if (j.ok || j.key) ok = true; }
+            } catch (e) {}
+            if (!ok && a < 4) await new Promise(rz => setTimeout(rz, 700 * a));
+          }
+          if (!ok) throw new Error("A photo didn't upload — check your connection and try again.");
+        }
+
+        if (addToBasket) {
+          window.mmBasket.add(orderId, `🧲 ${state.packSize} Large Magnets`, PRICES[state.packSize]);
+          btn.innerHTML = '🛒 Added!';
+          setTimeout(() => { btn.disabled = false; btn.innerHTML = '🛒 Add to Basket'; }, 2000);
+          return;
+        }
+        btn.innerText = "Redirecting...";
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'large_magnet', voucherCode: state.voucherCode || undefined }) });
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
+        window.location.href = checkoutUrl;
+      } catch (e) {
+        console.error(e); alert(e.message || "Error creating order. Please try again.");
+        btn.disabled = false; render();
+      }
+    }
+
+    renderPacks();
+    render();
+  </script>
+  <script src="./basket.js"></script>
+</body>
+</html>
