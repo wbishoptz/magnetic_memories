@@ -81,7 +81,7 @@
           </div>
           <h3 class="font-serif text-xl font-bold text-foreground">Classic Box</h3>
           <p class="text-sm text-muted-foreground">3-12 Premium Square Magnets</p>
-          <div class="mt-2 text-primary font-bold">From £12.50</div>
+          <div class="mt-2 text-primary font-bold">From £13.45</div>
         </div>
 
         <div onclick="selectProduct('flexi')" class="group cursor-pointer bg-white p-4 rounded-2xl shadow-md border-2 border-transparent hover:border-primary transition-all active:scale-95">
@@ -90,7 +90,7 @@
           </div>
           <h3 class="font-serif text-xl font-bold text-foreground">Flexi Heart</h3>
           <p class="text-sm text-muted-foreground">The Magnet Man (1 Photo)</p>
-          <div class="mt-2 text-primary font-bold">£12.50</div>
+          <div class="mt-2 text-primary font-bold">£13.45</div>
         </div>
 
       </div>
@@ -270,10 +270,10 @@
 
     // CONFIG
     const PACKS = [
-      { id: 1, name: "Starter Love", custom: 3, premade: 1, price: 12.50 },
-      { id: 2, name: "Sweet Romance", custom: 6, premade: 2, price: 25.00, popular: true },
-      { id: 3, name: "Love Story", custom: 9, premade: 3, price: 30.00 },
-      { id: 4, name: "Full Heart", custom: 12, premade: 3, price: 35.00 } 
+      { id: 1, name: "Starter Love", custom: 3, premade: 1, price: 13.45 },
+      { id: 2, name: "Sweet Romance", custom: 6, premade: 2, price: 25.95, popular: true },
+      { id: 3, name: "Love Story", custom: 9, premade: 3, price: 30.95 },
+      { id: 4, name: "Full Heart", custom: 12, premade: 3, price: 35.95 }
     ];
 
     const DESIGNS = [
@@ -495,7 +495,7 @@
       let productName = "";
 
       if (state.productType === 'flexi') {
-        basePrice = 12.50; // UPDATED PRICE HERE
+        basePrice = 13.45; // UPDATED PRICE HERE
         productName = `Flexi Heart (${state.flexiColor})`;
       } else {
         const pack = PACKS.find(p => p.id === state.packId);

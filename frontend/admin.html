@@ -1172,7 +1172,7 @@
               packDisplay = `🔑 Keyring${Number(o.packSize) === 2 ? ' ×2' : ''}`;
               style = 'style="color: #fbbf24; font-weight:600;"';
           } else if (o.productType === 'bundle') {
-              packDisplay = `🎁 Bundle (2 for £7)`;
+              packDisplay = `🎁 Bundle (2 for £7.95)`;
               style = 'style="color: #10b981; font-weight:600;"';
           } else if (o.event === 'MOTHERS_DAY' && o.mothersPackage) {
               packDisplay = `🌸 ${o.mothersPackage}`;
@@ -1338,7 +1338,7 @@
           } else if (order.productType === 'bundle') {
               const names = { bottle_opener: '🍺 Bottle Opener', mirror_keyring: '🪞 Mirror Keyring' };
               const items = (order.bundleItems || []).map((t, i) => `<div class="field-value">Item ${i + 1}: <span style="font-weight:bold;">${names[t] || t}</span></div>`).join('');
-              html += `<div class="field-label" style="color:#10b981;">Bundle — Any 2 for £7</div>
+              html += `<div class="field-label" style="color:#10b981;">Bundle — Any 2 for £7.95</div>
                        <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎁 2-piece bundle (58mm)</div>${items}`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>

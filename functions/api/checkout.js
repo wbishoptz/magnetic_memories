@@ -131,7 +131,7 @@ export async function onRequestPost({ request, env }) {
           productDesc = "Custom Photos + Pre-made Designs";
         }
       } else if (eventTag === 'BINGO') {
-        price = BINGO_PRICES[size] || 20;
+        price = BINGO_PRICES[size] || 20.95;
         productName = `Bingo Special (${size} magnets)`;
         productDesc = "Collect at the stall";
       } else {

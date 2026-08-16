@@ -18,7 +18,7 @@ let voucherCode = "";
 let socialPermission = null; 
 let selectedShipping = null; 
 
-const prices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+const prices = { 3: 7.95, 6: 14.95, 9: 20.95, 12: 25.95, 15: 30.95 };
 const PACKS = [3, 6, 9, 12, 15];
 
 // ---- Elements ----
@@ -905,7 +905,7 @@ async function addToBasket() {
       if (!up.ok) throw new Error('Upload failed');
     }
 
-    const packPrices = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+    const packPrices = { 3: 7.95, 6: 14.95, 9: 20.95, 12: 25.95, 15: 30.95 };
     const price = selectedPackType === 'voucher' ? selectedPackSize : (packPrices[selectedPackSize] || 0);
     const label = selectedPackType === 'voucher'
       ? `£${selectedPackSize} Gift Voucher`

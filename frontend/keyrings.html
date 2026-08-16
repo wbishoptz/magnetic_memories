@@ -81,13 +81,13 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
         <button onclick="setQty(1)" id="qty-1" class="relative p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40">
           <p class="font-semibold text-lg text-foreground">1 Keyring</p>
-          <p class="text-3xl font-bold text-primary mt-2">£6</p>
+          <p class="text-3xl font-bold text-primary mt-2">£6.95</p>
         </button>
         <button onclick="setQty(2)" id="qty-2" class="relative p-6 rounded-xl border-2 transition-all text-center bg-white border-border hover:border-primary/40">
           <span class="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wide bg-primary text-white px-2 py-0.5 rounded-full">Best value</span>
           <p class="font-semibold text-lg text-foreground">2 Keyrings</p>
-          <p class="text-3xl font-bold text-primary mt-2">£10</p>
-          <p class="text-xs text-muted-foreground mt-1">Save £2</p>
+          <p class="text-3xl font-bold text-primary mt-2">£10.95</p>
+          <p class="text-xs text-muted-foreground mt-1">Save £2.95</p>
         </button>
       </div>
     </div>
@@ -174,7 +174,7 @@
       <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
         <div class="flex items-center justify-between border-b pb-2">
           <span class="font-medium text-muted-foreground" id="sum-qty">Keyrings</span>
-          <span class="font-bold" id="sum-product-price">£6.00</span>
+          <span class="font-bold" id="sum-product-price">£6.95</span>
         </div>
         <div class="flex items-center justify-between border-b pb-2" id="sum-discount-row" style="display:none;">
           <span class="font-medium text-green-600" id="sum-discount-label">Discount</span>
@@ -186,7 +186,7 @@
         </div>
         <div class="flex items-center justify-between pt-1">
           <span class="font-bold text-lg">Total</span>
-          <span class="font-bold text-lg text-primary" id="sum-total">£6.00</span>
+          <span class="font-bold text-lg text-primary" id="sum-total">£6.95</span>
         </div>
       </div>
 
@@ -243,7 +243,7 @@
     const LABELS = ["Quantity", "Design", "Delivery", "Share", "Contact", "Review"];
     const TOTAL_STEPS = 6;
     const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-    const priceFor = (qty) => qty === 2 ? 10.00 : 6.00;
+    const priceFor = (qty) => qty === 2 ? 10.95 : 6.95;
 
     let state = {
       step: 1,

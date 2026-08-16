@@ -3,56 +3,56 @@
 // ─── Pricing ───────────────────────────────────────────────────────────────
 
 export const STANDARD_PACKS = [3, 6, 9, 12, 15];
-export const STANDARD_PRICES = { 3: 7, 6: 14, 9: 20, 12: 25, 15: 30 };
+export const STANDARD_PRICES = { 3: 7.95, 6: 14.95, 9: 20.95, 12: 25.95, 15: 30.95 };
 
 export const BINGO_PACKS = [1, 3, 6, 12];
-export const BINGO_PRICES = { 1: 4.00, 3: 10, 6: 20, 12: 35 };
+export const BINGO_PRICES = { 1: 4.95, 3: 10.95, 6: 20.95, 12: 35.95 };
 
 export const VALENTINES_PACKS = [1, 2, 3, 4];
-export const VALENTINES_PRICES = { 1: 12.50, 2: 25.00, 3: 30.00, 4: 35.00 };
+export const VALENTINES_PRICES = { 1: 13.45, 2: 25.95, 3: 30.95, 4: 35.95 };
 
-export const FLEXI_PRICE = 12.50;
+export const FLEXI_PRICE = 13.45;
 
-// Double-sided keyrings: 1 for £6, 2 for £10
-export const KEYRING_PRICES = { 1: 6.00, 2: 10.00 };
+// Double-sided keyrings: 1 for £6.95, 2 for £10.95
+export const KEYRING_PRICES = { 1: 6.95, 2: 10.95 };
 export const keyringPrice = (qty) => KEYRING_PRICES[Number(qty) === 2 ? 2 : 1];
 
-// Bottle-opener / mirror-keyring bundle: any 2 for £7
-export const BUNDLE_PRICE = 7.00;
+// Bottle-opener / mirror-keyring bundle: any 2 for £7.95
+export const BUNDLE_PRICE = 7.95;
 
 export const MOTHERS_PACKAGES = {
-  "Box 1": 12.50,
-  "Box 2": 25.00,
-  "Box 3": 30.00,
-  "Box 4": 35.00,
+  "Box 1": 13.45,
+  "Box 2": 25.95,
+  "Box 3": 30.95,
+  "Box 4": 35.95,
   // Legacy names kept for backward compatibility
-  "Bouquet Bloom": 12.50,
-  "Garden Party": 25.00,
-  "Full Bloom": 30.00,
-  "Mum's Treasure": 35.00
+  "Bouquet Bloom": 13.45,
+  "Garden Party": 25.95,
+  "Full Bloom": 30.95,
+  "Mum's Treasure": 35.95
 };
 
 export const FRAME_PRICES = {
   bohemian: {
-    3: { frame: 8, full: 15 },
-    4: { frame: 10, full: 17 },
-    6: { frame: 12, full: 25 },
-    9: { frame: 15, full: 30 },
+    3: { frame: 8.95, full: 15.95 },
+    4: { frame: 10.95, full: 17.95 },
+    6: { frame: 12.95, full: 25.95 },
+    9: { frame: 15.95, full: 30.95 },
   },
   sleek: {
-    1: { frame: 5, full: 7 },
-    2: { frame: 7, full: 12 },
-    3: { frame: 8, full: 15 },
-    4: { frame: 10, full: 17 },
+    1: { frame: 5.95, full: 7.95 },
+    2: { frame: 7.95, full: 12.95 },
+    3: { frame: 8.95, full: 15.95 },
+    4: { frame: 10.95, full: 17.95 },
   },
   rollercube: {
-    4: { frame: 10, full: 17 }
+    4: { frame: 10.95, full: 17.95 }
   },
   rattan: {
-    4: { frame: 15, full: 20 }
+    4: { frame: 15.95, full: 20.95 }
   },
   message: {
-    6: { frame: 12, full: 25 }   // Message Frame: 6 slots + custom text
+    6: { frame: 12.95, full: 25.95 }   // Message Frame: 6 slots + custom text
   }
 };
 
