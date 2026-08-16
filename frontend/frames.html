@@ -58,7 +58,7 @@
     .gradient-coral { background: linear-gradient(135deg, hsl(350 80% 55%), hsl(20 85% 60%)); }
     .shadow-soft { box-shadow: 0 4px 20px -4px hsl(350 80% 55% / 0.15); }
     
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 8600; display: none; align-items: center; justify-content: center; }
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
     .cropper-container img { display: block; max-width: 100%; }
@@ -375,7 +375,7 @@
 
   </main>
 
-  <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40">
+  <div class="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border" style="z-index:8100;">
     <div class="container max-w-md mx-auto flex flex-col gap-2">
       <button id="main-btn" onclick="nextStep()" disabled class="w-full h-14 rounded-xl gradient-coral text-white font-semibold text-base shadow-soft hover:opacity-90 transition-all flex items-center justify-center gap-2">
         Continue <i data-lucide="arrow-right" class="w-5 h-5"></i>
