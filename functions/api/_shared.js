@@ -62,9 +62,8 @@ export const FRAME_PRICES = {
 
 // Percentage discount codes (site-wide sale codes). code → % off.
 // Reusable (no balance), case-insensitive. Add/remove/edit here.
-export const PROMO_CODES = {
-  SUN20: 20
-};
+// (No active sale codes — SUN20 summer sale ended.)
+export const PROMO_CODES = {};
 export function promoPercent(code) {
   if (!code) return 0;
   return PROMO_CODES[String(code).trim().toUpperCase()] || 0;
