@@ -48,16 +48,29 @@ async function handle(request, env) {
     try { order = JSON.parse(raw); } catch { continue; }
     scanned++;
 
-    // Already cleaned, or nothing to clean
-    if (order.imagesPurged || !Array.isArray(order.images) || order.images.length === 0) continue;
+    // Already cleaned, or nothing to clean. Guest self-uploads only record their photos on
+    // the order once finished, so an abandoned one has none listed — it's still checked below.
+    if (order.imagesPurged) continue;
+    const isGuest = order.source === "guest";
+    const hasImages = Array.isArray(order.images) && order.images.length > 0;
+    if (!hasImages && !isGuest) continue;
 
     // Age check — use createdAt (fall back to first image upload time)
-    const stamp = order.createdAt || order.images[0]?.uploadedAt;
+    const stamp = order.createdAt || (hasImages && order.images[0]?.uploadedAt);
     if (!stamp) continue;
     if (new Date(stamp).getTime() > cutoff) continue; // not old enough yet
 
     // Delete the R2 objects (delete accepts an array of keys)
-    const objectKeys = order.images.map(i => i.key).filter(Boolean);
+    let objectKeys = hasImages ? order.images.map(i => i.key).filter(Boolean) : [];
+    if (isGuest) {
+      // Guest orders: sweep the whole folder (abandoned uploads, stray retry copies)
+      try {
+        const listed = await env.R2_BUCKET.list({ prefix: `orders/${order.orderId}/` });
+        objectKeys = [...new Set([...objectKeys, ...(listed.objects || []).map(o => o.key)])];
+      } catch (e) {
+        continue; // try again next run
+      }
+    }
     if (objectKeys.length) {
       try {
         await env.R2_BUCKET.delete(objectKeys);

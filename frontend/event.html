@@ -41,6 +41,7 @@
       <select id="raffle" disabled class="w-full text-2xl font-mono font-bold bg-slate-900 border border-slate-600 rounded-lg p-4 text-center focus:ring-2 focus:ring-emerald-500 outline-none disabled:opacity-50">
         <option value="">Select an event first</option>
       </select>
+      <p id="taken-notice" class="text-sm font-bold text-amber-400 mt-2 hidden"></p>
       <p class="text-xs text-slate-500 mt-2">Only un-used numbers are shown. Once saved, a number disappears from this list.</p>
     </div>
 
@@ -82,6 +83,30 @@
     let currentEvent = null;
     let usedNumbers = new Set();
 
+    // Numbers this page saved recently: eventId -> Map(number -> savedAt ms). Without the
+    // events database the server's used list comes from KV, which can lag up to ~60s, so a
+    // refresh could briefly offer a number we just used. Keep them hidden for 120s.
+    const RECENT_USED_MS = 120000;
+    const recentlyUsed = new Map();
+    function rememberUsed(eventId, n) {
+      if (!recentlyUsed.has(eventId)) recentlyUsed.set(eventId, new Map());
+      recentlyUsed.get(eventId).set(Number(n), Date.now());
+    }
+    // Adds this page's recent (<120s) saves for the event to `set`; forgets older ones.
+    function withRecentlyUsed(eventId, set) {
+      const mine = recentlyUsed.get(eventId);
+      if (!mine) return set;
+      const cutoff = Date.now() - RECENT_USED_MS;
+      for (const [n, t] of mine) {
+        if (t < cutoff) mine.delete(n); else set.add(n);
+      }
+      return set;
+    }
+
+    function escHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
     const eventSelect = document.getElementById('event-select');
     const raffleSelect = document.getElementById('raffle');
     const eventHelp = document.getElementById('event-help');
@@ -116,7 +141,7 @@
       try {
         const res = await fetch(`/api/events?id=${encodeURIComponent(id)}`);
         const data = await res.json();
-        usedNumbers = new Set((data.used || []).map(Number));
+        usedNumbers = withRecentlyUsed(id, new Set((data.used || []).map(Number)));
         currentEvent = data.event || currentEvent;
         populateNumbers();
         renderPreviews(); // refresh the per-ticket limit label
@@ -127,9 +152,13 @@
 
     function populateNumbers() {
       const { rangeStart, rangeEnd } = currentEvent;
+      const keep = raffleSelect.value; // keep the current pick if it's still free
+      // A number held by our own unfinished (resumable) upload stays pickable,
+      // so a refresh never breaks "Retry Upload".
+      const mine = (activeUpload && activeUpload.eventId === currentEvent.id) ? Number(activeUpload.raffle) : null;
       const free = [];
       for (let n = rangeStart; n <= rangeEnd; n++) {
-        if (!usedNumbers.has(n)) free.push(n);
+        if (!usedNumbers.has(n) || n === mine) free.push(n);
       }
       eventHelp.textContent = `Range ${rangeStart}–${rangeEnd} · ${usedNumbers.size} used`;
       freeCount.textContent = `${free.length} free`;
@@ -140,8 +169,57 @@
       }
       raffleSelect.innerHTML = '<option value="">— pick a number —</option>' +
         free.map(n => `<option value="${n}">#${n}</option>`).join('');
+      if (keep && free.includes(Number(keep))) raffleSelect.value = keep;
       raffleSelect.disabled = false;
     }
+
+    // ── Live refresh of used numbers ──────────────────────────────
+    // Guests self-uploading (and other staff phones) share this event's numbers,
+    // so re-check every 15s while visible, when the page comes back into view,
+    // and right before creating an order.
+    let submitting = false;   // true while Confirm & Upload is running
+    let refreshSeq = 0;       // only the newest refresh result is applied
+    let takenTimer = null;
+
+    function showTakenNotice(n) {
+      const el = document.getElementById('taken-notice');
+      el.textContent = `#${n} was just taken — pick another.`;
+      el.classList.remove('hidden');
+      clearTimeout(takenTimer);
+      takenTimer = setTimeout(() => el.classList.add('hidden'), 8000);
+    }
+
+    // Returns true if the list was refreshed, false if skipped/failed.
+    async function refreshUsedNumbers(force = false) {
+      if (!currentEvent) return false;
+      if (!force && (submitting || document.hidden)) return false;
+      const id = currentEvent.id;
+      const seq = ++refreshSeq;
+      try {
+        const res = await fetch(`/api/events?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+        if (!res.ok) return false;
+        const data = await res.json();
+        // Drop stale results: event switched, a newer refresh started, or an upload began meanwhile
+        if (seq !== refreshSeq || !currentEvent || currentEvent.id !== id) return false;
+        if (!force && submitting) return false;
+        const prevLimit = currentEvent.perTicketLimit;
+        // Union in numbers this page just saved — the server list may not show them yet (KV lag)
+        usedNumbers = withRecentlyUsed(id, new Set((data.used || []).map(Number)));
+        if (data.event) currentEvent = data.event;
+        const prev = raffleSelect.value;
+        populateNumbers();
+        if (prev && raffleSelect.value !== prev) showTakenNotice(prev);
+        if (currentEvent.perTicketLimit !== prevLimit) renderPreviews();
+        return true;
+      } catch (e) {
+        return false; // offline / weak signal — the server still blocks duplicates
+      }
+    }
+
+    setInterval(() => { refreshUsedNumbers(); }, 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshUsedNumbers();
+    });
 
     // ── Photos ────────────────────────────────────────────────────
     function ticketLimit() {
@@ -243,18 +321,29 @@
       if (selectedFiles.length === 0) return alert('Select at least 1 photo.');
 
       btn.disabled = true;
+      submitting = true;
       status.classList.remove('hidden');
       status.innerHTML = '';
+      const uploadEventId = currentEvent.id; // the event this ticket belongs to, even if the dropdown changes mid-upload
 
       try {
         let orderId, done;
 
-        // Resume a previous attempt for the same ticket + same photos, or start fresh
-        if (activeUpload && activeUpload.raffle === raffle && activeUpload.count === selectedFiles.length) {
+        // Resume a previous attempt for the same event + ticket + same photos, or start fresh
+        if (activeUpload && activeUpload.eventId === currentEvent.id && activeUpload.raffle === raffle && activeUpload.count === selectedFiles.length) {
           orderId = activeUpload.orderId;
           done = activeUpload.done;
           btn.innerHTML = 'Retrying…';
         } else {
+          // Last-second check: a guest (or another phone) may have just taken this number
+          btn.innerHTML = 'Checking number...';
+          await refreshUsedNumbers(true);
+          if (raffleSelect.value !== raffle) {
+            status.classList.add('hidden');
+            btn.disabled = false;
+            btn.innerHTML = 'Confirm & Upload';
+            return;
+          }
           btn.innerHTML = 'Creating Order...';
           const res = await fetch('/api/order', {
             method: 'POST',
@@ -278,10 +367,18 @@
             btn.innerHTML = 'Confirm & Upload';
             return;
           }
-          if (!res.ok) throw new Error('Order creation failed');
+          if (!res.ok) {
+            // Show the server's message when there is one (e.g. 503 "Could not reserve the number - please try again.")
+            const d = await res.json().catch(() => ({}));
+            const serverMsg = d && typeof d.error === 'string' ? d.error.trim() : '';
+            const err = new Error(serverMsg || 'Order creation failed');
+            err.fromServer = !!serverMsg;
+            throw err;
+          }
           orderId = (await res.json()).orderId;
+          rememberUsed(uploadEventId, raffle); // the number is taken on the server from here on
           done = new Array(selectedFiles.length).fill(false);
-          activeUpload = { orderId, raffle, count: selectedFiles.length, done };
+          activeUpload = { orderId, eventId: currentEvent.id, raffle, count: selectedFiles.length, done };
         }
 
         // Upload every photo that hasn't been confirmed yet
@@ -303,7 +400,8 @@
 
         // All photos confirmed saved — now it's safe to finish
         activeUpload = null;
-        usedNumbers.add(Number(raffle));
+        rememberUsed(uploadEventId, raffle);
+        if (currentEvent && currentEvent.id === uploadEventId) usedNumbers.add(Number(raffle));
         selectedFiles = [];
         renderPreviews();
         populateNumbers();
@@ -312,9 +410,12 @@
         btn.innerHTML = 'Confirm & Upload';
 
       } catch (e) {
-        status.innerHTML = `<span class="text-amber-400">⚠️ ${e.message}. Tap to try again.</span>`;
+        const text = e.fromServer ? e.message : `${e.message}. Tap to try again.`;
+        status.innerHTML = `<span class="text-amber-400">⚠️ ${escHtml(text)}</span>`;
         btn.disabled = false;
         btn.innerText = 'Try Again';
+      } finally {
+        submitting = false;
       }
     }
 

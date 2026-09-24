@@ -7,6 +7,11 @@ import {
   LARGE_MAGNET_PACKS, LARGE_MAGNET_PRICES,
   jsonResponse
 } from './_shared.js';
+import { hasDb, ensureReady, claimNumber, releaseNumber, isConstraintError } from './_tickets.js';
+
+// Extra attempts at the D1 ticket claim after a (non-constraint) failure.
+const CLAIM_RETRY_DELAYS_MS = [150, 300];
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -27,11 +32,32 @@ export async function onRequestPost({ request, env }) {
     const manualStatus = body?.status || "draft";
 
     // Event ticket: block duplicate raffle numbers within the same event
-    if (eventTag === 'MANUAL' && eventId && raffleNumber != null && !body?.orderId) {
+    const isNewEventTicket = eventTag === 'MANUAL' && eventId && raffleNumber != null && !body?.orderId;
+    const useTicketDb = !!isNewEventTicket && hasDb(env);
+    if (isNewEventTicket) {
       const ticketKey = `event:ticket:${eventId}:${raffleNumber}`;
-      const taken = await env.ORDERS_KV.get(ticketKey);
+      let taken;
+      if (useTicketDb) {
+        // Extra safety net only - the D1 claim below is what guarantees uniqueness.
+        taken = await env.ORDERS_KV.get(ticketKey).catch(err => {
+          console.error("Ticket key check failed (D1 claim still applies):", err);
+          return null;
+        });
+      } else {
+        taken = await env.ORDERS_KV.get(ticketKey);
+      }
       if (taken) {
         return jsonResponse({ error: `Ticket #${raffleNumber} is already used for this event.` }, 409);
+      }
+    }
+
+    // With the events database, the number is reserved atomically (shared with
+    // guest self-uploads) just before the order is saved - see below.
+    let ticketNumber = null;
+    if (useTicketDb) {
+      ticketNumber = Number(String(raffleNumber).trim());
+      if (!Number.isSafeInteger(ticketNumber) || ticketNumber < 0) {
+        return jsonResponse({ error: "Invalid ticket number." }, 400);
       }
     }
 
@@ -110,8 +136,16 @@ export async function onRequestPost({ request, env }) {
     let existingOrder = {};
     if (body?.orderId) {
       const rawKv = await env.ORDERS_KV.get(`order:${orderId}`);
-      if (rawKv) existingOrder = JSON.parse(rawKv);
+      if (rawKv) existingOrder = JSON.parse(rawKv) || {};
+      // Event orders can't be created with a client-chosen id (a new ticket
+      // always gets a fresh id and its number claim below) ...
+      else if (eventTag === 'MANUAL') return jsonResponse({ error: "Order not found." }, 404);
+      // ... and guest self-uploads are only ever changed by upload/finalize/admin.
+      if (existingOrder.source === 'guest') return jsonResponse({ error: "Not allowed." }, 403);
     }
+    // Updating an existing event order: its ticket (event + number) is fixed -
+    // body.raffleNumber / body.eventId are ignored and the ticket key isn't rewritten.
+    const keepTicket = !!body?.orderId && (eventTag === 'MANUAL' || existingOrder.event === 'MANUAL');
 
     const now = new Date().toISOString();
 
@@ -135,8 +169,8 @@ export async function onRequestPost({ request, env }) {
       packType: packType || existingOrder.packType,
       price,
       event: eventTag || existingOrder.event,
-      raffleNumber: raffleNumber || existingOrder.raffleNumber,
-      eventId: eventId || existingOrder.eventId || null,
+      raffleNumber: keepTicket ? existingOrder.raffleNumber : (raffleNumber || existingOrder.raffleNumber),
+      eventId: keepTicket ? (existingOrder.eventId || null) : (eventId || existingOrder.eventId || null),
 
       productType: productType || existingOrder.productType,
       flexiColor: flexiColor || existingOrder.flexiColor,
@@ -167,7 +201,11 @@ export async function onRequestPost({ request, env }) {
       shippingMethod: body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null),
       socialPermission: socialPerm,
       bingoNumber: existingOrder.bingoNumber,
-      basketDraft: isBasketDraft || existingOrder.basketDraft || false
+      basketDraft: isBasketDraft || existingOrder.basketDraft || false,
+
+      // Event orders: who created it ("staff" manual page / "guest" self-upload)
+      source: existingOrder.source || (eventTag === 'MANUAL' && !body?.orderId ? 'staff' : undefined),
+      completedAt: existingOrder.completedAt
     };
 
     if (eventTag === 'BINGO' && !order.bingoNumber) {
@@ -180,11 +218,51 @@ export async function onRequestPost({ request, env }) {
       } catch (e) {}
     }
 
-    await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
+    // Atomically reserve the ticket number (events database) BEFORE saving the order.
+    // With the database bound there is NO KV-only fallback: if the claim can't be
+    // made, the order is not saved and the page is asked to try again.
+    let claimedTicket = false;
+    if (ticketNumber != null) {
+      const takenMsg = `Ticket #${raffleNumber} is already used for this event.`;
+      for (let attempt = 0; !claimedTicket; attempt++) {
+        try {
+          await ensureReady(env, eventId);
+          const ok = await claimNumber(env, eventId, ticketNumber, orderId, 'staff');
+          if (!ok) return jsonResponse({ error: takenMsg }, 409);
+          claimedTicket = true;
+        } catch (err) {
+          if (isConstraintError(err)) return jsonResponse({ error: takenMsg }, 409);
+          if (attempt >= CLAIM_RETRY_DELAYS_MS.length) {
+            console.error("Ticket claim failed, order not saved:", err);
+            return jsonResponse({ error: "Could not reserve the number - please try again." }, 503);
+          }
+          console.warn(`Ticket claim failed (attempt ${attempt + 1}), retrying:`, err);
+          await sleep(CLAIM_RETRY_DELAYS_MS[attempt]);
+        }
+      }
+    }
 
-    // Reserve the event ticket number so it can't be reused
-    if (order.event === 'MANUAL' && order.eventId && order.raffleNumber != null) {
-      await env.ORDERS_KV.put(`event:ticket:${order.eventId}:${order.raffleNumber}`, orderId);
+    try {
+      await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
+    } catch (err) {
+      if (claimedTicket) {
+        await releaseNumber(env, eventId, ticketNumber, orderId)
+          .catch(e => console.error("Ticket release failed:", e));
+      }
+      throw err;
+    }
+
+    // Reserve the event ticket number so it can't be reused (new tickets only -
+    // an existing order's ticket key is never rewritten)
+    if (isNewEventTicket) {
+      const ticketKey = `event:ticket:${order.eventId}:${order.raffleNumber}`;
+      if (claimedTicket) {
+        // The database already holds the reservation; this key is history/back-compat.
+        await env.ORDERS_KV.put(ticketKey, orderId).catch(e => console.error("Ticket key write failed:", e));
+      } else {
+        // No events database: this key IS the reservation (legacy behaviour).
+        await env.ORDERS_KV.put(ticketKey, orderId);
+      }
     }
 
     return jsonResponse({ orderId });

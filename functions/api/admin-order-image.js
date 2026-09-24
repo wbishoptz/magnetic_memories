@@ -46,10 +46,14 @@ export const onRequestGet = async ({ request, env }) => {
       "image/jpeg";
 
     headers.set("Content-Type", contentType);
+    // Uploaded files are user-supplied: never let one render as a page on our origin.
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Content-Security-Policy", FILE_CSP);
 
     const filename = objectKey.substring(expectedPrefix.length) || "photo.jpg";
 
-    if (download) {
+    // Non-images always download (an <img> in the admin still loads them fine).
+    if (download || !isInlineImage(contentType)) {
       headers.set(
         "Content-Disposition",
         `attachment; filename="${sanitizeFilename(filename)}"`
@@ -72,4 +76,12 @@ export const onRequestGet = async ({ request, env }) => {
 
 function sanitizeFilename(name) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+const FILE_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
+// image/* (except SVG, which can carry script) may be shown inline; anything else downloads.
+function isInlineImage(contentType) {
+  const t = String(contentType || "").split(";")[0].trim().toLowerCase();
+  return t.startsWith("image/") && !t.includes("svg");
 }

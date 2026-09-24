@@ -1,3 +1,12 @@
+// Uploaded files are user-supplied: never let one render as a page on our origin.
+const FILE_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
+// image/* (except SVG, which can carry script) may be shown inline; anything else downloads.
+function isInlineImage(contentType) {
+  const t = String(contentType || "").split(";")[0].trim().toLowerCase();
+  return t.startsWith("image/") && !t.includes("svg");
+}
+
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const orderId = url.searchParams.get("orderId");
@@ -16,9 +25,13 @@ export async function onRequestGet({ request, env }) {
     const obj = await env.R2_BUCKET.get(fileKey);
     if (!obj) return new Response("Not found", { status: 404 });
 
+    const contentType = obj.httpMetadata?.contentType || "image/jpeg";
     const headers = new Headers();
-    headers.set("Content-Type", obj.httpMetadata?.contentType || "image/jpeg");
+    headers.set("Content-Type", contentType);
     headers.set("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Content-Security-Policy", FILE_CSP);
+    if (!isInlineImage(contentType)) headers.set("Content-Disposition", "attachment");
 
     return new Response(obj.body, { headers });
   } catch (e) {

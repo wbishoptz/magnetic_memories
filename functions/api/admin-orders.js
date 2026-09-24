@@ -43,6 +43,8 @@ export async function onRequest({ request, env }) {
             event: o.event,
             eventId: o.eventId,
             raffleNumber: o.raffleNumber,
+            source: o.source,
+            completedAt: o.completedAt,
             bingoNumber: o.bingoNumber,
             stripeSessionId: o.stripeSessionId,
             price: o.price,

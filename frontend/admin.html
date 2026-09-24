@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <style>
       body { background: #050608; color: #f9fafb; font-family: system-ui, sans-serif; min-height: 100vh; margin: 0; display: flex; justify-content: center; padding: 24px; }
       .admin-shell { width: 100%; max-width: 1200px; background: #050608; border-radius: 18px; border: 1px solid #1f2933; box-shadow: 0 24px 80px rgba(0,0,0,0.75); display: flex; flex-direction: column; overflow: hidden; }
@@ -356,23 +357,80 @@
         listContainer.innerHTML = '<div class="empty-state">Loading events…</div>';
         try {
           const [evRes, ordRes] = await Promise.all([
-            fetch('/api/events'),
+            // Admin key → the server includes each event's guest-link token
+            fetch('/api/events', { headers: { Authorization: `Bearer ${adminKey}` } }),
             fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } })
           ]);
           if (!evRes.ok || !ordRes.ok) {
             listContainer.innerHTML = '<div class="empty-state" style="color:#fbbf24;">⚠️ Cloudflare is rate-limiting reads (daily KV limit). Your data is safe — upgrade to Workers Paid, or wait until 00:00 UTC. This is NOT data loss.</div>';
             return;
           }
-          events = (await evRes.json()).events || [];
+          const evData = await evRes.json();
+          events = evData.events || [];
+          if (typeof evData.dbConnected === 'boolean') guestDbConnected = evData.dbConnected;
           orders = (await ordRes.json()).orders || [];
+          noteOrdersFetched(ordRes);
           renderEventManager();
         } catch (e) {
           listContainer.innerHTML = '<div class="empty-state">Error loading events.</div>';
         }
       }
 
+      // HTML-escape text before it goes into innerHTML (event names, tokens, links)
+      function escHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      // An event order is COMPLETE (printable) once it has a ticket number. Guest
+      // self-uploads only get their number after every photo is safely stored, so
+      // unfinished ones (raffleNumber null) are ignored by every event view.
+      function isCompleteEventOrder(o) { return o.raffleNumber != null; }
+      // Capture order: when a guest upload was completed, else when the staff order was created.
+      function captureTime(o) {
+        const t = new Date(o.completedAt || o.createdAt || 0).getTime();
+        return Number.isFinite(t) ? t : 0;
+      }
+      function completeEventOrders(id) {
+        return orders
+          .filter(o => o.eventId === id && isCompleteEventOrder(o))
+          // orderId breaks exact-millisecond ties so the order is identical on every load
+          .sort((a, b) => (captureTime(a) - captureTime(b)) || String(a.orderId).localeCompare(String(b.orderId)));
+      }
+      // Settle window: a complete ticket only goes onto the per-sheet index once its capture
+      // time is more than 90s old. Anything captured earlier has had time to show up in the
+      // (eventually-consistent) order list, so tickets are only ever APPENDED to the index and
+      // sheets that were already printed never shift. Evaluated at call time — eligibility
+      // changes as time passes even when the order list itself doesn't.
+      const SHEET_SETTLE_MS = 90 * 1000;
+      const SHEET_RECHECK_MS = 95 * 1000; // one-off re-check this long after a new ticket's capture time
+      // The window is measured on the SERVER's clock against the time the order list we hold
+      // was fetched (response Date header) — so an old list or a fast/slow device clock can't
+      // shrink it. A ticket joins the sheets only once a list fetched ≥90s after it was seen.
+      let ordersServerTime = 0;   // server time of the current `orders` list (ms)
+      let serverClockOffset = 0;  // server clock minus this device's clock (ms)
+      function noteOrdersFetched(res) {
+        const d = Date.parse((res && res.headers && res.headers.get('Date')) || '');
+        if (Number.isFinite(d)) { ordersServerTime = d; serverClockOffset = d - Date.now(); }
+        else ordersServerTime = Date.now() + serverClockOffset;
+      }
+      function sheetCutoff() {
+        return (ordersServerTime || (Date.now() + serverClockOffset)) - SHEET_SETTLE_MS;
+      }
+      function sheetEligibleOrders(id) {
+        const cutoff = sheetCutoff();
+        return completeEventOrders(id).filter(o => captureTime(o) < cutoff);
+      }
+      // Unfinished guest uploads. Older than 2h = almost certainly abandoned.
+      const GUEST_STALE_MS = 2 * 60 * 60 * 1000;
+      function unfinishedGuestOrders(id) {
+        const cutoff = Date.now() - GUEST_STALE_MS;
+        const all = orders.filter(o => o.eventId === id && o.source === 'guest' && !isCompleteEventOrder(o));
+        const recent = all.filter(o => new Date(o.createdAt || 0).getTime() >= cutoff);
+        return { recent, stale: all.length - recent.length };
+      }
+
       function eventOrderCount(id) {
-        return orders.filter(o => o.eventId === id).length;
+        return completeEventOrders(id).length;
       }
 
       function renderEventManager() {
@@ -388,13 +446,15 @@
           html += '<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Range</th><th>Uploads</th><th>Status</th></tr></thead><tbody>';
           for (const e of events) {
             const sel = e.id === selectedEventId ? ' selected' : '';
-            const statusPill = e.active
+            const statusPill = (e.active
               ? `<span class="status-pill paid">Active</span>`
-              : `<span class="status-pill abandoned">Off</span>`;
-            html += `<tr class="${sel}" data-event-id="${e.id}">
-              <td style="font-weight:700;">${e.name}</td>
+              : `<span class="status-pill abandoned">Off</span>`)
+              + (e.guestUpload ? ` <span class="tag" style="color:#59c9a5; border-color:rgba(89,201,165,0.4);" title="Guest self-upload link is on">📲 Guest</span>` : '');
+            const pending = unfinishedGuestOrders(e.id).recent.length;
+            html += `<tr class="${sel}" data-event-id="${escHtml(e.id)}">
+              <td style="font-weight:700;">${escHtml(e.name)}</td>
               <td style="font-family:monospace;">${e.rangeStart}–${e.rangeEnd}</td>
-              <td>${eventOrderCount(e.id)}</td>
+              <td>${eventOrderCount(e.id)}${pending ? ` <span style="color:#9ca3af; font-size:11px;">(+${pending} uploading)</span>` : ''}</td>
               <td>${statusPill}</td>
             </tr>`;
           }
@@ -467,18 +527,19 @@
         const ev = events.find(e => e.id === id);
         if (!ev) return;
 
-        const evOrders = orders
-          .filter(o => o.eventId === id)
-          .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        const evOrders = completeEventOrders(id);
 
-        let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${ev.name}</div>`;
-        html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · ${evOrders.length} uploaded</div>`;
+        let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${escHtml(ev.name)}</div>`;
+        html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · <span id="ev-uploaded-count">${evOrders.length}</span> uploaded</div>`;
         html += `<div class="field-label">Photos per ticket</div><div class="field-value">${ev.perTicketLimit ? ev.perTicketLimit : 'No limit'}</div>`;
         html += `<button id="ev-print" class="btn-action" style="width:100%; margin:10px 0 6px; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Download ALL Sheets (PDF)</button>`;
         html += `<div class="field-value" style="display:flex; gap:8px; margin:0 0 10px;">
           <button id="ev-toggle" class="btn-action" style="flex:1;">${ev.active ? 'Set Inactive' : 'Set Active'}</button>
           <button id="ev-delete" class="btn-danger" style="flex:1; margin:0;">Delete Event</button>
         </div>`;
+
+        // Guest self-upload (link + QR) card — rendered by renderGuestCard()
+        html += `<div id="ev-guest-card"></div>`;
 
         // Per-sheet (real-time) download section
         html += `<div class="field-label" style="display:flex; justify-content:space-between; align-items:center;">
@@ -488,48 +549,373 @@
         html += `<div id="event-sheets"><div class="field-value" style="color:#9ca3af;">Loading sheets…</div></div>`;
 
         html += `<div class="field-label" style="margin-top:14px;">Uploads (in capture order)</div>`;
-        if (evOrders.length === 0) {
-          html += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
-        } else {
-          html += '<div class="table-wrapper"><table><thead><tr><th>Ticket</th><th>Photos</th><th>When</th></tr></thead><tbody>';
-          for (const o of evOrders) {
-            const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '–';
-            html += `<tr data-order-id="${o.orderId}">
-              <td style="font-family:monospace; font-weight:800; color:#66d19e;">#${o.raffleNumber ?? '?'}</td>
-              <td>${o.packSize ?? '?'}</td>
-              <td>${created}</td>
-            </tr>`;
-          }
-          html += '</tbody></table></div>';
-        }
+        html += `<div id="ev-uploads"></div>`; // rendered by renderEventUploads()
         detailsContainer.innerHTML = html;
 
         document.getElementById('ev-toggle').onclick = () => toggleEventActive(ev);
         document.getElementById('ev-delete').onclick = () => deleteEvent(ev);
         document.getElementById('ev-print').onclick = () => generatePrintSheets(ev);
         document.getElementById('ev-refresh').onclick = () => refreshEventData(ev);
-        detailsContainer.querySelectorAll('tbody tr').forEach(row => {
-          row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
-        });
+        renderGuestCard(ev);
+        renderEventUploads(ev);
+
+        // Clear the previous event's timers BEFORE loading — loadEventSheets arms the
+        // settle-window re-check, which must not be cancelled straight away.
+        stopEventPolling();
         loadEventSheets(ev);
 
         // Auto-refresh every 60s while this event is open (paused when the tab is hidden,
         // and it only does the heavier image rebuild when the photo count actually changes).
-        stopEventPolling();
         eventPollTimer = setInterval(() => pollEventSheets(ev), 60000);
+      }
+
+      // Uploads table (complete tickets only, in capture order) + in-progress guest note.
+      // Re-rendered in place by the poller so new tickets show up without a full refresh.
+      function renderEventUploads(ev) {
+        const box = document.getElementById('ev-uploads');
+        if (!box || selectedEventId !== ev.id) return;
+        const evOrders = completeEventOrders(ev.id);
+        const { recent, stale } = unfinishedGuestOrders(ev.id);
+        const cnt = document.getElementById('ev-uploaded-count');
+        if (cnt) cnt.textContent = evOrders.length;
+
+        let h = '';
+        if (recent.length) {
+          h += `<div style="padding:8px 12px; border:1px solid rgba(89,201,165,0.4); background:rgba(89,201,165,0.08); border-radius:8px; margin-bottom:8px; color:#a7f3d0; font-size:13px;">
+            ⏳ ${recent.length} guest upload${recent.length === 1 ? '' : 's'} in progress — ${recent.length === 1 ? 'it gets a number and appears' : 'they get a number and appear'} below once every photo is in.
+          </div>`;
+        }
+        if (stale) {
+          h += `<div class="field-value" style="color:#6b7280; font-size:12px; margin-bottom:8px;">${stale} unfinished guest upload${stale === 1 ? '' : 's'} older than 2 hours (abandoned) — ignored for printing.</div>`;
+        }
+        if (evOrders.length === 0) {
+          h += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
+        } else {
+          h += '<div class="table-wrapper"><table><thead><tr><th>Ticket</th><th>Photos</th><th>By</th><th>When</th></tr></thead><tbody>';
+          for (const o of evOrders) {
+            const t = captureTime(o);
+            const when = t ? new Date(t).toLocaleString() : '–';
+            const by = o.source === 'guest'
+              ? `<span class="tag" style="color:#59c9a5; border-color:rgba(89,201,165,0.4);">Guest</span>`
+              : `<span class="tag">Staff</span>`;
+            h += `<tr data-order-id="${escHtml(o.orderId)}">
+              <td style="font-family:monospace; font-weight:800; color:#66d19e;">#${escHtml(o.raffleNumber)}</td>
+              <td>${escHtml(o.packSize ?? '?')}</td>
+              <td>${by}</td>
+              <td>${when}</td>
+            </tr>`;
+          }
+          h += '</tbody></table></div>';
+        }
+        box.innerHTML = h;
+        box.querySelectorAll('tbody tr').forEach(row => {
+          row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
+        });
+      }
+
+      // ─── Guest self-upload card (link + QR + settings) ───
+      let guestDbConnected = null; // null = unknown until an admin-event response / link check tells us
+
+      function guestLink(ev) {
+        return ev && ev.guestToken ? `${location.origin}/guest?t=${encodeURIComponent(ev.guestToken)}` : '';
+      }
+
+      function guestDbWarningHtml() {
+        if (guestDbConnected !== false) return '';
+        return `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:8px; color:#fbbf24; font-size:12px;">
+          ⚠️ The events database isn't connected yet (Cloudflare D1 binding <code>EVENTS_DB</code>). Guests will see "not set up yet" until it is. The staff page keeps working as before.
+        </div>`;
+      }
+      function setGuestDbWarning() {
+        const el = document.getElementById('ev-guest-dbwarn');
+        if (el) el.innerHTML = guestDbWarningHtml();
+      }
+
+      function renderGuestCard(ev) {
+        const box = document.getElementById('ev-guest-card');
+        if (!box || selectedEventId !== ev.id) return;
+        const on = !!ev.guestUpload;
+        const link = guestLink(ev);
+        const btnBase = 'padding:7px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;';
+        const btnGhost = btnBase + ' background:#111827; border:1px solid #374151; color:#e5e7eb;';
+
+        let h = `<div style="border:1px solid ${on ? 'rgba(89,201,165,0.45)' : '#1f2933'}; border-radius:10px; padding:12px; margin:4px 0 14px; background:#0b1220;">`;
+        h += `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="font-weight:700; font-size:14px;">📲 Guest self-upload</div>
+          <button id="ev-guest-toggle" style="${btnBase} min-width:74px; ${on ? 'background:#59c9a5; border:1px solid #59c9a5; color:#04211a;' : 'background:#111827; border:1px solid #374151; color:#9ca3af;'}">${on ? 'On' : 'Off'}</button>
+        </div>`;
+        h += `<div style="font-size:12px; color:#9ca3af; margin-top:4px;">Guests scan a QR code, add &amp; crop their own photos and are told their ticket number. Shares one number range with the staff page.</div>`;
+        h += `<div id="ev-guest-dbwarn">${guestDbWarningHtml()}</div>`;
+
+        if (on) {
+          if (!ev.active) {
+            h += `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:8px; color:#fbbf24; font-size:12px;">⚠️ This event is set <strong>Inactive</strong> — the guest link shows "closed" until you set it Active.</div>`;
+          }
+          if (!(Number(ev.perTicketLimit) > 0)) {
+            h += `<div style="padding:8px 10px; border:1px solid #374151; background:#111827; border-radius:8px; margin-top:8px; color:#d1d5db; font-size:12px;">ℹ️ No photos-per-ticket limit is set, so guests are capped at 20 photos.</div>`;
+          }
+          h += `<div id="ev-guest-status" style="font-size:12px; color:#9ca3af; margin-top:8px;">${link ? 'Checking link…' : ''}</div>`;
+
+          if (link) {
+            h += `<div style="display:flex; gap:6px; margin-top:8px;">
+              <input id="ev-guest-link" type="text" readonly value="${escHtml(link)}" style="flex:1; min-width:0; background:#020617; border:1px solid #374151; border-radius:8px; padding:7px 9px; font-size:12px; color:#e5e7eb; font-family:monospace;" />
+              <button id="ev-guest-copy" style="${btnGhost}">Copy</button>
+            </div>`;
+            h += `<div style="display:flex; gap:12px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+              <div id="ev-guest-qr" style="background:#fff; padding:6px; border-radius:8px; line-height:0; width:172px; height:172px; display:flex; align-items:center; justify-content:center; color:#111; font-size:11px;"></div>
+              <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:150px;">
+                <button id="ev-guest-qr-dl" style="${btnGhost}">⬇️ Download QR (PNG)</button>
+                <button id="ev-guest-regen" style="${btnGhost} color:#fca5a5; border-color:rgba(248,113,113,0.4);">🔄 Regenerate link</button>
+              </div>
+            </div>`;
+            h += `<label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; cursor:pointer;">
+              <input id="ev-guest-repeat" type="checkbox" ${ev.allowRepeat ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;" />
+              <span>Allow the same phone to upload again</span>
+            </label>
+            <div style="font-size:11px; color:#6b7280; margin:2px 0 0 26px;">Off = a phone that already uploaded just sees its number (soft check — clearing the browser gets round it).</div>`;
+          } else {
+            h += `<button id="ev-guest-regen" style="${btnGhost} margin-top:8px;">Create guest link</button>`;
+          }
+        }
+        h += `</div>`;
+        box.innerHTML = h;
+
+        document.getElementById('ev-guest-toggle').onclick = (e) =>
+          guestAction(ev, { action: 'guest', guestUpload: !on }, e.currentTarget);
+
+        const regen = document.getElementById('ev-guest-regen');
+        if (regen) regen.onclick = (e) => {
+          if (link && !confirm('Regenerate the guest link?\n\nThe old link and QR code stop working straight away — you will need to reprint / reshare the new QR.')) return;
+          guestAction(ev, { action: 'regen-token' }, e.currentTarget);
+        };
+
+        if (!on || !link) return;
+
+        const copyBtn = document.getElementById('ev-guest-copy');
+        copyBtn.onclick = () => copyGuestLink(link, copyBtn);
+
+        const repeat = document.getElementById('ev-guest-repeat');
+        repeat.onchange = () => guestAction(ev, { action: 'guest', allowRepeat: repeat.checked }, repeat);
+
+        const qrBox = document.getElementById('ev-guest-qr');
+        try {
+          const cv = makeQrCanvas(link, 6, 2);
+          cv.style.width = '160px'; cv.style.height = '160px'; cv.style.imageRendering = 'pixelated';
+          qrBox.innerHTML = '';
+          qrBox.appendChild(cv);
+        } catch (err) {
+          qrBox.textContent = err.message;
+        }
+        document.getElementById('ev-guest-qr-dl').onclick = () => {
+          try { downloadGuestQr(ev); } catch (err) { alert('QR download error: ' + err.message); }
+        };
+
+        checkGuestLinkStatus(ev);
+      }
+
+      // POST an admin-event action for this event, then update the card in place
+      async function guestAction(ev, payload, ctrl) {
+        const isBtn = ctrl && ctrl.tagName === 'BUTTON';
+        const orig = isBtn ? ctrl.innerHTML : '';
+        if (ctrl) ctrl.disabled = true;
+        if (isBtn) ctrl.textContent = 'Saving…';
+        try {
+          const res = await fetch('/api/admin-event', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: ev.id, ...payload })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+          if (typeof data.dbConnected === 'boolean') guestDbConnected = data.dbConnected;
+          if (data.event) {
+            Object.assign(ev, data.event);
+            const inList = events.find(e => e.id === ev.id);
+            if (inList && inList !== ev) Object.assign(inList, data.event);
+          }
+          if (currentMode === 'events') renderEventManager(); // list shows the 📲 Guest tag
+          renderGuestCard(ev);
+        } catch (e) {
+          alert('Could not update guest upload settings: ' + e.message);
+          renderGuestCard(ev); // restore the controls to the saved state
+        }
+      }
+
+      async function copyGuestLink(link, btn) {
+        let ok = false;
+        try { await navigator.clipboard.writeText(link); ok = true; } catch {}
+        if (!ok) {
+          try {
+            const inp = document.getElementById('ev-guest-link');
+            inp.focus(); inp.select();
+            ok = document.execCommand('copy');
+          } catch {}
+        }
+        btn.textContent = ok ? 'Copied ✓' : 'Select & copy';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+      }
+
+      // Ask the public guest endpoint what a guest would see right now
+      async function checkGuestLinkStatus(ev) {
+        const token = ev.guestToken;
+        if (!token) return;
+        let msg = '', color = '#9ca3af';
+        try {
+          const r = await fetch(`/api/guest-event?t=${encodeURIComponent(token)}`, { cache: 'no-store' });
+          const d = await r.json().catch(() => ({}));
+          if (d && d.open) {
+            guestDbConnected = true;
+            msg = '✅ Live — guests can upload now.'; color = '#66d19e';
+          } else if (r.status === 503 || (d && d.reason === 'not-setup')) {
+            guestDbConnected = false;
+            msg = '⛔ Not set up — the events database isn\'t connected yet.'; color = '#fbbf24';
+          } else if (d && d.reason === 'closed') {
+            msg = '⏸ Closed — guests are told uploads are closed (event Inactive or guest uploads Off).'; color = '#fbbf24';
+          } else if (d && d.reason === 'full') {
+            msg = '🎉 Full — every ticket number is taken, so guests can\'t get a number.'; color = '#fbbf24';
+          } else if (d && d.reason === 'invalid') {
+            msg = '⚠️ Link not recognised — try "Regenerate link".'; color = '#f87171';
+          } else {
+            msg = `Couldn't check the link (HTTP ${r.status}).`;
+          }
+        } catch {
+          msg = 'Couldn\'t check the link (offline?).';
+        }
+        // Ignore if the admin moved on or the token changed while we were checking
+        if (selectedEventId !== ev.id || ev.guestToken !== token) return;
+        const el = document.getElementById('ev-guest-status');
+        if (!el) return;
+        el.style.color = color;
+        el.textContent = msg;
+        setGuestDbWarning();
+      }
+
+      // Draw a QR code for `text` onto a canvas (black on white, `margin` quiet-zone modules)
+      function makeQrCanvas(text, scale, margin) {
+        if (typeof qrcode !== 'function') throw new Error('QR library didn\'t load — refresh the page.');
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        const n = qr.getModuleCount();
+        const size = (n + margin * 2) * scale;
+        const cv = document.createElement('canvas');
+        cv.width = size; cv.height = size;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < n; r++) {
+          for (let c = 0; c < n; c++) {
+            if (qr.isDark(r, c)) ctx.fillRect((c + margin) * scale, (r + margin) * scale, scale, scale);
+          }
+        }
+        return cv;
+      }
+
+      // Print-ready PNG: big QR + event name + "Scan to add your photos"
+      function downloadGuestQr(ev) {
+        const link = guestLink(ev);
+        if (!link) return;
+        const qrCv = makeQrCanvas(link, 16, 4);
+        const W = qrCv.width, capH = Math.round(W * 0.24);
+        const out = document.createElement('canvas');
+        out.width = W; out.height = W + capH;
+        const ctx = out.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(qrCv, 0, 0);
+        ctx.fillStyle = '#111111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const name = String(ev.name || '');
+        let fs = Math.round(W * 0.07);
+        ctx.font = `bold ${fs}px Arial, Helvetica, sans-serif`;
+        while (fs > 12 && ctx.measureText(name).width > W - 40) { fs -= 2; ctx.font = `bold ${fs}px Arial, Helvetica, sans-serif`; }
+        ctx.fillText(name, W / 2, W + capH * 0.25);
+        ctx.fillStyle = '#0f766e';
+        ctx.font = `${Math.round(W * 0.05)}px Arial, Helvetica, sans-serif`;
+        ctx.fillText('Scan to add your photos', W / 2, W + capH * 0.65);
+        const safe = (name || 'event').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'event';
+        out.toBlob(blob => {
+          if (!blob) { alert('Could not create the PNG.'); return; }
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${safe}-guest-upload-qr.png`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }, 'image/png');
       }
 
       // ─── Per-sheet (real-time) event printing ───
       let eventSheets = { eventId: null, photos: [] };
       let eventPollTimer = null;
+      let sheetRecheckTimer = null; // one-off: picks up tickets once they leave the settle window
+      let sheetLoadSeq = 0;         // only the newest photo-index build is applied
       let sheetBusy = false;
 
+      function clearSheetRecheck() {
+        if (sheetRecheckTimer) { clearTimeout(sheetRecheckTimer); sheetRecheckTimer = null; }
+      }
       function stopEventPolling() {
         if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
+        clearSheetRecheck();
+      }
+
+      // Re-check the sheets ~95s after the oldest ticket still inside the settle window was
+      // captured. Fetches a fresh order list first, because eligibility is judged against the
+      // list's own fetch time. With an explicit `delay` (sheet busy) it only re-syncs.
+      function scheduleSheetRecheck(ev, delay, forceRefetch) {
+        clearSheetRecheck();
+        if (currentMode !== 'events' || selectedEventId !== ev.id) return;
+        let refetch = !!forceRefetch;
+        if (delay == null) {
+          const serverNow = Date.now() + serverClockOffset;
+          const cutoff = sheetCutoff();
+          const waiting = completeEventOrders(ev.id).filter(o => captureTime(o) >= cutoff);
+          if (!waiting.length) return;
+          const first = Math.min(...waiting.map(captureTime));
+          delay = Math.max(5000, first + SHEET_RECHECK_MS - serverNow);
+          refetch = true;
+        }
+        sheetRecheckTimer = setTimeout(() => {
+          sheetRecheckTimer = null;
+          if (refetch) refreshOrdersAndSync(ev); else syncEventSheets(ev);
+        }, delay);
+      }
+
+      // One order-list fetch, then re-sync the sheets (used by the settle-window re-check)
+      async function refreshOrdersAndSync(ev) {
+        if (currentMode !== 'events' || selectedEventId !== ev.id) return;
+        try {
+          const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
+          if (!r.ok) { scheduleSheetRecheck(ev, 30000, true); return; }
+          const data = await r.json();
+          orders = data.orders || orders;
+          noteOrdersFetched(r);
+          if (currentMode !== 'events' || selectedEventId !== ev.id) return;
+          renderEventManager();
+          renderEventUploads(ev);
+          await syncEventSheets(ev);
+        } catch { scheduleSheetRecheck(ev, 30000, true); }
+      }
+
+      // Work out (right now) which tickets belong on the sheets and rebuild the photo
+      // index only if that set — or its photo count — differs from the current index.
+      async function syncEventSheets(ev) {
+        if (currentMode !== 'events' || selectedEventId !== ev.id) return;
+        if (sheetBusy) { scheduleSheetRecheck(ev, 5000); return; } // a sheet is downloading — try again shortly
+        const eligible = sheetEligibleOrders(ev.id);
+        const total = eligible.reduce((s, o) => s + (Number(o.packSize) || 0), 0);
+        const idx = eventSheets.eventId === ev.id ? eventSheets : null;
+        const ids = eligible.map(o => o.orderId);
+        const prevIds = (idx && idx.orderIds) || [];
+        const sameTickets = !!idx && ids.length === prevIds.length && ids.every((id, i) => id === prevIds[i]);
+        if (!sameTickets || total !== idx.photos.length) {
+          await loadEventSheets(ev); // re-evaluates eligibility itself and re-arms the re-check
+        } else {
+          renderSheetsUI(ev);        // refresh the "arriving" note
+          scheduleSheetRecheck(ev);
+        }
       }
 
       // Lightweight poll: check order summaries (which carry photo counts) and only
-      // do the heavier image-index rebuild when new photos have actually arrived.
+      // do the heavier image-index rebuild when the sheet-eligible tickets/photos changed.
       async function pollEventSheets(ev) {
         // Skip while downloading, off-tab, off-mode, or when the browser tab is hidden
         if (sheetBusy || document.hidden || currentMode !== 'events' || selectedEventId !== ev.id) return;
@@ -537,11 +923,14 @@
           const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
           if (!r.ok) return;
           orders = (await r.json()).orders || orders;
-          const total = orders.filter(o => o.eventId === ev.id)
-            .reduce((s, o) => s + (Number(o.packSize) || 0), 0);
-          if (total !== (eventSheets.eventId === ev.id ? eventSheets.photos.length : -1)) {
-            await loadEventSheets(ev);
-          }
+          noteOrdersFetched(r);
+          // The admin may have switched tab/event while this was loading
+          if (currentMode !== 'events' || selectedEventId !== ev.id) return;
+          renderEventManager();   // list counts
+          renderEventUploads(ev); // uploads table + guest "in progress" note
+          // Complete tickets older than the settle window only — computed now, so tickets
+          // that have aged past 90s since the last poll are picked up even if nothing else changed
+          await syncEventSheets(ev);
         } catch {}
       }
 
@@ -549,7 +938,7 @@
       async function refreshEventData(ev) {
         try {
           const r = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
-          if (r.ok) orders = (await r.json()).orders || orders;
+          if (r.ok) { orders = (await r.json()).orders || orders; noteOrdersFetched(r); }
         } catch {}
         selectAdminEvent(ev.id);
       }
@@ -557,54 +946,92 @@
       function getDownloadedSheets(id) {
         try { return JSON.parse(localStorage.getItem('mm_evsheets_' + id)) || []; } catch { return []; }
       }
-      function markSheetDownloaded(id, n) {
-        const arr = getDownloadedSheets(id);
-        if (!arr.includes(n)) { arr.push(n); localStorage.setItem('mm_evsheets_' + id, JSON.stringify(arr)); }
+      // Photo keys each sheet held when it was downloaded ({ sheetNo: [key, …] })
+      function getPrintedSheetKeys(id) {
+        try { return JSON.parse(localStorage.getItem('mm_evsheetkeys_' + id)) || {}; } catch { return {}; }
+      }
+      function markSheetDownloaded(id, n, keys) {
+        try {
+          const arr = getDownloadedSheets(id);
+          if (!arr.includes(n)) { arr.push(n); localStorage.setItem('mm_evsheets_' + id, JSON.stringify(arr)); }
+          if (Array.isArray(keys)) {
+            const printed = getPrintedSheetKeys(id);
+            printed[n] = keys;
+            localStorage.setItem('mm_evsheetkeys_' + id, JSON.stringify(printed));
+          }
+        } catch {} // storage full / blocked — the PDF itself was still saved
       }
 
       // Fetch the event's photo index (image keys only — no downloads) and render
       async function loadEventSheets(ev) {
         const box = document.getElementById('event-sheets');
         if (!box) return;
-        box.innerHTML = '<div class="field-value" style="color:#9ca3af;">Loading sheets…</div>';
+        const seq = ++sheetLoadSeq;
+        // Keep showing the last index while a background rebuild runs; spinner only on first load
+        const hadIndex = eventSheets.eventId === ev.id;
+        if (hadIndex) renderSheetsUI(ev);
+        else box.innerHTML = '<div class="field-value" style="color:#9ca3af;">Loading sheets…</div>';
         try {
-          const evOrders = orders.filter(o => o.eventId === ev.id)
-            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+          // Complete tickets whose capture time (completedAt || createdAt) is >90s old, in
+          // capture order — this order must never change retroactively, since printed sheets
+          // are remembered by index. Newer tickets wait (see SHEET_SETTLE_MS).
+          const evOrders = sheetEligibleOrders(ev.id);
           const photos = [];
           for (const o of evOrders) {
             const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
             const data = await res.json();
-            (data.images || []).slice().sort((a, b) => String(a.key).localeCompare(String(b.key)))
+            // A failed listing must not silently drop a ticket (that would shift every later sheet)
+            if (!res.ok || !Array.isArray(data.images)) throw new Error(data.error || `HTTP ${res.status}`);
+            data.images.slice().sort((a, b) => String(a.key).localeCompare(String(b.key)))
               .forEach(img => photos.push({ orderId: o.orderId, key: img.key, ticket: o.raffleNumber }));
           }
-          eventSheets = { eventId: ev.id, photos };
+          if (seq !== sheetLoadSeq) return; // a newer rebuild (or another event) took over
+          eventSheets = { eventId: ev.id, photos, orderIds: evOrders.map(o => o.orderId) };
           renderSheetsUI(ev);
         } catch (e) {
-          box.innerHTML = '<div class="field-value" style="color:#ef4444;">Could not load sheets.</div>';
+          if (seq !== sheetLoadSeq) return;
+          if (eventSheets.eventId === ev.id) renderSheetsUI(ev, 'Could not refresh the photo list — showing the last one, will retry.');
+          else box.innerHTML = '<div class="field-value" style="color:#ef4444;">Could not load sheets.</div>';
+        } finally {
+          if (seq === sheetLoadSeq) scheduleSheetRecheck(ev);
         }
       }
 
-      function renderSheetsUI(ev) {
+      function renderSheetsUI(ev, note) {
         const box = document.getElementById('event-sheets');
-        if (!box || eventSheets.eventId !== ev.id) return;
+        if (!box || eventSheets.eventId !== ev.id || selectedEventId !== ev.id) return;
         const photos = eventSheets.photos;
+        const indexed = new Set(eventSheets.orderIds || []);
+        let h = '';
+        if (note) {
+          h += `<div style="padding:6px 10px; border:1px solid #f59e0b; border-radius:8px; margin-bottom:8px; color:#fbbf24; font-size:12px;">⚠️ ${escHtml(note)}</div>`;
+        }
+        // Complete tickets not on the sheets yet (still inside the 90s settle window)
+        const arriving = completeEventOrders(ev.id).filter(o => !indexed.has(o.orderId)).length;
+        if (arriving) {
+          h += `<div style="padding:8px 12px; border:1px solid rgba(89,201,165,0.4); background:rgba(89,201,165,0.08); border-radius:8px; margin-bottom:8px; color:#a7f3d0; font-size:13px;">
+            ⏳ ${arriving} ticket${arriving === 1 ? '' : 's'} arriving — added to sheets after 90s so printed sheets never shift.
+          </div>`;
+        }
         if (photos.length === 0) {
-          box.innerHTML = '<div class="field-value" style="color:#9ca3af;">No photos captured yet.</div>';
+          box.innerHTML = h + `<div class="field-value" style="color:#9ca3af;">${arriving ? 'No photos on the sheets yet.' : 'No photos captured yet.'}</div>`;
           return;
         }
         const sheetCount = Math.ceil(photos.length / PER_PAGE);
         const done = getDownloadedSheets(ev.id);
-        let h = '';
+        const printedKeys = getPrintedSheetKeys(ev.id);
 
         // Safety net: flag tickets whose actual photo count is below what was ordered
         const actualByOrder = {};
         photos.forEach(p => { actualByOrder[p.orderId] = (actualByOrder[p.orderId] || 0) + 1; });
-        const missing = orders
-          .filter(o => o.eventId === ev.id)
+        // (tickets that are part of this photo index only — unfinished guest uploads and
+        //  tickets still inside the settle window are ignored)
+        const missing = completeEventOrders(ev.id)
+          .filter(o => indexed.has(o.orderId))
           .map(o => ({ ticket: o.raffleNumber, short: (Number(o.packSize) || 0) - (actualByOrder[o.orderId] || 0) }))
           .filter(m => m.short > 0);
         if (missing.length) {
-          const list = missing.map(m => `#${m.ticket} (${m.short} missing)`).join(', ');
+          const list = missing.map(m => `#${escHtml(m.ticket)} (${m.short} missing)`).join(', ');
           h += `<div style="padding:10px 12px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-bottom:10px; color:#fbbf24; font-size:13px;">
             ⚠️ Possible failed uploads — these tickets have fewer photos than ordered: <strong>${list}</strong>. Recapture them on the event page.
           </div>`;
@@ -615,11 +1042,22 @@
           const n = i + 1;
           const full = slice.length === PER_PAGE;
           const tickets = slice.map(p => p.ticket).filter(t => t != null);
-          const range = tickets.length ? `#${tickets[0]}–#${tickets[tickets.length - 1]}` : '';
+          const range = tickets.length ? `#${escHtml(tickets[0])}–#${escHtml(tickets[tickets.length - 1])}` : '';
           const isDone = done.includes(n);
+          // Compare with what this sheet held when it was downloaded (if we recorded it)
+          let doneTag = isDone ? '<span style="color:#66d19e;">✓ done</span>' : '';
+          const printed = printedKeys[n];
+          if (isDone && Array.isArray(printed)) {
+            const cur = slice.map(p => p.key);
+            if (!printed.every((k, j) => cur[j] === k)) {
+              doneTag = '<span style="color:#f87171;">⚠️ changed since you downloaded it — check before printing again</span>';
+            } else if (cur.length > printed.length) {
+              doneTag = `<span style="color:#fbbf24;">✓ downloaded with ${printed.length} · ${cur.length - printed.length} added since</span>`;
+            }
+          }
           h += `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #1f2933; border-radius:8px; margin-bottom:6px;">
             <div>
-              <div style="font-weight:700;">Sheet ${n} ${isDone ? '<span style="color:#66d19e;">✓ done</span>' : ''}</div>
+              <div style="font-weight:700;">Sheet ${n} ${doneTag}</div>
               <div style="font-size:12px; color:#9ca3af;">${slice.length}/9 ${range ? '· ' + range : ''}${full ? '' : ' · waiting for more'}</div>
             </div>
             <button class="btn-action ev-sheet-btn" data-sheet="${i}" style="padding:6px 12px; ${full && !isDone ? 'background:#059669; border-color:#059669; color:#fff;' : ''}">${isDone ? 'Re-download' : 'Download'}</button>
@@ -638,15 +1076,20 @@
         btn.disabled = true; btn.textContent = '…';
         sheetBusy = true;
         try {
-          const items = [];
+          const items = [], failed = [];
           for (let i = 0; i < slice.length; i++) {
             btn.textContent = `${i + 1}/${slice.length}`;
             const src = `/api/admin-order-image?orderId=${slice[i].orderId}&objectKey=${encodeURIComponent(slice[i].key)}&key=${encodeURIComponent(adminKey)}`;
-            items.push({ data: squareDataUrl(await loadImg(src)), ticket: slice[i].ticket });
+            const who = printWho({ raffleNumber: slice[i].ticket, orderId: slice[i].orderId });
+            let data;
+            try { data = await loadSquareTile(src); }
+            catch { data = failedTileDataUrl(who); failed.push({ who, what: 'photo' }); } // one bad photo must not break the sheet
+            items.push({ data, ticket: slice[i].ticket });
           }
           buildAndSave(items, [], [], `${ev.name}-sheet-${sheetIdx + 1}`, true, ev.name);
-          markSheetDownloaded(ev.id, sheetIdx + 1);
+          markSheetDownloaded(ev.id, sheetIdx + 1, slice.map(p => p.key));
           renderSheetsUI(ev);
+          if (failed.length) alert(photoFailureMessage(failed, `Sheet ${sheetIdx + 1} was saved`));
         } catch (e) {
           alert('Sheet download error: ' + e.message);
           btn.disabled = false; btn.innerHTML = orig;
@@ -689,6 +1132,52 @@
         const sx = (img.naturalWidth - s) / 2, sy = (img.naturalHeight - s) / 2;
         ctx.drawImage(img, sx, sy, s, s, 0, 0, px, px);
         return canvas.toDataURL('image/jpeg', 0.92);
+      }
+
+      // Load + square-crop one photo; throws if it can't be fetched or decoded
+      async function loadSquareTile(src) {
+        const img = await loadImg(src);
+        if (!img.naturalWidth || !img.naturalHeight) throw new Error('Image could not be decoded');
+        return squareDataUrl(img);
+      }
+
+      // "Ticket #12" for event tickets, "Order 1a2b3c4d" otherwise (used in failure notices)
+      function printWho(o) {
+        return o.raffleNumber != null ? `Ticket #${o.raffleNumber}` : `Order ${String(o.orderId || '?').slice(0, 8)}`;
+      }
+
+      // Plain light-grey stand-in tile (same square size as a real photo) for a photo that failed to load
+      function failedTileDataUrl(who, px = 620) {
+        const cv = document.createElement('canvas');
+        cv.width = px; cv.height = px;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, px, px);
+        ctx.fillStyle = '#4b5563'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(px * 0.08)}px Arial, Helvetica, sans-serif`;
+        ctx.fillText('Photo failed', px / 2, px / 2 - px * 0.06);
+        ctx.font = `${Math.round(px * 0.065)}px Arial, Helvetica, sans-serif`;
+        ctx.fillText(String(who).toLowerCase(), px / 2, px / 2 + px * 0.06);
+        return cv.toDataURL('image/jpeg', 0.92);
+      }
+
+      // Short alert text listing which tickets/orders had photos fail.
+      // failed = [{ who, what: 'photo' | 'list' }]
+      function photoFailureMessage(failed, savedWhat) {
+        const byWho = new Map();
+        for (const f of failed) {
+          const e = byWho.get(f.who) || { photos: 0, list: false };
+          if (f.what === 'list') e.list = true; else e.photos++;
+          byWho.set(f.who, e);
+        }
+        const lines = [...byWho].map(([who, e]) => {
+          const parts = [];
+          if (e.photos) parts.push(`${e.photos} photo${e.photos === 1 ? '' : 's'} printed as a grey placeholder`);
+          if (e.list) parts.push('photo list could not be loaded — not included');
+          return `• ${who}: ${parts.join('; ')}`;
+        });
+        const shown = lines.slice(0, 10);
+        if (lines.length > 10) shown.push(`…and ${lines.length - 10} more`);
+        return `${savedWhat}, but some photos could not be loaded:\n\n${shown.join('\n')}\n\nPrint these again from their order once they load.`;
       }
 
       // Render a border label to a transparent PNG, pre-rotated and centred.
@@ -897,17 +1386,28 @@
       }
 
       // Fetch + crop photos for a set of orders, split into magnet & keyring items
+      // Photos that fail to load/decode become a grey placeholder tile (same size) and are
+      // reported in `failed` ([{ who, what }]) so the caller can alert after saving the PDF.
       async function prepareItems(orderList, onProgress) {
-        const raw = [];
+        const raw = [], failed = [];
         for (const o of orderList) {
           const kind = productKind(o);
           if (!kind) continue;
-          const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
-          const data = await res.json();
+          const who = printWho(o);
+          let data;
+          try {
+            const res = await fetch(`/api/admin-order-images?orderId=${o.orderId}`, { headers: { Authorization: `Bearer ${adminKey}` } });
+            data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          } catch {
+            failed.push({ who, what: 'list' }); // report it instead of silently dropping the order
+            continue;
+          }
           const imgs = (data.images || []).slice().sort((a, b) => String(a.key).localeCompare(String(b.key)));
           imgs.forEach((img, idx) => {
             raw.push({
               kind,
+              who,
               ticket: o.raffleNumber,
               isEvent: !!o.eventId,
               label: kind === 'keyring' ? keyringLabel(img.key, idx) : (kind === 'badge' ? badgeLabel(img.key) : null),
@@ -918,13 +1418,15 @@
         const magnets = [], keyrings = [], badges = [];
         for (let i = 0; i < raw.length; i++) {
           if (onProgress) onProgress(i + 1, raw.length);
-          const data = squareDataUrl(await loadImg(raw[i].src));
+          let data;
+          try { data = await loadSquareTile(raw[i].src); }
+          catch { data = failedTileDataUrl(raw[i].who); failed.push({ who: raw[i].who, what: 'photo' }); }
           if (raw[i].kind === 'keyring') keyrings.push({ data, label: raw[i].label });
           else if (raw[i].kind === 'badge') badges.push({ data, label: raw[i].label });
           else magnets.push({ data, ticket: raw[i].ticket });
         }
         const showNumbers = raw.some(r => r.kind === 'magnet' && r.isEvent);
-        return { magnets, keyrings, badges, showNumbers };
+        return { magnets, keyrings, badges, showNumbers, failed };
       }
 
       // Placeholder tile so you can check cut alignment without real photos
@@ -971,17 +1473,20 @@
         btn.disabled = true; btn.textContent = 'Gathering photos…';
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
-          const evOrders = orders
-            .filter(o => o.eventId === ev.id)
-            .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+          // ALL complete tickets (no 90s settle window here), same capture order as the per-sheet view
+          const evOrders = completeEventOrders(ev.id);
 
-          const { magnets, keyrings, badges, showNumbers } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
-          if (!magnets.length && !keyrings.length && !badges.length) { alert('No photos to print for this event yet.'); btn.disabled = false; btn.innerHTML = orig; return; }
+          const { magnets, keyrings, badges, showNumbers, failed } = await prepareItems(evOrders, (n, total) => { btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length && !badges.length) {
+            alert(failed.length ? photoFailureMessage(failed, 'Nothing was printed') : 'No photos to print for this event yet.');
+            btn.disabled = false; btn.innerHTML = orig; return;
+          }
 
           btn.textContent = 'Building PDF…';
           const sheets = buildAndSave(magnets, keyrings, badges, ev.name, showNumbers, ev.name);
           btn.textContent = `✅ ${sheets} sheet(s) downloaded`;
           setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2500);
+          if (failed.length) alert(photoFailureMessage(failed, 'The PDF was saved'));
         } catch (e) {
           alert('Print sheet error: ' + e.message);
           btn.disabled = false; btn.innerHTML = orig;
@@ -994,10 +1499,14 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
         try {
           if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
-          const { magnets, keyrings, badges, showNumbers } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
-          if (!magnets.length && !keyrings.length && !badges.length) { alert('No printable photos found.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+          const { magnets, keyrings, badges, showNumbers, failed } = await prepareItems(orderList, (n, total) => { if (btn) btn.textContent = `Loading ${n}/${total}…`; });
+          if (!magnets.length && !keyrings.length && !badges.length) {
+            alert(failed.length ? photoFailureMessage(failed, 'Nothing was printed') : 'No printable photos found.');
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; } return;
+          }
           buildAndSave(magnets, keyrings, badges, filenameBase, showNumbers, eventName);
           if (btn) { btn.textContent = '✅ Downloaded'; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); }
+          if (failed.length) alert(photoFailureMessage(failed, 'The PDF was saved'));
         } catch (e) {
           alert('Print sheet error: ' + e.message);
           if (btn) { btn.disabled = false; btn.innerHTML = orig; }
@@ -1061,7 +1570,7 @@
           const res = await fetch(`/api/admin-orders`, { headers: { Authorization: `Bearer ${adminKey}` } });
           if (res.status === 401) { headerSubtitle.textContent = "Invalid admin key."; listContainer.innerHTML = '<div class="empty-state">Invalid key.</div>'; return; }
           const data = await res.json();
-          orders = data.orders || []; applyFilters();
+          orders = data.orders || []; noteOrdersFetched(res); applyFilters();
         } catch (err) { listContainer.innerHTML = '<div class="empty-state">Error loading orders.</div>'; }
       }
 
@@ -1239,7 +1748,7 @@
           let topBanner = "";
           if (order.eventId) {
               const evName = (events.find(e => e.id === order.eventId) || {}).name || order.eventId;
-              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${evName}<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.raffleNumber ?? '?'}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
+              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${escHtml(evName)}<div style="font-size:3em; line-height:1; margin-top:4px;">#${escHtml(order.raffleNumber ?? '?')}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
           } else if (order.event === 'BINGO') {
               let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
@@ -1257,7 +1766,14 @@
 
           let html = topBanner;
           html += `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
-          
+          if (order.eventId) {
+            const who = order.source === 'guest' ? '📲 Guest (self-upload)' : '🧑‍💼 Staff (event page)';
+            html += `<div class="field-label">Uploaded by</div><div class="field-value">${who}</div>`;
+            if (!isCompleteEventOrder(order)) {
+              html += `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:6px; color:#fbbf24; font-size:12px;">⏳ Upload not finished — no ticket number yet, so it's left off the event's print sheets.</div>`;
+            }
+          }
+
           html += `<div class="field-label">Status</div>`;
           if (order.status === 'draft' || order.status === 'abandoned') {
               let recoveryMsg = (order.recoverySent) 

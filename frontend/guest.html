@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>Send Your Photos | Magnetic Memories</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+  <meta name="theme-color" content="#59c9a5" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+          colors: {
+            brand: '#59c9a5',
+            'brand-deep': '#1f7a5f',
+            'brand-ink': '#06261d',
+            'brand-soft': '#e8f7f1',
+            ink: '#15222b',
+            muted: '#5b6b73',
+            line: '#d9e8e2'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --brand: #59c9a5;
+      --brand-deep: #1f7a5f;
+      --brand-ink: #06261d;
+      --bg: #f3faf7;
+      --ink: #15222b;
+      --muted: #5b6b73;
+      --line: #d9e8e2;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      background-color: var(--bg);
+      color: var(--ink);
+      -webkit-tap-highlight-color: transparent;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ---------- Spinner ---------- */
+    .spinner {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 4px solid rgba(89,201,165,0.25); border-top-color: var(--brand);
+      animation: mm-spin 0.8s linear infinite;
+    }
+    @keyframes mm-spin { to { transform: rotate(360deg); } }
+
+    /* ---------- Status / notice boxes ---------- */
+    .msg-box { border-radius: 14px; padding: 12px 14px; font-size: 0.92rem; line-height: 1.4; border: 1px solid transparent; }
+    .msg-box.error { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    .msg-box.warn  { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+    .msg-box.info  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+
+    /* ---------- Add-photos button (real file input on top, for in-app browsers) ---------- */
+    .add-wrap {
+      position: relative; overflow: hidden;
+      min-height: 116px; border-radius: 18px;
+      border: 2px dashed #9ddcc6; background: #f3fbf8;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      transition: background-color .15s ease, border-color .15s ease;
+    }
+    .add-wrap:active { background: #e1f5ed; border-color: var(--brand); }
+    .add-wrap.hidden { display: none; }
+    .add-wrap input[type=file] {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      opacity: 0.01; cursor: pointer; z-index: 5;
+      color: transparent; font-size: 16px;
+    }
+    .is-busy .add-wrap { display: none !important; }
+
+    /* ---------- Photo tiles (padding-top square for older webviews) ---------- */
+    .tile { position: relative; padding-top: 100%; border-radius: 14px; overflow: hidden; background: #e5efeb; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    /* "button.x" selectors: Tailwind's preflight ([type=button]{background:transparent}) is injected after this sheet */
+    button.tile-btn { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+    button.tile-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    button.tile-remove {
+      position: absolute; top: 4px; right: 4px; z-index: 3;
+      width: 36px; height: 36px; border-radius: 50%; border: 0;
+      background: rgba(17,24,39,0.72); color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .tile-badge {
+      position: absolute; left: 6px; bottom: 6px; z-index: 2;
+      min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px;
+      background: rgba(255,255,255,0.92); color: var(--ink);
+      font-size: 12px; font-weight: 700; line-height: 24px; text-align: center; pointer-events: none;
+    }
+    .is-busy button.tile-btn, .is-busy button.tile-remove { pointer-events: none; }
+    .is-busy button.tile-remove { display: none; }
+    .is-busy .tile { opacity: 0.75; }
+
+    /* ---------- Raffle-ticket card ---------- */
+    .ticket {
+      position: relative; background: var(--brand); color: var(--brand-ink);
+      border-radius: 24px; padding: 18px; box-shadow: 0 14px 34px rgba(31,122,95,0.28);
+    }
+    .ticket::before, .ticket::after {
+      content: ''; position: absolute; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+      border-radius: 50%; background: var(--bg);
+    }
+    .ticket::before { left: -14px; }
+    .ticket::after { right: -14px; }
+    .ticket-inner { border: 2px dashed rgba(6,38,29,0.35); border-radius: 16px; padding: 18px 10px 22px; }
+    .ticket-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
+    .ticket-num {
+      display: block; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+      font-size: clamp(4rem, 24vw, 8rem); white-space: nowrap;
+      font-variant-numeric: tabular-nums; margin-top: 6px;
+    }
+    .ticket-nums-multi { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+    .ticket-num-sm {
+      display: inline-block; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em;
+      font-size: clamp(2.4rem, 13vw, 3.6rem); margin: 2px 10px; font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+
+    /* ---------- Crop modal (above everything) ---------- */
+    #crop-modal {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2147483000;
+      background: rgba(6,20,16,0.9);
+      display: flex;
+      padding: 12px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    }
+    #crop-modal.hidden { display: none; }
+    .crop-card {
+      margin: auto;   /* centres without clipping when the screen is short */
+      width: 100%; max-width: 440px;
+      background: #fff; border-radius: 22px; padding: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      display: flex; flex-direction: column;
+      outline: none;
+    }
+    .crop-box {
+      position: relative; width: 100%;
+      height: 56vh; max-height: 440px; min-height: 220px;
+      background: #111; border-radius: 14px; overflow: hidden;
+    }
+    @supports (height: 1dvh) { .crop-box { height: 56dvh; } }
+    .crop-box > img { display: block; max-width: 100%; }
+    #crop-loading {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #d1e7df; font-size: 0.9rem; background: #111;
+    }
+    #crop-loading.hidden { display: none; }
+    @media (max-height: 520px) {
+      .crop-box { height: 52vh; min-height: 150px; }
+      @supports (height: 1dvh) { .crop-box { height: 52dvh; } }
+      .crop-card { padding: 10px 12px; }
+      #crop-hint { display: none; }
+    }
+    button.crop-btn { min-height: 56px; border-radius: 16px; font-weight: 700; font-size: 1.05rem; border: 0; cursor: pointer; }
+    button.crop-btn:disabled { opacity: 0.45; cursor: default; }
+    button.crop-cancel-btn { background: #f1f5f9; color: var(--ink); }
+    .cropper-view-box { outline: 2px solid rgba(89,201,165,0.95); outline-color: rgba(89,201,165,0.95); }
+    .cropper-line { background-color: #59c9a5; }
+    .cropper-point { background-color: #59c9a5; }
+
+    button.btn-primary {
+      background: var(--brand); color: var(--brand-ink);
+      box-shadow: 0 8px 22px rgba(31,122,95,0.25);
+    }
+    button.btn-primary:active { transform: translateY(1px); }
+    button.btn-primary:disabled { opacity: 0.45; box-shadow: none; }
+    button.btn-outline { background: #fff; color: var(--brand-deep); border: 2px solid var(--brand); }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+
+  <header class="pt-6 pb-3 px-4 text-center">
+    <img src="/logo.png" alt="Magnetic Memories" class="mx-auto h-20 sm:h-24 w-auto object-contain" />
+  </header>
+
+  <main class="mx-auto w-full max-w-md px-4 pb-16">
+
+    <noscript>
+      <div class="msg-box warn mt-4">Please turn on JavaScript to send your photos.</div>
+    </noscript>
+
+    <!-- LOADING -->
+    <section id="view-loading" class="py-16 flex flex-col items-center text-center">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text" class="mt-4 text-sm text-muted">Loading…</p>
+    </section>
+
+    <!-- MESSAGE (invalid / closed / full / not set up / network) -->
+    <section id="view-message" class="hidden pt-4">
+      <div class="bg-white rounded-3xl border border-line shadow-sm px-6 py-8 text-center">
+        <div id="msg-icon" class="mx-auto w-14 h-14 rounded-full bg-brand-soft text-brand-deep flex items-center justify-center" aria-hidden="true"></div>
+        <p id="msg-event" class="hidden mt-5 text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
+        <h1 id="msg-title" class="mt-2 font-serif text-2xl font-semibold text-ink"></h1>
+        <p id="msg-text" class="mt-3 text-sm leading-relaxed text-muted"></p>
+        <div id="msg-prev" class="hidden mt-6 rounded-2xl bg-brand-soft px-4 py-4">
+          <p class="text-xs font-bold uppercase tracking-widest text-brand-deep">Your number from earlier</p>
+          <p id="msg-prev-nums" class="mt-1 text-3xl font-extrabold text-brand-ink"></p>
+        </div>
+        <button id="msg-retry" type="button" class="hidden mt-6 w-full min-h-[56px] rounded-2xl btn-primary font-bold text-lg">Try again</button>
+      </div>
+    </section>
+
+    <!-- ALREADY UPLOADED ON THIS PHONE (allowRepeat off) -->
+    <section id="view-done-before" class="hidden pt-2 text-center">
+      <p id="done-event" class="text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
+      <h1 id="done-title" class="mt-2 font-serif text-2xl font-semibold text-ink leading-snug"></h1>
+      <div class="ticket mt-6 mx-2">
+        <div class="ticket-inner">
+          <p id="done-label" class="ticket-label">Your number is</p>
+          <div id="done-nums"></div>
+        </div>
+      </div>
+      <p id="done-text" class="mt-6 text-base leading-relaxed text-ink"></p>
+    </section>
+
+    <!-- UPLOAD FORM -->
+    <section id="view-form" class="hidden">
+      <div class="text-center mb-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-brand-deep">Send us your photos</p>
+        <h1 id="event-name" class="mt-1 font-serif text-2xl sm:text-3xl font-semibold text-ink leading-tight"></h1>
+        <p id="intro-text" class="mt-2 text-sm leading-relaxed text-muted"></p>
+      </div>
+
+      <div id="prev-banner" class="hidden msg-box info mb-4"></div>
+
+      <div class="bg-white rounded-3xl border border-line shadow-sm p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-ink">Your photos</h2>
+          <span id="photo-counter" class="text-sm font-bold text-brand-deep bg-brand-soft rounded-full px-3 py-1">0 of 1</span>
+        </div>
+
+        <div id="photo-grid" class="grid grid-cols-3 gap-2 mb-3 hidden"></div>
+
+        <div id="add-wrap" class="add-wrap">
+          <div class="flex flex-col items-center px-4 py-5 pointer-events-none" aria-hidden="true">
+            <span class="w-12 h-12 rounded-full bg-brand text-brand-ink flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            </span>
+            <span id="add-label" class="mt-2 font-bold text-ink text-lg">Add photos</span>
+            <span class="text-xs text-muted">Take a photo or choose from your gallery</span>
+          </div>
+          <input id="file-input" type="file" accept="image/*" multiple aria-label="Add photos" />
+        </div>
+
+        <p id="photo-hint" class="mt-3 text-xs text-center text-muted"></p>
+        <div id="notice" class="hidden msg-box warn mt-3" role="alert"></div>
+      </div>
+
+      <div id="progress-wrap" class="hidden mt-4" aria-hidden="true">
+        <div class="h-2.5 w-full rounded-full bg-white border border-line overflow-hidden">
+          <div id="progress-bar" class="h-full bg-brand transition-all duration-300" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div id="status" class="hidden msg-box mt-4" role="status" aria-live="polite"></div>
+
+      <button id="submit-btn" type="button" disabled class="mt-4 w-full min-h-[60px] rounded-2xl btn-primary font-bold text-lg px-4">Add a photo to continue</button>
+
+      <p class="mt-5 text-xs text-center leading-relaxed text-muted">
+        No names or emails needed. By sending, you confirm you're happy for us to print these photos.
+        We only use them to make your magnets.
+        <a href="/legal.html" class="underline" target="_blank" rel="noopener">Privacy</a>
+      </p>
+    </section>
+
+    <!-- SUCCESS -->
+    <section id="view-success" class="hidden pt-2 text-center">
+      <p id="success-event" class="text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
+      <h1 class="mt-2 font-serif text-2xl font-semibold text-ink">All done – thank you!</h1>
+      <div class="ticket mt-6 mx-2">
+        <div class="ticket-inner">
+          <p class="ticket-label">Your number is</p>
+          <div id="success-nums"></div>
+        </div>
+      </div>
+      <p id="success-text" class="mt-6 text-base leading-relaxed text-ink"></p>
+      <p id="success-resumed" class="hidden mt-3 text-sm text-muted">The photos you sent earlier reached us safely – this is their number.</p>
+      <p id="success-earlier" class="hidden mt-3 text-sm text-muted"></p>
+      <button id="again-btn" type="button" class="hidden mt-8 w-full min-h-[56px] rounded-2xl btn-outline font-bold text-base">Send another set of photos</button>
+    </section>
+  </main>
+
+  <!-- CROP MODAL -->
+  <div id="crop-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div id="crop-card" class="crop-card" tabindex="-1">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="crop-title" class="font-semibold text-lg text-ink">Crop your photo</h3>
+        <span id="crop-step" class="hidden text-xs font-bold text-brand-deep bg-brand-soft rounded-full px-3 py-1"></span>
+      </div>
+      <div class="crop-box">
+        <img id="crop-image" alt="Photo being cropped" />
+        <div id="crop-loading"><div class="spinner" aria-hidden="true"></div><span class="mt-3">Opening photo…</span></div>
+      </div>
+      <p id="crop-hint" class="mt-3 text-xs text-center text-muted">Drag to move · pinch to zoom. The square is exactly what we'll print.</p>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <button id="crop-cancel" type="button" class="crop-btn crop-cancel-btn">Cancel</button>
+        <button id="crop-save" type="button" class="crop-btn btn-primary" disabled>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── Constants / state ─────────────────────────────────────────
+      const HARD_MAX = 20;           // guest cap when the event has no per-ticket limit
+      const UPLOAD_ATTEMPTS = 4;
+      const $ = (id) => document.getElementById(id);
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      const ICONS = {
+        alert: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+        clock: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        wifi: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg>',
+        x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+      };
+
+      const state = {
+        token: '',
+        event: null,       // { id, name, perTicketLimit, allowRepeat, maxPhotos }
+        maxPhotos: HARD_MAX,
+        photos: [],        // { id, ver, srcUrl (original, kept for re-crop), blob (cropped JPEG), thumbUrl }
+        pending: null,     // { orderId, sig, keys: { [photoId]: r2Key }, complete }
+        busy: false,
+        cropping: false,
+        nextId: 1
+      };
+
+      // NOTE: all server-provided text (event name, error messages) is written with
+      // textContent, never innerHTML. innerHTML is only used for the static ICONS markup.
+
+      function getToken() {
+        try { return (new URLSearchParams(window.location.search).get('t') || '').trim(); }
+        catch (e) {
+          const m = /[?&]t=([^&#]*)/.exec(window.location.search || '');
+          try { return m ? decodeURIComponent(m[1]).trim() : ''; } catch (e2) { return ''; }
+        }
+      }
+
+      async function fetchWithTimeout(url, opts, ms) {
+        const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms) : null;
+        try {
+          return await fetch(url, Object.assign({}, opts || {}, ctrl ? { signal: ctrl.signal } : {}));
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
+
+      function plural(n, one, many) { return n === 1 ? one : many; }
+
+      function formatNums(nums) {
+        const parts = nums.map((n) => '#' + n);
+        if (parts.length <= 1) return parts.join('');
+        return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+      }
+
+      // ── Device lock (soft deterrent: localStorage + cookie) ───────
+      function lockKey(eventId) { return 'mm_guest_' + eventId; }
+      function cookieName(eventId) { return 'mm_guest_' + String(eventId).replace(/[^A-Za-z0-9_-]/g, '_'); }
+
+      function addNum(set, v) {
+        const n = Number(String(v).trim());
+        if (Number.isInteger(n) && n >= 0) set.add(n);
+      }
+
+      function readLock(eventId) {
+        const nums = new Set();
+        if (!eventId) return [];
+        try {
+          const raw = window.localStorage.getItem(lockKey(eventId));
+          if (raw) {
+            const obj = JSON.parse(raw);
+            if (obj && Array.isArray(obj.numbers)) obj.numbers.forEach((v) => addNum(nums, v));
+          }
+        } catch (e) { /* storage blocked */ }
+        try {
+          const prefix = cookieName(eventId) + '=';
+          const parts = document.cookie ? document.cookie.split(';') : [];
+          for (const part of parts) {
+            const c = part.trim();
+            if (c.indexOf(prefix) === 0) {
+              let val = c.slice(prefix.length);
+              try { val = decodeURIComponent(val); } catch (e) {}
+              val.split(',').forEach((v) => { if (v.trim()) addNum(nums, v); });
+            }
+          }
+        } catch (e) { /* cookies blocked */ }
+        return Array.from(nums).sort((a, b) => a - b);
+      }
+
+      function saveLock(eventId, number) {
+        if (!eventId) return;
+        const nums = readLock(eventId);
+        if (nums.indexOf(number) === -1) nums.push(number);
+        nums.sort((a, b) => a - b);
+        try { window.localStorage.setItem(lockKey(eventId), JSON.stringify({ numbers: nums })); } catch (e) {}
+        try {
+          document.cookie = cookieName(eventId) + '=' + nums.join(',') +   // digits + commas only
+            '; max-age=31536000; path=/; SameSite=Lax' +
+            (window.location.protocol === 'https:' ? '; Secure' : '');
+        } catch (e) {}
+      }
+
+      // ── Unanswered finalize (survives a reload) ───────────────────
+      // Saved just before guest-finalize is called and cleared once a number comes back
+      // (or the order turns out to be dead), so a lost reply / reload can't strand a
+      // number the guest never saw - or let them upload again for a second one.
+      function pendingKey(eventId) { return 'mm_guest_pending_' + eventId; }
+
+      function readPending(eventId) {
+        if (!eventId) return null;
+        let raw = null;
+        try { raw = window.localStorage.getItem(pendingKey(eventId)); } catch (e) { return null; }
+        if (!raw) return null;
+        try {
+          const obj = JSON.parse(raw);
+          if (obj && typeof obj.orderId === 'string' && obj.orderId &&
+              Array.isArray(obj.keys) && obj.keys.every((k) => typeof k === 'string')) {
+            return { orderId: obj.orderId, keys: obj.keys.slice() };
+          }
+        } catch (e) { /* garbled */ }
+        clearPending(eventId);
+        return null;
+      }
+
+      function savePending(eventId, orderId, keys) {
+        if (!eventId) return;
+        try { window.localStorage.setItem(pendingKey(eventId), JSON.stringify({ orderId: orderId, keys: keys })); } catch (e) {}
+      }
+
+      function clearPending(eventId) {
+        if (!eventId) return;
+        try { window.localStorage.removeItem(pendingKey(eventId)); } catch (e) {}
+      }
+
+      // Finalize answers that mean the order can never produce a number.
+      function isDeadOrder(r) { return r.status === 400 || r.status === 403 || r.status === 404; }
+
+      // ── Views ─────────────────────────────────────────────────────
+      const VIEWS = ['view-loading', 'view-message', 'view-done-before', 'view-form', 'view-success'];
+      function showView(id) {
+        VIEWS.forEach((v) => $(v).classList.toggle('hidden', v !== id));
+        try { window.scrollTo(0, 0); } catch (e) {}
+      }
+
+      function renderTicketNums(container, nums) {
+        container.textContent = '';
+        if (nums.length === 1) {
+          const s = document.createElement('span');
+          s.className = 'ticket-num';
+          s.textContent = '#' + nums[0];
+          container.appendChild(s);
+          return;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'ticket-nums-multi';
+        nums.forEach((n) => {
+          const s = document.createElement('span');
+          s.className = 'ticket-num-sm';
+          s.textContent = '#' + n;
+          wrap.appendChild(s);
+        });
+        container.appendChild(wrap);
+      }
+
+      const MESSAGES = {
+        invalid: {
+          icon: 'alert',
+          title: "This link isn't working",
+          text: 'Please scan the QR code at the event again, or ask a member of the Magnetic Memories team for help.'
+        },
+        closed: {
+          icon: 'clock',
+          title: 'Uploads are closed right now',
+          text: 'Photo uploads for this event aren’t open at the moment. Please ask a member of the Magnetic Memories team.'
+        },
+        full: {
+          icon: 'alert',
+          title: 'All numbers have been taken',
+          text: 'Sorry – every number for this event has been used. Please ask a member of the Magnetic Memories team.'
+        },
+        'not-setup': {
+          icon: 'clock',
+          title: 'Not quite ready yet',
+          text: 'Guest uploads aren’t switched on yet. Please ask a member of the Magnetic Memories team.'
+        },
+        network: {
+          icon: 'wifi',
+          title: "We couldn't load this page",
+          text: 'Please check your signal and try again.',
+          retry: true
+        }
+      };
+
+      function showMessage(reason, ev) {
+        const m = MESSAGES[reason] || MESSAGES.closed;
+        $('msg-icon').innerHTML = ICONS[m.icon] || ICONS.alert;   // static markup only
+        $('msg-title').textContent = m.title;
+        $('msg-text').textContent = m.text;
+
+        const name = ev && ev.name ? String(ev.name) : '';
+        $('msg-event').textContent = name;
+        $('msg-event').classList.toggle('hidden', !name);
+
+        // If this phone already has a number for the event, keep showing it.
+        const prev = ev && ev.id ? readLock(String(ev.id)) : [];
+        $('msg-prev-nums').textContent = formatNums(prev);
+        $('msg-prev').classList.toggle('hidden', prev.length === 0);
+
+        $('msg-retry').classList.toggle('hidden', !m.retry);
+        showView('view-message');
+      }
+
+      function tableText(nums) {
+        const label = formatNums(nums);
+        return 'Your magnets will be waiting on the table with raffle ticket ' + label +
+          ' – screenshot this screen so you don’t forget.';
+      }
+
+      function showDoneBefore(nums) {
+        $('done-event').textContent = state.event ? state.event.name : '';
+        $('done-title').textContent = nums.length === 1
+          ? 'You’ve already uploaded – your number is #' + nums[0]
+          : 'You’ve already uploaded – your numbers are ' + formatNums(nums);
+        $('done-label').textContent = nums.length === 1 ? 'Your number is' : 'Your numbers are';
+        renderTicketNums($('done-nums'), nums);
+        $('done-text').textContent = tableText(nums);
+        showView('view-done-before');
+      }
+
+      // ── Load event ────────────────────────────────────────────────
+      async function loadEvent() {
+        $('loading-text').textContent = 'Loading…';
+        showView('view-loading');
+        state.token = getToken();
+        if (!state.token) { showMessage('invalid'); return; }
+
+        let res = null, data = null;
+        try {
+          res = await fetchWithTimeout('/api/guest-event?t=' + encodeURIComponent(state.token), { cache: 'no-store' }, 20000);
+          data = await res.json().catch(() => null);
+        } catch (e) {
+          showMessage('network');
+          return;
+        }
+
+        if (data && data.open === true && data.event) {
+          if (await resumePending(data.event, true)) return;
+          openForm(data.event);
+          return;
+        }
+        if (data && data.reason) {
+          if (data.event && await resumePending(data.event, false)) return;
+          showMessage(String(data.reason), data.event || null);
+          return;
+        }
+        if (res && res.status === 503) { showMessage('not-setup'); return; }
+        if (res && (res.status === 404 || res.status === 400)) { showMessage('invalid'); return; }
+        showMessage('network');
+      }
+
+      // An earlier finalize on this phone never got its answer (signal drop, reload):
+      // finish it before anything else. guest-finalize is idempotent and doesn't need
+      // the event to be open. -> true when the number came back and is now on screen.
+      async function resumePending(ev, open) {
+        try {
+          const eventId = ev && ev.id != null ? String(ev.id) : '';
+          const pend = readPending(eventId);
+          if (!pend) return false;
+          $('loading-text').textContent = 'Getting your number…';
+          const fin = await finalizeWithRetry(pend.orderId, pend.keys);
+          if (fin.number != null) {
+            state.event = makeEventState(ev, open);
+            state.maxPhotos = state.event.maxPhotos;
+            onSuccess(fin.number, true);   // saves the lock, clears the pending entry
+            return true;
+          }
+          if (isDeadOrder(fin)) clearPending(eventId);
+          // network / 409 / 503 / 5xx: keep it - retried on the next load or submit
+        } catch (e) { /* fall through to the normal page */ }
+        $('loading-text').textContent = 'Loading…';
+        return false;
+      }
+
+      function computeMax(ev) {
+        const limit = Number(ev.perTicketLimit) || 0;
+        let max = Number(ev.maxPhotos);
+        if (!Number.isInteger(max) || max < 1) max = limit > 0 ? limit : HARD_MAX;
+        return max;
+      }
+
+      // open=false: a closed/full event (only id + name known; never offer another set)
+      function makeEventState(ev, open) {
+        const limit = Number(ev.perTicketLimit) || 0;
+        return {
+          id: String(ev.id || ''),
+          name: String(ev.name || ''),
+          perTicketLimit: limit > 0 ? limit : 0,
+          allowRepeat: open ? !!ev.allowRepeat : false,
+          maxPhotos: computeMax(ev)
+        };
+      }
+
+      function openForm(ev) {
+        state.event = makeEventState(ev, true);
+        state.maxPhotos = state.event.maxPhotos;
+
+        const prev = readLock(state.event.id);
+        if (prev.length && !state.event.allowRepeat) { showDoneBefore(prev); return; }
+
+        $('event-name').textContent = state.event.name || 'Event photos';
+        $('intro-text').textContent = state.maxPhotos === 1
+          ? 'Add your photo, crop it square, then tap Send. We’ll give you a number to collect your magnet.'
+          : 'Add up to ' + state.maxPhotos + ' photos, crop each one square, then tap Send. We’ll give you a number to collect your magnets.';
+
+        const banner = $('prev-banner');
+        if (prev.length) {
+          banner.textContent = (prev.length === 1
+            ? 'You’ve already uploaded – your number is #' + prev[0] + '.'
+            : 'You’ve already uploaded – your numbers are ' + formatNums(prev) + '.') +
+            ' You can send another set below and you’ll get a new number.';
+          banner.classList.remove('hidden');
+        } else {
+          banner.textContent = '';
+          banner.classList.add('hidden');
+        }
+
+        hideStatus();
+        hideNotice();
+        renderPhotos();
+        showView('view-form');
+      }
+
+      // Silently refresh the event limits (e.g. after the server rejects the photo count).
+      async function refreshEventMeta() {
+        try {
+          const res = await fetchWithTimeout('/api/guest-event?t=' + encodeURIComponent(state.token), { cache: 'no-store' }, 15000);
+          const data = await res.json().catch(() => null);
+          if (data && data.open === true && data.event && state.event) {
+            state.event.maxPhotos = computeMax(data.event);
+            state.event.allowRepeat = !!data.event.allowRepeat;
+            state.maxPhotos = state.event.maxPhotos;
+            renderPhotos();
+          }
+        } catch (e) {}
+      }
+
+      // ── Notices / status / progress ───────────────────────────────
+      let noticeTimer = null;
+      function notice(text) {
+        const el = $('notice');
+        el.textContent = text;
+        el.classList.remove('hidden');
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(hideNotice, 6000);
+      }
+      function hideNotice() { clearTimeout(noticeTimer); $('notice').classList.add('hidden'); }
+
+      function showStatus(kind, text) {
+        const el = $('status');
+        el.classList.remove('error', 'warn', 'info', 'hidden');
+        el.classList.add(kind);
+        el.textContent = text;
+      }
+      function hideStatus() {
+        const el = $('status');
+        el.classList.add('hidden');
+        el.textContent = '';
+      }
+
+      function showProgress(on) { $('progress-wrap').classList.toggle('hidden', !on); }
+      function setProgress(frac) {
+        $('progress-bar').style.width = Math.max(0, Math.min(100, Math.round(frac * 100))) + '%';
+      }
+
+      // ── Photos grid ───────────────────────────────────────────────
+      function photoSig() { return state.photos.map((p) => p.id + '.' + p.ver).join('|'); }
+
+      // Once every photo is uploaded and we're only waiting for the number, the set is
+      // locked: finalize must print exactly what was sent, so edits could only cause confusion.
+      function photosLocked() { return !!(state.pending && state.pending.finalizing); }
+      function lockedNotice() { notice('Your photos are already uploaded – tap Retry to get your number.'); }
+
+      function renderPhotos() {
+        const grid = $('photo-grid');
+        grid.textContent = '';
+        state.photos.forEach((p, i) => {
+          const tile = document.createElement('div');
+          tile.className = 'tile';
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'tile-btn';
+          btn.setAttribute('aria-label', 'Re-crop photo ' + (i + 1));
+          const img = document.createElement('img');
+          img.src = p.thumbUrl;
+          img.alt = '';
+          btn.appendChild(img);
+          btn.addEventListener('click', () => recrop(p.id));
+
+          const badge = document.createElement('span');
+          badge.className = 'tile-badge';
+          badge.textContent = String(i + 1);
+
+          tile.appendChild(btn);
+          tile.appendChild(badge);
+          if (!photosLocked()) {
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'tile-remove';
+            rm.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+            rm.innerHTML = ICONS.x;   // static markup only
+            rm.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); removePhoto(p.id); });
+            tile.appendChild(rm);
+          }
+          grid.appendChild(tile);
+        });
+
+        const n = state.photos.length;
+        const max = state.maxPhotos;
+        const locked = photosLocked();
+        grid.classList.toggle('hidden', n === 0);
+        $('photo-counter').textContent = n + ' of ' + max;
+        $('add-wrap').classList.toggle('hidden', n >= max || locked);
+        $('add-label').textContent = n === 0 ? (max === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
+
+        const hint = $('photo-hint');
+        if (locked) {
+          hint.textContent = 'Your photos are uploaded – just tap Retry to get your number.';
+        } else if (n > max) {
+          hint.textContent = 'This event allows up to ' + max + ' ' + plural(max, 'photo', 'photos') +
+            ' – please remove ' + (n - max) + '.';
+        } else if (n === 0) {
+          hint.textContent = max === 1
+            ? 'You can send 1 photo – it becomes your magnet.'
+            : 'You can send up to ' + max + ' photos – each one becomes a magnet.';
+        } else if (n >= max) {
+          hint.textContent = 'That’s the maximum. Tap a photo to re-crop it, or ✕ to remove it.';
+        } else {
+          hint.textContent = 'Tap a photo to re-crop it, or ✕ to remove it.';
+        }
+        updateSubmit();
+      }
+
+      function updateSubmit() {
+        const btn = $('submit-btn');
+        const n = state.photos.length;
+        btn.disabled = state.busy || state.cropping || n === 0 || n > state.maxPhotos;
+        if (state.busy) return;   // label is driven by the upload flow
+        if (n === 0) { btn.textContent = 'Add a photo to continue'; return; }
+        if (state.pending && state.pending.sig === photoSig()) {
+          const left = state.photos.filter((p) => !state.pending.keys[p.id]).length;
+          btn.textContent = left > 0 ? 'Retry (' + left + ' ' + plural(left, 'photo', 'photos') + ' left)' : 'Retry';
+          return;
+        }
+        btn.textContent = n === 1 ? 'Send my photo' : 'Send my ' + n + ' photos';
+      }
+
+      function setBusy(on) {
+        state.busy = on;
+        document.body.classList.toggle('is-busy', on);
+        if (on) $('submit-btn').disabled = true;
+        else renderPhotos();
+      }
+
+      function setButton(text) { $('submit-btn').textContent = text; }
+
+      function revokePhoto(p) {
+        try { if (p.srcUrl) URL.revokeObjectURL(p.srcUrl); } catch (e) {}
+        try { if (p.thumbUrl) URL.revokeObjectURL(p.thumbUrl); } catch (e) {}
+      }
+
+      function clearPhotos() {
+        state.photos.forEach(revokePhoto);
+        state.photos = [];
+      }
+
+      function removePhoto(id) {
+        if (state.busy || state.cropping) return;
+        if (photosLocked()) { lockedNotice(); return; }
+        const i = state.photos.findIndex((p) => p.id === id);
+        if (i < 0) return;
+        const p = state.photos.splice(i, 1)[0];
+        revokePhoto(p);
+        hideStatus();   // any retry message no longer applies to the changed list
+        renderPhotos();
+      }
+
+      function looksLikeImage(f) {
+        if (!f) return false;
+        if (f.type) return /^image\//i.test(f.type);
+        return true;   // some pickers give no type; let the cropper decide
+      }
+
+      $('file-input').addEventListener('change', async (e) => {
+        const input = e.target;
+        const all = Array.from(input.files || []);
+        try { input.value = ''; } catch (err) {}
+        if (!all.length || state.busy || state.cropping) return;
+        if (photosLocked()) { lockedNotice(); return; }
+
+        let files = all.filter(looksLikeImage);
+        if (files.length < all.length) notice('Only photos can be added.');
+        if (!files.length) return;
+
+        const room = state.maxPhotos - state.photos.length;
+        if (room <= 0) { notice('You can add up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') + '.'); return; }
+        if (files.length > room) {
+          notice('You can add up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') +
+            ' – we’ve added the first ' + room + '.');
+          files = files.slice(0, room);
+        }
+        await cropNewFiles(files);
+      });
+
+      async function cropNewFiles(files) {
+        state.cropping = true;
+        updateSubmit();
+        let failed = 0;
+        try {
+          for (let i = 0; i < files.length; i++) {
+            if (state.photos.length >= state.maxPhotos) break;
+            let srcUrl = null;
+            try { srcUrl = URL.createObjectURL(files[i]); } catch (e) { failed++; continue; }
+            const label = files.length > 1 ? 'Photo ' + (i + 1) + ' of ' + files.length : '';
+            const result = await openCropper(srcUrl, label);
+            if (result && result.blob) {
+              state.photos.push({
+                id: state.nextId++, ver: 1, srcUrl: srcUrl,
+                blob: result.blob, thumbUrl: URL.createObjectURL(result.blob)
+              });
+              hideStatus();
+              renderPhotos();
+            } else {
+              try { URL.revokeObjectURL(srcUrl); } catch (e) {}
+              if (result && result.error) failed++;
+            }
+          }
+        } finally {
+          state.cropping = false;
+          renderPhotos();
+        }
+        if (failed) {
+          notice(failed === 1
+            ? 'Sorry, one photo couldn’t be opened. Please try a different photo.'
+            : 'Sorry, ' + failed + ' photos couldn’t be opened. Please try different photos.');
+        }
+      }
+
+      async function recrop(id) {
+        if (state.busy || state.cropping) return;
+        if (photosLocked()) { lockedNotice(); return; }
+        const p = state.photos.find((x) => x.id === id);
+        if (!p) return;
+        state.cropping = true;
+        updateSubmit();
+        try {
+          const result = await openCropper(p.srcUrl, '');
+          if (result && result.blob && state.photos.indexOf(p) !== -1) {
+            try { URL.revokeObjectURL(p.thumbUrl); } catch (e) {}
+            p.blob = result.blob;
+            p.thumbUrl = URL.createObjectURL(result.blob);
+            p.ver++;
+            hideStatus();
+          } else if (result && result.error) {
+            notice('Sorry, that photo couldn’t be opened again. You can remove it and add it again.');
+          }
+        } finally {
+          state.cropping = false;
+          renderPhotos();
+        }
+      }
+
+      // ── Crop modal (fast path: object URL straight into Cropper) ──
+      let cropper = null;
+      let cropDone = null;
+      let cropSeq = 0;
+      let cropReady = false;
+      let scrollLocked = false;
+      let lockedY = 0;
+
+      function lockScroll() {
+        if (scrollLocked) return;
+        scrollLocked = true;
+        lockedY = window.pageYOffset || document.documentElement.scrollTop || 0;
+        const b = document.body.style;
+        b.position = 'fixed';
+        b.top = (-lockedY) + 'px';
+        b.left = '0';
+        b.right = '0';
+        b.width = '100%';
+        b.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function unlockScroll() {
+        if (!scrollLocked) return;
+        scrollLocked = false;
+        const b = document.body.style;
+        b.position = ''; b.top = ''; b.left = ''; b.right = ''; b.width = ''; b.overflow = '';
+        document.documentElement.style.overflow = '';
+        try { window.scrollTo(0, lockedY); } catch (e) {}
+      }
+
+      function setCropReady(ready) {
+        cropReady = ready;
+        const save = $('crop-save');
+        save.disabled = !ready;
+        save.textContent = 'Save';
+        $('crop-loading').classList.toggle('hidden', ready);
+      }
+
+      function destroyCropper() {
+        if (cropper) { try { cropper.destroy(); } catch (e) {} cropper = null; }
+      }
+
+      function openCropper(srcUrl, label) {
+        return new Promise((resolve) => {
+          const seq = ++cropSeq;
+          cropDone = resolve;
+
+          const step = $('crop-step');
+          step.textContent = label || '';
+          step.classList.toggle('hidden', !label);
+          setCropReady(false);
+
+          $('crop-modal').classList.remove('hidden');
+          lockScroll();
+
+          const img = $('crop-image');
+          destroyCropper();
+          img.onerror = () => { if (seq === cropSeq && cropDone) finishCrop({ error: true }); };
+          img.src = srcUrl;
+
+          if (typeof window.Cropper !== 'function') { finishCrop({ error: true }); return; }
+          try {
+            cropper = new window.Cropper(img, {
+              aspectRatio: 1,
+              viewMode: 1,
+              autoCropArea: 1,
+              dragMode: 'move',
+              guides: true,
+              center: true,
+              movable: true,
+              zoomable: true,
+              background: false,
+              modal: true,
+              toggleDragModeOnDblclick: false,
+              ready: function () { if (seq === cropSeq) setCropReady(true); }
+            });
+          } catch (e) {
+            finishCrop({ error: true });
+          }
+          try { $('crop-card').focus({ preventScroll: true }); } catch (e) {}
+        });
+      }
+
+      function finishCrop(result) {
+        cropSeq++;   // ignore any late callbacks from this crop
+        const img = $('crop-image');
+        img.onerror = null;
+        destroyCropper();
+        try { img.removeAttribute('src'); } catch (e) {}
+        setCropReady(false);
+        $('crop-modal').classList.add('hidden');
+        unlockScroll();
+        const done = cropDone;
+        cropDone = null;
+        if (done) done(result);
+      }
+
+      function canvasToBlob(canvas, quality) {
+        return new Promise((resolve) => {
+          try {
+            if (canvas.toBlob) { canvas.toBlob((b) => resolve(b || null), 'image/jpeg', quality); return; }
+          } catch (e) { /* fall through */ }
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            const bin = atob(dataUrl.split(',')[1]);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            resolve(new Blob([arr], { type: 'image/jpeg' }));
+          } catch (e) { resolve(null); }
+        });
+      }
+
+      const OUT_MAX = 1600;        // longest side of the JPEG we upload
+
+      function freeCanvas(c) {
+        try { if (c) { c.width = 0; c.height = 0; } } catch (e) {}   // free canvas memory (iOS)
+      }
+
+      // Cropper applies maxWidth/maxHeight to the WHOLE photo before cutting the crop out,
+      // so a low cap throws away the detail of a zoomed-in crop. Cut at up to 4096
+      // (the iOS canvas limit), then shrink here only if the crop itself is over 1600.
+      function cropAt(max) {
+        try {
+          return cropper.getCroppedCanvas({
+            maxWidth: max,
+            maxHeight: max,
+            imageSmoothingQuality: 'high',
+            fillColor: '#fff'
+          }) || null;
+        } catch (e) { return null; }
+      }
+
+      function shrinkSquare(src, max) {
+        if (src.width <= max && src.height <= max) return src;   // zoomed-in crop: keep every pixel
+        try {
+          const out = document.createElement('canvas');
+          out.width = max;
+          out.height = max;   // crops are square (aspectRatio 1)
+          const ctx = out.getContext('2d');
+          if (!ctx) return null;
+          ctx.imageSmoothingEnabled = true;
+          try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, max, max);
+          ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, max, max);
+          return out;
+        } catch (e) { return null; }
+      }
+
+      $('crop-save').addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        if (!cropper || !cropReady || !cropDone) return;
+        const seq = cropSeq;
+        const save = $('crop-save');
+        save.disabled = true;
+        save.textContent = 'Saving…';
+
+        let out = null;
+        let big = cropAt(4096);
+        if (big) {
+          out = shrinkSquare(big, OUT_MAX);
+          if (out !== big) freeCanvas(big);
+          big = null;
+        }
+        if (!out) out = cropAt(OUT_MAX);   // low-memory phone: the old 1600 cap (already <= 1600)
+        if (!out) { finishCrop({ error: true }); return; }
+
+        const blob = await canvasToBlob(out, 0.9);
+        freeCanvas(out);
+        out = null;
+        if (seq !== cropSeq) return;   // cancelled while encoding
+        finishCrop(blob ? { blob: blob } : { error: true });
+      });
+
+      $('crop-cancel').addEventListener('click', (ev) => {
+        ev.preventDefault();
+        if (cropDone) finishCrop(null);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'Escape' || e.key === 'Esc') && cropDone) finishCrop(null);
+      });
+
+      // ── Network helpers ───────────────────────────────────────────
+      async function postJSON(url, body, ms) {
+        const res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }, ms);
+        const data = await res.json().catch(() => ({}));
+        return { res: res, data: data || {} };
+      }
+
+      // POST /api/guest-order -> { orderId } | { status, error } | { network: true }
+      async function createOrder(count) {
+        let last = { network: true };
+        for (let a = 1; a <= 3; a++) {
+          try {
+            const r = await postJSON('/api/guest-order', { t: state.token, count: count }, 25000);
+            if (r.res.ok && typeof r.data.orderId === 'string' && r.data.orderId) return { orderId: r.data.orderId };
+            if (r.res.status >= 400 && r.res.status < 500) return { status: r.res.status, error: r.data.error };
+            if (r.res.status === 503) return { status: 503, error: r.data.error };
+            last = { status: r.res.status, error: r.data.error };
+          } catch (e) {
+            last = { network: true };
+          }
+          if (a < 3) await sleep(700 * a);
+        }
+        return last;
+      }
+
+      // Upload one cropped photo; only counts as saved when the server confirms it.
+      // -> { key } | { complete: true } (order already finalised) | { failed: true }
+      async function uploadWithRetry(orderId, blob, fileName) {
+        for (let a = 1; a <= UPLOAD_ATTEMPTS; a++) {
+          try {
+            const form = new FormData();
+            form.append('file', blob, fileName);
+            const res = await fetchWithTimeout(
+              '/api/upload?orderId=' + encodeURIComponent(orderId) + '&filename=' + encodeURIComponent(fileName),
+              { method: 'POST', body: form },
+              90000
+            );
+            if (res.status === 409) return { complete: true };
+            if (res.ok) {
+              const j = await res.json().catch(() => ({}));
+              if (j && (j.ok || j.key) && typeof j.key === 'string' && j.key) return { key: j.key };
+            }
+          } catch (e) { /* network blip: retry */ }
+          if (a < UPLOAD_ATTEMPTS) await sleep(700 * a);   // 0.7s, 1.4s, 2.1s
+        }
+        return { failed: true };
+      }
+
+      // POST /api/guest-finalize (idempotent) -> { number } | { status, error } | { network: true }
+      async function finalizeWithRetry(orderId, keys) {
+        let last = { network: true };
+        for (let a = 1; a <= UPLOAD_ATTEMPTS; a++) {
+          try {
+            const r = await postJSON('/api/guest-finalize', { t: state.token, orderId: orderId, keys: keys }, 30000);
+            const num = r.data ? Number(r.data.number) : NaN;
+            if (r.res.ok && r.data && r.data.number != null && Number.isInteger(num)) return { number: num };
+            const s = r.res.status;
+            if (s === 400 || s === 403 || s === 409 || s === 503) return { status: s, error: r.data.error };
+            last = { status: s, error: r.data.error };   // 404 (KV lag) / 5xx: retry
+          } catch (e) {
+            last = { network: true };
+          }
+          if (a < UPLOAD_ATTEMPTS) await sleep(700 * a);
+        }
+        return last;
+      }
+
+      function orderErrorText(r) {
+        if (r.network) return 'We couldn’t reach the server – please check your signal and tap the button to try again.';
+        if (r.status === 503) return 'Guest uploads are not set up yet. Please ask a member of the Magnetic Memories team.';
+        if (r.status === 409) return r.error || 'Sorry – all numbers for this event have been taken.';
+        if (r.status === 403) return r.error || 'Uploads for this event are closed right now. Please ask a member of the Magnetic Memories team.';
+        if (r.status === 400) return r.error || 'Please check your photos and try again.';
+        return r.error || 'Something went wrong – please try again.';
+      }
+
+      // ── Submit ────────────────────────────────────────────────────
+      async function submit() {
+        if (state.busy || state.cropping) return;
+        const total = state.photos.length;
+        if (!total) { notice('Add at least one photo first.'); return; }
+        if (total > state.maxPhotos) {
+          notice('This event allows up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') + ' – please remove ' + (total - state.maxPhotos) + '.');
+          return;
+        }
+
+        setBusy(true);
+        hideStatus();
+        hideNotice();
+        try {
+          const eventId = state.event ? state.event.id : '';
+          const sig = photoSig();
+          const reusing = !!(state.pending && state.pending.sig === sig);
+
+          // An earlier upload whose number never arrived (e.g. before a reload) comes
+          // first: it may already hold a number, and sending photos again would take a
+          // second one. Skipped when this very order is about to be finalized below.
+          const stored = readPending(eventId);
+          if (stored && !(reusing && state.pending.orderId === stored.orderId)) {
+            setButton('Checking your earlier photos…');
+            const prev = await finalizeWithRetry(stored.orderId, stored.keys);
+            if (prev.number != null) { onSuccess(prev.number, true); return; }
+            if (isDeadOrder(prev)) {
+              clearPending(eventId);
+            } else {
+              // Keep it; don't start a new order that would overwrite it.
+              showStatus(prev.network ? 'warn' : 'error', orderErrorText(prev));
+              return;
+            }
+          }
+
+          // Same photos as a failed attempt -> reuse that order and only send what's missing.
+          if (!reusing) {
+            state.pending = null;
+            setButton('Starting…');
+            const r = await createOrder(total);
+            if (!r.orderId) {
+              showStatus(r.network ? 'warn' : 'error', orderErrorText(r));
+              if (r.status === 400) refreshEventMeta();
+              return;
+            }
+            state.pending = { orderId: r.orderId, sig: sig, keys: {}, complete: false };
+          }
+          const p = state.pending;
+
+          const countDone = () => state.photos.filter((ph) => p.keys[ph.id]).length;
+          let failed = 0;
+          showProgress(true);
+          setProgress(countDone() / total);
+          for (let i = 0; i < state.photos.length; i++) {
+            const ph = state.photos[i];
+            if (p.complete) break;
+            if (p.keys[ph.id]) continue;
+            setButton('Uploading ' + (i + 1) + ' of ' + total + '…');
+            const up = await uploadWithRetry(p.orderId, ph.blob, 'Guest-' + (i + 1) + '.jpg');
+            if (up.key) p.keys[ph.id] = up.key;
+            else if (up.complete) p.complete = true;
+            else failed++;
+            setProgress(countDone() / total);
+          }
+
+          if (failed > 0 && !p.complete) {
+            showProgress(false);
+            showStatus('warn', failed + ' ' + plural(failed, 'photo', 'photos') +
+              ' didn’t upload – please check your signal and tap Retry. Photos that already went through won’t be sent again.');
+            return;
+          }
+
+          setButton('Getting your number…');
+          setProgress(1);
+          const keys = state.photos.map((ph) => p.keys[ph.id]).filter(Boolean);
+          p.finalizing = true;                     // photo set is now locked (see photosLocked)
+          savePending(eventId, p.orderId, keys);   // survives a lost reply / reload
+          const fin = await finalizeWithRetry(p.orderId, keys);
+          showProgress(false);
+
+          if (fin.number != null) { onSuccess(fin.number, false); return; }
+
+          if (fin.status === 409) {
+            showStatus('error', fin.error || 'Sorry – all numbers for this event have been taken.');
+          } else if (fin.status === 503) {
+            showStatus('error', 'Guest uploads are not set up yet. Please ask a member of the Magnetic Memories team.');
+          } else if (isDeadOrder(fin)) {
+            state.pending = null;   // start clean next time (new order, all photos re-sent)
+            clearPending(eventId);
+            showStatus('error', 'Something went wrong saving your photos – please tap the button to try again.');
+          } else {
+            showStatus('warn', 'Your photos are uploaded, but we couldn’t get your number yet – please check your signal and tap Retry.');
+          }
+        } catch (e) {
+          showProgress(false);
+          showStatus('warn', 'Something went wrong – please check your signal and try again.');
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      // resumed: the number belongs to photos sent before (reload / lost reply), not the
+      // ones on screen now (if any - those are dropped, the earlier ones are what we print).
+      function onSuccess(number, resumed) {
+        const ev = state.event || { id: '', name: '', allowRepeat: false };
+        const earlier = readLock(ev.id).filter((n) => n !== number);   // never list it twice
+        saveLock(ev.id, number);
+        clearPending(ev.id);
+        state.pending = null;
+        clearPhotos();
+
+        $('success-event').textContent = ev.name || '';
+        renderTicketNums($('success-nums'), [number]);
+        $('success-text').textContent = tableText([number]);
+        $('success-resumed').classList.toggle('hidden', !resumed);
+
+        const earlierEl = $('success-earlier');
+        if (earlier.length) {
+          earlierEl.textContent = (earlier.length === 1 ? 'Your earlier number: ' : 'Your earlier numbers: ') + formatNums(earlier);
+          earlierEl.classList.remove('hidden');
+        } else {
+          earlierEl.textContent = '';
+          earlierEl.classList.add('hidden');
+        }
+        $('again-btn').classList.toggle('hidden', !ev.allowRepeat);
+        showView('view-success');
+      }
+
+      // ── Wire up ───────────────────────────────────────────────────
+      $('submit-btn').addEventListener('click', submit);
+      $('msg-retry').addEventListener('click', loadEvent);
+      $('again-btn').addEventListener('click', loadEvent);
+
+      // Warn before leaving mid-upload, or with photos added but not sent yet.
+      window.addEventListener('beforeunload', (e) => {
+        if (state.busy || state.photos.length > 0) {
+          e.preventDefault();
+          e.returnValue = '';
+          return '';
+        }
+      });
+
+      loadEvent();
+    })();
+  </script>
+</body>
+</html>
