@@ -5,17 +5,20 @@
 // Used numbers are shared by staff (manual page) and guest self-uploads.
 // The guest upload token is only included for the admin
 // (Authorization: Bearer <ADMIN_KEY>), who also gets dbConnected.
+// Overlays: the public sees [{ id, name, url }] and the effective overlayMode
+// ("off" when there are none); the admin sees the stored overlays (with their
+// storage keys) plus a url each, and the stored overlayMode.
 import { jsonResponse } from './_shared.js';
 import { usedNumbers, hasDb } from './_tickets.js';
+import { publicEventView, adminEventView } from './_guest.js';
 
 function isAdminRequest(request, env) {
   return !!env.ADMIN_KEY && request.headers.get('Authorization') === `Bearer ${env.ADMIN_KEY}`;
 }
 
 function forViewer(event, admin) {
-  if (!event || typeof event !== 'object' || admin) return event;
-  const { guestToken, ...rest } = event;
-  return rest;
+  if (!event || typeof event !== 'object') return event;
+  return admin ? adminEventView(event) : publicEventView(event);
 }
 
 export async function onRequestGet({ request, env }) {
@@ -41,7 +44,7 @@ export async function onRequestGet({ request, env }) {
     const values = await Promise.all(list.keys.map(k => env.ORDERS_KV.get(k.name)));
     const events = values
       .map(v => { try { return JSON.parse(v); } catch { return null; } })
-      .filter(Boolean)
+      .filter(e => e && typeof e === 'object')
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .map(e => forViewer(e, admin));
 

@@ -1,5 +1,16 @@
 // functions/api/admin-orders.js
 // GET /api/admin-orders?key=...
+// Summaries carry the guest paid-extras fields. Money is always GBP:
+// extrasAmount (paid), extrasTotal (the order's snapshot), extraPrice (per
+// extra), refundNeeded { amount, reason, at } | null.
+import { orderSessionIds, round2 } from './_guest.js';
+
+const gbp = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : round2(v));
+
+function refundSummary(r) {
+  if (!r || typeof r !== 'object') return null;
+  return { amount: gbp(r.amount), reason: r.reason || null, at: r.at || null };
+}
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -45,6 +56,18 @@ export async function onRequest({ request, env }) {
             raffleNumber: o.raffleNumber,
             source: o.source,
             completedAt: o.completedAt,
+            // Guest paid extra magnets (amounts in GBP)
+            freeCount: o.freeCount,
+            extrasCount: o.extrasCount,
+            extraPrice: o.extraPrice === undefined ? undefined : gbp(o.extraPrice),
+            extrasTotal: o.extrasTotal === undefined ? undefined : gbp(o.extrasTotal),
+            extrasPaid: o.extrasPaid === true,
+            extrasAmount: o.extrasAmount === undefined ? undefined : gbp(o.extrasAmount),
+            extrasSkipped: o.extrasSkipped === true,
+            extrasStarted: orderSessionIds(o).length > 0,
+            fullAfterPayment: o.fullAfterPayment === true || undefined,
+            refundNeeded: refundSummary(o.refundNeeded),
+            extrasRefunded: o.extrasRefunded === true,
             bingoNumber: o.bingoNumber,
             stripeSessionId: o.stripeSessionId,
             price: o.price,

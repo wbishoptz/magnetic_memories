@@ -185,6 +185,84 @@
     button.btn-primary:active { transform: translateY(1px); }
     button.btn-primary:disabled { opacity: 0.45; box-shadow: none; }
     button.btn-outline { background: #fff; color: var(--brand-deep); border: 2px solid var(--brand); }
+    button.btn-outline:disabled { opacity: 0.45; }
+
+    /* ---------- Event designs (overlays) in the crop modal ---------- */
+    .checker, button.ov-btn.checker {
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg, #d5dde1 25%, transparent 25%),
+        linear-gradient(-45deg, #d5dde1 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #d5dde1 75%),
+        linear-gradient(-45deg, transparent 75%, #d5dde1 75%);
+      background-size: 14px 14px;
+      background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+    }
+    .ov-row {
+      display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding: 4px 2px 6px; overscroll-behavior-x: contain;
+    }
+    .ov-row.hidden { display: none; }
+    .ov-row > :first-child { margin-left: auto; }   /* centred when it fits, scrolls when it doesn't */
+    .ov-row > :last-child { margin-right: auto; }
+    button.ov-btn {
+      flex: 0 0 auto; position: relative; overflow: hidden;
+      width: 64px; height: 64px; padding: 0; border-radius: 14px; cursor: pointer;
+      border: 3px solid #d9e8e2;
+    }
+    button.ov-btn[aria-pressed="true"] { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(89,201,165,0.35); }
+    button.ov-btn img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    button.ov-btn.ov-none { background: #f1f5f9; color: var(--ink); font-size: 0.8rem; font-weight: 700; }
+    .ov-state {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.1rem; color: var(--muted);
+    }
+    .ov-state.err { color: #b91c1c; }
+    .cropper-crop-box img.crop-overlay-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      max-width: none; max-height: none; pointer-events: none;
+      -webkit-user-select: none; user-select: none; -webkit-user-drag: none;
+    }
+    .crop-card.has-ov .crop-box { height: 48vh; }
+    @supports (height: 1dvh) { .crop-card.has-ov .crop-box { height: 48dvh; } }
+    @media (max-height: 520px) {
+      .crop-card.has-ov .crop-box { height: 44vh; }
+      @supports (height: 1dvh) { .crop-card.has-ov .crop-box { height: 44dvh; } }
+    }
+
+    /* ---------- Paid extra magnets ---------- */
+    .tile-extra {
+      position: absolute; left: 4px; top: 4px; z-index: 2; max-width: calc(100% - 46px);
+      padding: 3px 6px; border-radius: 8px;
+      background: #fde68a; color: #78350f;
+      font-size: 10px; font-weight: 800; line-height: 1.15; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.18); pointer-events: none;
+    }
+    .upsell {
+      border-radius: 18px; border: 2px solid #fcd34d; background: #fffbeb;
+      padding: 14px; text-align: center;
+    }
+    .upsell.hidden { display: none; }
+    .upsell-btn {
+      position: relative; overflow: hidden;
+      min-height: 52px; border-radius: 14px;
+      background: var(--brand-deep); color: #fff; font-weight: 700; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .upsell-btn:active { opacity: 0.9; }
+    .upsell-btn input[type=file] {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      opacity: 0.01; cursor: pointer; z-index: 5;
+      color: transparent; font-size: 16px;
+    }
+    /* the native "Choose files" button can ghost through on the dark button (separate rules:
+       an unknown pseudo-element would drop the whole rule) */
+    .upsell-btn input[type=file]::file-selector-button { background: transparent; border: 0; color: transparent; }
+    .upsell-btn input[type=file]::-webkit-file-upload-button { background: transparent; border: 0; color: transparent; }
+    .is-busy .upsell { display: none !important; }
+    #pay-alert { font-size: 1.05rem; line-height: 1.45; }
   </style>
 </head>
 <body class="min-h-screen font-sans antialiased">
@@ -242,6 +320,7 @@
       </div>
 
       <div id="prev-banner" class="hidden msg-box info mb-4"></div>
+      <div id="return-banner" class="hidden msg-box warn mb-4"></div>
 
       <div class="bg-white rounded-3xl border border-line shadow-sm p-4">
         <div class="flex items-center justify-between mb-3">
@@ -262,6 +341,16 @@
           <input id="file-input" type="file" accept="image/*" multiple aria-label="Add photos" />
         </div>
 
+        <!-- Paid extra magnets: shown once the free photos are used -->
+        <div id="extras-card" class="upsell hidden mt-3">
+          <p class="font-bold text-ink">Want more magnets?</p>
+          <p id="extras-text" class="mt-1 text-sm text-muted"></p>
+          <div class="upsell-btn mt-3">
+            <span class="pointer-events-none" aria-hidden="true">Add extra photos</span>
+            <input id="extra-file-input" type="file" accept="image/*" multiple aria-label="Add extra photos" />
+          </div>
+        </div>
+
         <p id="photo-hint" class="mt-3 text-xs text-center text-muted"></p>
         <div id="notice" class="hidden msg-box warn mt-3" role="alert"></div>
       </div>
@@ -275,6 +364,7 @@
       <div id="status" class="hidden msg-box mt-4" role="status" aria-live="polite"></div>
 
       <button id="submit-btn" type="button" disabled class="mt-4 w-full min-h-[60px] rounded-2xl btn-primary font-bold text-lg px-4">Add a photo to continue</button>
+      <p id="pay-note" class="hidden mt-2 text-xs text-center text-muted">You’ll pay securely by card with Stripe, then get your number</p>
 
       <p class="mt-5 text-xs text-center leading-relaxed text-muted">
         No names or emails needed. By sending, you confirm you're happy for us to print these photos.
@@ -294,9 +384,30 @@
         </div>
       </div>
       <p id="success-text" class="mt-6 text-base leading-relaxed text-ink"></p>
+      <p id="success-extras" class="hidden mt-3 text-sm font-semibold text-brand-deep"></p>
       <p id="success-resumed" class="hidden mt-3 text-sm text-muted">The photos you sent earlier reached us safely – this is their number.</p>
       <p id="success-earlier" class="hidden mt-3 text-sm text-muted"></p>
       <button id="again-btn" type="button" class="hidden mt-8 w-full min-h-[56px] rounded-2xl btn-outline font-bold text-base">Send another set of photos</button>
+    </section>
+
+    <!-- PAY (extra magnets: back from Stripe, cancelled, not received yet, or can't be sold) -->
+    <section id="view-pay" class="hidden pt-4">
+      <div class="bg-white rounded-3xl border border-line shadow-sm px-6 py-8 text-center">
+        <div id="pay-icon" class="mx-auto w-14 h-14 rounded-full bg-brand-soft text-brand-deep flex items-center justify-center" aria-hidden="true"></div>
+        <p id="pay-event" class="hidden mt-5 text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
+        <h1 id="pay-title" class="mt-2 font-serif text-2xl font-semibold text-ink leading-snug"></h1>
+        <p id="pay-text" class="mt-3 text-sm leading-relaxed text-muted"></p>
+        <div id="pay-alert" class="hidden msg-box error mt-5 font-semibold" role="alert"></div>
+        <div id="pay-status" class="hidden msg-box mt-4" role="status" aria-live="polite"></div>
+        <div class="mt-6 flex flex-col gap-3">
+          <button id="pay-pay-btn" type="button" class="hidden w-full min-h-[56px] rounded-2xl btn-primary font-bold text-lg px-4">Pay</button>
+          <button id="pay-check-btn" type="button" class="hidden w-full min-h-[56px] rounded-2xl btn-primary font-bold text-lg px-4">Check again</button>
+          <button id="pay-free-btn" type="button" class="hidden w-full min-h-[56px] rounded-2xl btn-outline font-bold text-base px-4">Send just my free photo</button>
+          <button id="pay-restart-btn" type="button" class="hidden w-full min-h-[56px] rounded-2xl btn-outline font-bold text-base px-4">Start again</button>
+        </div>
+        <p id="pay-secure" class="hidden mt-3 text-xs text-muted">You’ll pay securely by card with Stripe, then get your number.</p>
+        <p id="pay-ref" class="mt-5 text-xs text-muted"></p>
+      </div>
     </section>
   </main>
 
@@ -310,6 +421,13 @@
       <div class="crop-box">
         <img id="crop-image" alt="Photo being cropped" />
         <div id="crop-loading"><div class="spinner" aria-hidden="true"></div><span class="mt-3">Opening photo…</span></div>
+      </div>
+      <!-- Event design picker (only when the event has designs) -->
+      <div id="crop-overlay-wrap" class="hidden mt-3">
+        <div id="crop-overlays" class="ov-row" role="group" aria-label="Choose a design"></div>
+        <p id="crop-overlay-caption" class="mt-1 text-xs text-center font-semibold text-brand-deep"></p>
+        <div id="crop-overlay-msg" class="hidden msg-box warn mt-2" role="alert"></div>
+        <button id="crop-overlay-retry" type="button" class="hidden mt-2 w-full min-h-[48px] rounded-2xl btn-outline font-bold text-base">Retry</button>
       </div>
       <p id="crop-hint" class="mt-3 text-xs text-center text-muted">Drag to move · pinch to zoom. The square is exactly what we'll print.</p>
       <div class="grid grid-cols-2 gap-3 mt-4">
@@ -326,6 +444,14 @@
       // ── Constants / state ─────────────────────────────────────────
       const HARD_MAX = 20;           // guest cap when the event has no per-ticket limit
       const UPLOAD_ATTEMPTS = 4;
+      const PAID_RECHECKS = 4;       // back from Stripe: ask again this many times while the payment hasn't landed
+      const PAID_RECHECK_MS = 2500;
+      const OVERLAY_MIN_SIDE = 1000; // a photo with a design is saved at least this big, so the design stays crisp
+      const OVERLAY_KEEP_MAX = 1600; // a design is kept in memory at most this big (the photo is never bigger)
+      const OVERLAY_TIMEOUT_MS = 20000;  // one design: give up after this long with NO progress
+      const OVERLAY_MAX_MS = 120000;     // ...or this long in total, however slowly it's moving
+      const REF_NOTICE_MS = 5000;    // how long the "Your reference" notice stays before going to Stripe
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const $ = (id) => document.getElementById(id);
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -333,22 +459,39 @@
         alert: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
         clock: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
         wifi: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg>',
+        card: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
         x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
       };
 
       const state = {
         token: '',
-        event: null,       // { id, name, perTicketLimit, allowRepeat, maxPhotos }
-        maxPhotos: HARD_MAX,
-        photos: [],        // { id, ver, srcUrl (original, kept for re-crop), blob (cropped JPEG), thumbUrl }
-        pending: null,     // { orderId, sig, keys: { [photoId]: r2Key }, complete }
+        event: null,       // { id, name, perTicketLimit, allowRepeat, freePhotos, extras: {price,max}|null, maxPhotos }
+        maxPhotos: HARD_MAX,   // free + extras on offer
+        photos: [],        // { id, ver, srcUrl (original, kept for re-crop), blob (cropped JPEG), thumbUrl, overlayId }
+        pending: null,     // { orderId, sig, keys: { [photoId]: r2Key }, complete, finalizing, freeCount, extrasCount, total }
         busy: false,
         cropping: false,
-        nextId: 1
+        nextId: 1,
+        // draw: the design shrunk to <= OVERLAY_KEEP_MAX (a canvas; the full-size download is released)
+        // objUrl: a small image URL of it for the picker and the live crop layer
+        overlays: [],      // [{ id, name, url, status: idle|loading|ready|error, objUrl, draw, promise }]
+        overlayMode: 'off',
+        lastOverlayId: null,   // design chosen for the previous photo ('' = none, null = not chosen yet)
+        returnMode: null,  // 'paid' | 'cancelled' - just back from Stripe (used by the first resume)
+        returnRef: '',     // ?ref= order id Stripe sent the guest back with (works without this phone's storage)
+        returnNote: false,
+        returnNoteRef: '', // reference to show in the "just paid?" banner
+        payEntry: null,    // the stored extras entry the pay screen is working on
+        redirectEntry: null,   // the entry being paid on Stripe (in case this phone couldn't store it)
+        payOrigin: 'resume',   // 'paid' once the guest has (or says they have) paid
+        payBusy: false,
+        redirecting: false,
+        leaving: false     // on the way to Stripe: no "leave this page?" prompt
       };
+      const overlayCache = Object.create(null);   // overlay id -> loaded design (kept for "send another set")
 
-      // NOTE: all server-provided text (event name, error messages) is written with
-      // textContent, never innerHTML. innerHTML is only used for the static ICONS markup.
+      // NOTE: all server-provided text (event name, design names, error messages) is written
+      // with textContent, never innerHTML. innerHTML is only used for the static ICONS markup.
 
       function getToken() {
         try { return (new URLSearchParams(window.location.search).get('t') || '').trim(); }
@@ -356,6 +499,32 @@
           const m = /[?&]t=([^&#]*)/.exec(window.location.search || '');
           try { return m ? decodeURIComponent(m[1]).trim() : ''; } catch (e2) { return ''; }
         }
+      }
+
+      // Back from Stripe? Read ?paid=1 / ?cancelled=1 and ?ref=ORDER_ID once and take them
+      // out of the address bar, so a reload or a shared link doesn't replay them.
+      // ref lets the page find the upload even when this phone has no record of it
+      // (storage blocked / full, or checkout finished in another browser).
+      function readReturnParams() {
+        let mode = null, ref = '';
+        try {
+          const params = new URLSearchParams(window.location.search || '');
+          if (params.get('paid') === '1') mode = 'paid';
+          else if (params.get('cancelled') === '1') mode = 'cancelled';
+          const r = String(params.get('ref') || '').trim();
+          if (UUID_RE.test(r)) ref = r.toLowerCase();
+          if (params.has('paid') || params.has('cancelled') || params.has('ref')) {
+            params.delete('paid');
+            params.delete('cancelled');
+            params.delete('ref');
+            const qs = params.toString();
+            const clean = (window.location.pathname || '/guest') + (qs ? '?' + qs : '') + (window.location.hash || '');
+            if (window.history && typeof window.history.replaceState === 'function') {
+              window.history.replaceState(window.history.state || null, '', clean);
+            }
+          }
+        } catch (e) { /* old browser: harmless to keep the params */ }
+        return { mode: mode, ref: ref };
       }
 
       async function fetchWithTimeout(url, opts, ms) {
@@ -375,6 +544,13 @@
         if (parts.length <= 1) return parts.join('');
         return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
       }
+
+      // Money: prices are GBP with 2 decimals; totals are worked out in pence (as Stripe does).
+      function pence(v) { return Math.round(Number(v) * 100); }
+      function money(v) { return '£' + (pence(v) / 100).toFixed(2); }
+      function extrasTotal(count, price) { return (pence(price) * count) / 100; }
+
+      function curEventId() { return state.event ? state.event.id : ''; }
 
       // ── Device lock (soft deterrent: localStorage + cookie) ───────
       function lockKey(eventId) { return 'mm_guest_' + eventId; }
@@ -423,10 +599,15 @@
         } catch (e) {}
       }
 
-      // ── Unanswered finalize (survives a reload) ───────────────────
-      // Saved just before guest-finalize is called and cleared once a number comes back
-      // (or the order turns out to be dead), so a lost reply / reload can't strand a
-      // number the guest never saw - or let them upload again for a second one.
+      // ── Unanswered finalize / unpaid extras (survives a reload) ───
+      // Saved just before guest-finalize (or, with paid extras, before guest-pay / the trip
+      // to Stripe) and cleared once a number comes back (or the order turns out to be dead),
+      // so a lost reply / reload / closed payment page can't strand a number the guest never
+      // saw - or let them upload again for a second one.
+      // Entry: { orderId, keys } + for paid extras { extras: true, freeCount, extrasCount, total, skipped? }
+      // The numbers are the server's snapshot of the order (from guest-order / guest-status).
+      // keys may be [] for an upload rebuilt from ?ref= (the server already holds its photo
+      // list - pendingKeys - so guest-pay / guest-finalize are then called without keys).
       function pendingKey(eventId) { return 'mm_guest_pending_' + eventId; }
 
       function readPending(eventId) {
@@ -438,28 +619,81 @@
           const obj = JSON.parse(raw);
           if (obj && typeof obj.orderId === 'string' && obj.orderId &&
               Array.isArray(obj.keys) && obj.keys.every((k) => typeof k === 'string')) {
-            return { orderId: obj.orderId, keys: obj.keys.slice() };
+            const out = { orderId: obj.orderId, keys: obj.keys.slice() };
+            if (obj.extras === true) {
+              const fc = Number(obj.freeCount), xc = Number(obj.extrasCount), tot = Number(obj.total);
+              out.extras = true;
+              out.freeCount = Number.isInteger(fc) && fc >= 1 ? fc : 1;
+              out.extrasCount = Number.isInteger(xc) && xc >= 0 ? xc : Math.max(0, out.keys.length - out.freeCount);
+              out.total = Number.isFinite(tot) && tot >= 0 ? tot : 0;
+              out.skipped = obj.skipped === true;
+            }
+            return out;
           }
         } catch (e) { /* garbled */ }
         clearPending(eventId);
         return null;
       }
 
-      function savePending(eventId, orderId, keys) {
-        if (!eventId) return;
-        try { window.localStorage.setItem(pendingKey(eventId), JSON.stringify({ orderId: orderId, keys: keys })); } catch (e) {}
+      function savePendingEntry(eventId, entry) {
+        if (!eventId || !entry) return;
+        const o = { orderId: entry.orderId, keys: entry.keys };
+        if (entry.extras) {
+          o.extras = true;
+          o.freeCount = entry.freeCount;
+          o.extrasCount = entry.extrasCount;
+          o.total = entry.total;
+          if (entry.skipped) o.skipped = true;
+        }
+        try { window.localStorage.setItem(pendingKey(eventId), JSON.stringify(o)); } catch (e) {}
       }
 
-      function clearPending(eventId) {
+      function savePending(eventId, orderId, keys) { savePendingEntry(eventId, { orderId: orderId, keys: keys }); }
+
+      // orderId given: only clear the entry when it is that upload's (never another one's)
+      function clearPending(eventId, orderId) {
         if (!eventId) return;
-        try { window.localStorage.removeItem(pendingKey(eventId)); } catch (e) {}
+        try {
+          if (orderId) {
+            const raw = window.localStorage.getItem(pendingKey(eventId));
+            if (raw) {
+              let stored = null;
+              try { stored = JSON.parse(raw); } catch (e) {}
+              if (stored && typeof stored.orderId === 'string' && stored.orderId && stored.orderId !== orderId) return;
+            }
+          }
+          window.localStorage.removeItem(pendingKey(eventId));
+        } catch (e) {}
+      }
+
+      // Did the entry really get stored? (private mode / full storage fail silently)
+      function pendingSaved(eventId, entry) {
+        const back = readPending(eventId);
+        return !!(back && entry && back.orderId === entry.orderId);
+      }
+
+      // Photos in an entry (an entry rebuilt from ?ref= has no keys, only the counts)
+      function photoCountOf(entry) {
+        const n = entry && Array.isArray(entry.keys) ? entry.keys.length : 0;
+        return n || ((entry && entry.freeCount) || 0) + ((entry && entry.extrasCount) || 0);
       }
 
       // Finalize answers that mean the order can never produce a number.
       function isDeadOrder(r) { return r.status === 400 || r.status === 403 || r.status === 404; }
+      // Paid for extras, but every number went while they were paying -> refund.
+      function isFullPaid(r) { return r.status === 409 && !!(r.data && r.data.full === true && r.data.paid === true); }
+      // The team refunded the extras payment: this upload will not get a number.
+      function isRefunded(r) { return r.status === 409 && !!(r.data && r.data.refunded === true); }
+      // How many paid extras a finished order has: the server says so when it knows,
+      // otherwise what this phone knows about the entry.
+      function paidExtrasOf(entry, r) {
+        const fromServer = r && r.data ? Number(r.data.paidExtras) : NaN;
+        if (Number.isInteger(fromServer) && fromServer >= 0) return fromServer;
+        return entry && entry.extras && !entry.skipped ? (entry.extrasCount || 0) : 0;
+      }
 
       // ── Views ─────────────────────────────────────────────────────
-      const VIEWS = ['view-loading', 'view-message', 'view-done-before', 'view-form', 'view-success'];
+      const VIEWS = ['view-loading', 'view-message', 'view-done-before', 'view-form', 'view-success', 'view-pay'];
       function showView(id) {
         VIEWS.forEach((v) => $(v).classList.toggle('hidden', v !== id));
         try { window.scrollTo(0, 0); } catch (e) {}
@@ -581,27 +815,155 @@
         showMessage('network');
       }
 
-      // An earlier finalize on this phone never got its answer (signal drop, reload):
-      // finish it before anything else. guest-finalize is idempotent and doesn't need
-      // the event to be open. -> true when the number came back and is now on screen.
+      // An earlier finalize on this phone never got its answer (signal drop, reload), or
+      // the guest is back from paying for extra magnets: finish it before anything else.
+      // guest-finalize is idempotent and doesn't need the event to be open.
+      // -> true when something (number / pay screen) is now on screen.
       async function resumePending(ev, open) {
+        let mode = state.returnMode;
+        const ref = state.returnRef;
+        state.returnMode = null;
+        state.returnRef = '';
         try {
           const eventId = ev && ev.id != null ? String(ev.id) : '';
           const pend = readPending(eventId);
-          if (!pend) return false;
-          $('loading-text').textContent = 'Getting your number…';
-          const fin = await finalizeWithRetry(pend.orderId, pend.keys);
-          if (fin.number != null) {
+          // Back from Stripe with an upload this phone has no (matching) record of
+          if (ref && (!pend || pend.orderId !== ref)) {
             state.event = makeEventState(ev, open);
             state.maxPhotos = state.event.maxPhotos;
-            onSuccess(fin.number, true);   // saves the lock, clears the pending entry
-            return true;
+            $('loading-text').textContent = 'Getting your number…';
+            const out = await resumeFromRef(ref, mode, !pend);
+            if (out === true) return true;
+            if (out === 'network') {
+              // Keep the reference: "Try again" asks once more
+              state.returnMode = mode;
+              state.returnRef = ref;
+              $('loading-text').textContent = 'Loading…';
+              showMessage('network', ev);
+              $('msg-text').textContent += ' Your reference: ' + ref.slice(0, 8) + '.';
+              return true;
+            }
+            // not this event's upload / unknown: carry on as a plain load
+            const paidBack = mode === 'paid';
+            mode = null;
+            if (!pend) {
+              state.returnNote = paidBack;
+              state.returnNoteRef = ref;
+              $('loading-text').textContent = 'Loading…';
+              return false;
+            }
           }
-          if (isDeadOrder(fin)) clearPending(eventId);
-          // network / 409 / 503 / 5xx: keep it - retried on the next load or submit
+          if (!pend) {
+            state.returnNote = mode === 'paid';
+            state.returnNoteRef = '';
+            return false;
+          }
+          state.event = makeEventState(ev, open);
+          state.maxPhotos = state.event.maxPhotos;
+          $('loading-text').textContent = 'Getting your number…';
+          if (pend.extras) {
+            if (await resumeExtras(pend, mode)) return true;
+          } else {
+            const fin = await finalizeWithRetry(pend.orderId, pend.keys);
+            if (fin.number != null) {
+              onSuccess(fin.number, true, 0, pend.orderId);   // saves the lock, clears the pending entry
+              return true;
+            }
+            if (isDeadOrder(fin)) clearPending(eventId, pend.orderId);
+            // network / 409 / 503 / 5xx: keep it - retried on the next load or submit
+          }
         } catch (e) { /* fall through to the normal page */ }
         $('loading-text').textContent = 'Loading…';
         return false;
+      }
+
+      // Stored order with paid extra magnets. mode: 'paid' | 'cancelled' | null (plain reload)
+      async function resumeExtras(pend, mode) {
+        const eventId = curEventId();
+        state.payOrigin = mode === 'paid' ? 'paid' : 'resume';
+        let r = await finalizeEntry(pend, eventId);
+        if (mode === 'paid') {
+          // Stripe sends the guest back a moment before the payment reaches us.
+          for (let i = 0; i < PAID_RECHECKS && r.status === 402; i++) {
+            await sleep(PAID_RECHECK_MS);
+            r = await finalizeEntry(pend, eventId);
+          }
+        }
+        if (r.number != null) {
+          onSuccess(r.number, !mode, paidExtrasOf(pend, r), pend.orderId);
+          return true;
+        }
+        if (isDeadOrder(r)) {
+          if (mode === 'paid') { deadOrder(pend); return true; }   // they paid: tell them who to see
+          clearPending(eventId, pend.orderId);
+          return false;
+        }
+        extrasOutcome(r, pend, { unpaidKind: mode === 'paid' ? 'unpaid' : (mode === 'cancelled' ? 'cancelled' : 'resume') });
+        return true;
+      }
+
+      // GET /api/guest-status?ref=ORDER_ID (the random order id is the authorisation)
+      // -> { data } | { status, data } (4xx) | { network: true } (unreachable / 5xx)
+      async function statusRequest(ref) {
+        let last = { network: true };
+        for (let a = 1; a <= 3; a++) {
+          try {
+            const res = await fetchWithTimeout('/api/guest-status?ref=' + encodeURIComponent(ref), { cache: 'no-store' }, 20000);
+            const data = await res.json().catch(() => null);
+            if (res.ok && data && typeof data === 'object') return { data: data };
+            if (res.status >= 400 && res.status < 500) return { status: res.status, data: data || {} };
+            last = { network: true };
+          } catch (e) {
+            last = { network: true };
+          }
+          if (a < 3) await sleep(700 * a);
+        }
+        return last;
+      }
+
+      // A paid-extras entry built from the server's view of the order (no keys: the
+      // server has the photo list).
+      function entryFromStatus(ref, s) {
+        const fc = Number(s.freeCount), xc = Number(s.extrasCount), tot = Number(s.extrasTotal);
+        return {
+          orderId: ref, keys: [], extras: true,
+          freeCount: Number.isInteger(fc) && fc >= 1 ? fc : 1,
+          extrasCount: Number.isInteger(xc) && xc >= 0 ? xc : 0,
+          total: s.extrasTotal != null && Number.isFinite(tot) && tot >= 0 ? pence(tot) / 100 : 0,
+          skipped: false
+        };
+      }
+
+      // Back from Stripe (?ref=) without a matching entry on this phone: ask the server
+      // what happened to the upload. canSave: store the rebuilt entry (so a reload
+      // still finds it) - not when it would replace another stored upload.
+      // -> true (something is on screen) | false (unknown / another event) | 'network'
+      async function resumeFromRef(ref, mode, canSave) {
+        const eventId = curEventId();
+        const st = await statusRequest(ref);
+        if (st.network) return 'network';
+        const s = st.data;
+        if (st.status || !s || String(s.eventId == null ? '' : s.eventId) !== eventId) return false;
+        const entry = entryFromStatus(ref, s);
+        const num = Number(s.number);
+        if (s.complete === true && s.number != null && Number.isInteger(num)) {
+          onSuccess(num, false, s.extrasPaid === true ? entry.extrasCount : 0, ref);   // saves the device lock
+          return true;
+        }
+        if (s.refunded === true) { refundedOrder(entry, null); return true; }
+        if (canSave) savePendingEntry(eventId, entry);
+        if (s.fullAfterPayment === true) {
+          state.payOrigin = 'paid';
+          showPayPanel('refund', entry);
+          return true;
+        }
+        // Paid (or just back from paying): finalize with the server's photo list
+        if (s.extrasPaid === true || mode === 'paid' || !(entry.extrasCount > 0)) {
+          return resumeExtras(entry, s.extrasPaid === true ? 'paid' : mode);
+        }
+        state.payOrigin = 'resume';
+        showPayPanel(mode === 'cancelled' ? 'cancelled' : 'resume', entry);
+        return true;
       }
 
       function computeMax(ev) {
@@ -611,16 +973,41 @@
         return max;
       }
 
+      // Free allowance (older servers only send maxPhotos, which is the same number)
+      function computeFree(ev) {
+        const f = Number(ev.freePhotos);
+        return Number.isInteger(f) && f >= 1 ? f : computeMax(ev);
+      }
+
+      // { price, max } while extra magnets are on sale, else null
+      function parseExtras(ev) {
+        const x = ev ? ev.extras : null;
+        if (!x || typeof x !== 'object') return null;
+        const price = Number(x.price), max = Number(x.max);
+        if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(max) || max < 1) return null;
+        return { price: pence(price) / 100, max: max };
+      }
+
       // open=false: a closed/full event (only id + name known; never offer another set)
       function makeEventState(ev, open) {
         const limit = Number(ev.perTicketLimit) || 0;
+        const free = computeFree(ev);
+        const extras = open ? parseExtras(ev) : null;
         return {
           id: String(ev.id || ''),
           name: String(ev.name || ''),
           perTicketLimit: limit > 0 ? limit : 0,
           allowRepeat: open ? !!ev.allowRepeat : false,
-          maxPhotos: computeMax(ev)
+          freePhotos: free,
+          extras: extras,
+          maxPhotos: free + (extras ? extras.max : 0)
         };
+      }
+
+      function freeCount() { return state.event ? state.event.freePhotos : state.maxPhotos; }
+      // Photos beyond the free allowance (only possible while extras are on sale)
+      function extrasIn(n) {
+        return state.event && state.event.extras ? Math.max(0, n - state.event.freePhotos) : 0;
       }
 
       function openForm(ev) {
@@ -630,10 +1017,18 @@
         const prev = readLock(state.event.id);
         if (prev.length && !state.event.allowRepeat) { showDoneBefore(prev); return; }
 
-        $('event-name').textContent = state.event.name || 'Event photos';
-        $('intro-text').textContent = state.maxPhotos === 1
+        setupOverlays(ev);
+
+        const free = state.event.freePhotos;
+        const x = state.event.extras;
+        let intro = free === 1
           ? 'Add your photo, crop it square, then tap Send. We’ll give you a number to collect your magnet.'
-          : 'Add up to ' + state.maxPhotos + ' photos, crop each one square, then tap Send. We’ll give you a number to collect your magnets.';
+          : 'Add up to ' + free + ' photos, crop each one square, then tap Send. We’ll give you a number to collect your magnets.';
+        if (x) intro += ' Want more? Extra magnets are ' + money(x.price) + ' each.';
+        if (state.overlayMode === 'required') intro += ' The event design is added to every photo.';
+        else if (state.overlayMode === 'optional') intro += ' You can add the event design to your photos.';
+        $('event-name').textContent = state.event.name || 'Event photos';
+        $('intro-text').textContent = intro;
 
         const banner = $('prev-banner');
         if (prev.length) {
@@ -647,6 +1042,20 @@
           banner.classList.add('hidden');
         }
 
+        // Back from Stripe but this phone has no record of the upload (storage blocked?)
+        const ret = $('return-banner');
+        if (state.returnNote && !prev.length) {
+          ret.textContent = 'If you’ve just paid for extra magnets and can’t see your number, please show your payment receipt' +
+            (state.returnNoteRef ? ' (reference ' + state.returnNoteRef.slice(0, 8) + ')' : '') +
+            ' to the Magnetic Memories team.';
+          ret.classList.remove('hidden');
+        } else {
+          ret.textContent = '';
+          ret.classList.add('hidden');
+        }
+        state.returnNote = false;
+        state.returnNoteRef = '';
+
         hideStatus();
         hideNotice();
         renderPhotos();
@@ -654,17 +1063,278 @@
       }
 
       // Silently refresh the event limits (e.g. after the server rejects the photo count).
+      // Designs are left alone: photos already made with them stay as they are.
       async function refreshEventMeta() {
         try {
           const res = await fetchWithTimeout('/api/guest-event?t=' + encodeURIComponent(state.token), { cache: 'no-store' }, 15000);
           const data = await res.json().catch(() => null);
           if (data && data.open === true && data.event && state.event) {
-            state.event.maxPhotos = computeMax(data.event);
+            state.event.freePhotos = computeFree(data.event);
+            state.event.extras = parseExtras(data.event);
+            state.event.maxPhotos = state.event.freePhotos + (state.event.extras ? state.event.extras.max : 0);
             state.event.allowRepeat = !!data.event.allowRepeat;
             state.maxPhotos = state.event.maxPhotos;
             renderPhotos();
+            return true;
           }
         } catch (e) {}
+        return false;
+      }
+
+      // guest-order 409 { priceChanged, price } / { limitsChanged, freePhotos, extras }:
+      // use what the server just said straight away (refreshEventMeta then re-reads the
+      // whole event, which wins when it arrives).
+      function applyOrderLimits(d) {
+        const ev = state.event;
+        if (!ev || !d) return;
+        if (d.limitsChanged) {
+          const f = Number(d.freePhotos);
+          if (Number.isInteger(f) && f >= 1) ev.freePhotos = f;
+          if ('extras' in d) ev.extras = parseExtras({ extras: d.extras });
+        }
+        if (d.priceChanged && ev.extras) {
+          const np = Number(d.price);
+          if (Number.isFinite(np) && np > 0) ev.extras.price = pence(np) / 100;
+        }
+        ev.maxPhotos = ev.freePhotos + (ev.extras ? ev.extras.max : 0);
+        state.maxPhotos = ev.maxPhotos;
+        renderPhotos();
+      }
+
+      // What changed, in the page's (now updated) numbers, and what to do next.
+      function limitsChangedText(d) {
+        const n = state.photos.length;
+        const max = state.maxPhotos;
+        const x = state.event && state.event.extras ? state.event.extras : null;
+        let head;
+        if (d.limitsChanged) {
+          const f = freeCount();
+          head = 'The number of free photos for this event has changed – you now get ' + f + ' free ' + plural(f, 'photo', 'photos');
+        } else {
+          const np = Number(d.price);
+          head = 'The price for extra magnets is now ' + money(x ? x.price : (Number.isFinite(np) ? np : 0));
+        }
+        if (n > max) {
+          return head + '. Please remove ' + (n - max) + ' ' + plural(n - max, 'photo', 'photos') + ' to continue.';
+        }
+        const extraN = extrasIn(n);
+        if (d.limitsChanged && extraN > 0 && x) {
+          return head + '. ' + extraN + ' ' + plural(extraN, 'photo is now an extra magnet', 'photos are now extra magnets') +
+            ' (' + money(extrasTotal(extraN, x.price)) + ') – tap again to continue.';
+        }
+        return head + ' – tap again to continue.';
+      }
+
+      // The order as guest-order created it: { freeCount, extrasCount, total }. An older
+      // server without the snapshot -> fallback (the numbers the page sent it).
+      function orderSnapshot(d, fallback) {
+        const fc = Number(d && d.freeCount), xc = Number(d && d.extrasCount);
+        if (!(Number.isInteger(fc) && fc >= 1 && Number.isInteger(xc) && xc >= 0)) return fallback;
+        const tot = Number(d.extrasTotal), xp = Number(d.extraPrice);
+        let total;
+        if (d.extrasTotal != null && Number.isFinite(tot) && tot >= 0) total = pence(tot) / 100;
+        else total = xc > 0 && Number.isFinite(xp) && xp > 0 ? extrasTotal(xc, xp) : 0;
+        return { freeCount: fc, extrasCount: xc, total: total };
+      }
+
+      // ── Event designs (overlays) ──────────────────────────────────
+      function overlayById(id) {
+        if (!id) return null;
+        for (const o of state.overlays) if (o.id === id) return o;
+        return null;
+      }
+
+      function parseOverlays(ev) {
+        const list = Array.isArray(ev.overlays) ? ev.overlays : [];
+        const out = [];
+        for (const o of list) {
+          if (!o || typeof o !== 'object') continue;
+          const id = String(o.id || '');
+          if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || out.some((x) => x.id === id)) continue;
+          // Only ever fetch our own overlay endpoint
+          let url = typeof o.url === 'string' ? o.url : '';
+          if (url.indexOf('/api/event-overlay?') !== 0) {
+            url = '/api/event-overlay?e=' + encodeURIComponent(String(ev.id || '')) + '&id=' + encodeURIComponent(id);
+          }
+          out.push({ id: id, name: String(o.name || '').slice(0, 40) || ('Design ' + (out.length + 1)), url: url });
+          if (out.length >= 8) break;
+        }
+        return out;
+      }
+
+      function setupOverlays(ev) {
+        const list = parseOverlays(ev);
+        // Designs the event no longer has (or that changed): give their memory back
+        Object.keys(overlayCache).forEach((id) => {
+          const c = overlayCache[id];
+          if (list.some((o) => o.id === id && o.url === c.url)) return;
+          if (c.status === 'ready') releaseDesign({ draw: c.draw, viewUrl: c.objUrl });
+          c.draw = null; c.objUrl = null; c.status = 'idle';
+          delete overlayCache[id];
+        });
+        state.overlays = list.map((o) => {
+          const cached = overlayCache[o.id];
+          if (cached && cached.url === o.url) { cached.name = o.name; return cached; }
+          const fresh = { id: o.id, name: o.name, url: o.url, status: 'idle', objUrl: null, draw: null, promise: null };
+          overlayCache[o.id] = fresh;
+          return fresh;
+        });
+        const m = String(ev.overlayMode || '');
+        state.overlayMode = state.overlays.length && (m === 'optional' || m === 'required') ? m : 'off';
+        if (state.overlayMode === 'off') { state.overlays = []; return; }
+        if (state.lastOverlayId && !overlayById(state.lastOverlayId)) state.lastOverlayId = null;
+        if (state.lastOverlayId === '' && state.overlayMode !== 'optional') state.lastOverlayId = null;
+        state.overlays.forEach((o) => { loadOverlay(o); });   // preload every design
+      }
+
+      // Load one design -> Promise<true when ready>. Sets o.draw (what the photo is
+      // composited with) and o.objUrl (picker thumbnail + live crop layer).
+      function loadOverlay(o) {
+        if (o.status === 'ready' || o.status === 'loading') return o.promise;
+        o.status = 'loading';
+        o.promise = (async () => {
+          try {
+            const d = await fetchDesign(o.url);
+            o.draw = d.draw;
+            o.objUrl = d.viewUrl;
+            o.status = 'ready';
+          } catch (e) {
+            o.draw = null;
+            o.objUrl = null;
+            o.status = 'error';
+          }
+          if (cropDone) refreshCropOverlay();
+          return o.status === 'ready';
+        })();
+        return o.promise;
+      }
+
+      function releaseDesign(d) {
+        if (!d) return;
+        if (d.draw) {
+          if (typeof d.draw.getContext === 'function') freeCanvas(d.draw);
+          else releaseImage(d.draw);
+        }
+        if (d.viewUrl) { try { URL.revokeObjectURL(d.viewUrl); } catch (e) {} }
+      }
+
+      function releaseImage(img) {
+        if (!img) return;
+        try { img.onload = null; img.onerror = null; } catch (e) {}
+        try { img.removeAttribute('src'); } catch (e) {}
+      }
+
+      // fetch -> body -> decode -> shrink. A download that STALLS (no data for
+      // OVERLAY_TIMEOUT_MS) ends in an error, so Retry / the "no design" fallback take
+      // over instead of leaving Save waiting - but a slow download that keeps making
+      // progress is allowed to finish (up to OVERLAY_MAX_MS), for weak venue signal.
+      // -> Promise<{ draw, viewUrl }>
+      function fetchDesign(url) {
+        const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        let timedOut = false;
+        let timer = null, capTimer = null, fail = null;
+        const timeout = new Promise((resolve, reject) => { fail = reject; });
+        const giveUp = () => {
+          if (timedOut) return;
+          timedOut = true;
+          try { if (ctrl) ctrl.abort(); } catch (e) {}
+          fail(new Error('timeout'));
+        };
+        const progress = () => { clearTimeout(timer); timer = setTimeout(giveUp, OVERLAY_TIMEOUT_MS); };
+        progress();
+        capTimer = setTimeout(giveUp, OVERLAY_MAX_MS);
+        const work = (async () => {
+          let objUrl = null, img = null;
+          try {
+            const res = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+            if (!res || !res.ok) throw new Error('HTTP ' + (res ? res.status : '?'));
+            progress();
+            let blob;
+            if (res.body && typeof res.body.getReader === 'function') {
+              // Stream the body so every chunk counts as progress
+              const reader = res.body.getReader();
+              const parts = [];
+              for (;;) {
+                const step = await reader.read();
+                if (timedOut) throw new Error('timeout');
+                if (step.done) break;
+                if (step.value) parts.push(step.value);
+                progress();
+              }
+              blob = new Blob(parts, { type: (res.headers && res.headers.get('Content-Type')) || 'image/png' });
+            } else {
+              blob = await res.blob();   // no streaming: the stall timer covers it as one step
+            }
+            if (timedOut) throw new Error('timeout');
+            progress();                  // decode + shrink get their own allowance
+            if (!blob || !blob.size) throw new Error('empty');
+            objUrl = URL.createObjectURL(blob);
+            img = new Image();
+            await new Promise((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error('decode'));
+              img.src = objUrl;
+            });
+            if (typeof img.decode === 'function') {
+              try { await img.decode(); } catch (e) { /* already loaded: still drawable */ }
+            }
+            if (timedOut) throw new Error('timeout');
+            const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            if (!w || !h) throw new Error('empty image');
+            const d = await shrinkDesign(img, w, h, objUrl);
+            if (d.viewUrl === objUrl) objUrl = null;       // kept as the view URL
+            if (d.draw !== img) { releaseImage(img); img = null; }   // only the <= 1600 copy stays
+            return d;
+          } catch (e) {
+            releaseImage(img);
+            throw e;
+          } finally {
+            if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} }
+          }
+        })();
+        // Finished after the timeout already gave up: throw the result away
+        work.then((d) => { if (timedOut) releaseDesign(d); }, () => {});
+        const done = () => { clearTimeout(timer); clearTimeout(capTimer); };
+        return Promise.race([work, timeout]).then(
+          (d) => { done(); return d; },
+          (e) => { done(); throw e; }
+        );
+      }
+
+      // Draw the decoded design once into a canvas of at most OVERLAY_KEEP_MAX (shape
+      // kept). Bigger designs get a new small PNG for display and the full-size download
+      // is released; smaller ones keep their own (already small) file for display.
+      // -> { draw, viewUrl }  (no canvas possible: the full image, as before)
+      async function shrinkDesign(img, w, h, objUrl) {
+        const scale = Math.min(1, OVERLAY_KEEP_MAX / Math.max(w, h));
+        const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+        let c = null, ctx = null;
+        try {
+          c = document.createElement('canvas');
+          c.width = cw;
+          c.height = ch;
+          ctx = c.getContext('2d');
+        } catch (e) { ctx = null; }
+        if (!ctx) { freeCanvas(c); return { draw: img, viewUrl: objUrl }; }
+        try {
+          ctx.imageSmoothingEnabled = true;
+          try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
+          ctx.drawImage(img, 0, 0, cw, ch);
+        } catch (e) { freeCanvas(c); return { draw: img, viewUrl: objUrl }; }
+        if (scale >= 1) return { draw: c, viewUrl: objUrl };
+        const png = await canvasToBlob(c, undefined, 'image/png');
+        let viewUrl = null;
+        try { viewUrl = png ? URL.createObjectURL(png) : null; } catch (e) { viewUrl = null; }
+        return { draw: c, viewUrl: viewUrl || objUrl };
+      }
+
+      // Which design a crop starts with: the photo's own / the last choice, else the first design.
+      function initialOverlay(want) {
+        const mode = state.overlayMode;
+        if (mode === 'off' || !state.overlays.length) return '';
+        if (want === '' && mode === 'optional') return '';
+        if (want && overlayById(want)) return want;
+        return state.overlays[0].id;
       }
 
       // ── Notices / status / progress ───────────────────────────────
@@ -698,14 +1368,18 @@
       // ── Photos grid ───────────────────────────────────────────────
       function photoSig() { return state.photos.map((p) => p.id + '.' + p.ver).join('|'); }
 
-      // Once every photo is uploaded and we're only waiting for the number, the set is
-      // locked: finalize must print exactly what was sent, so edits could only cause confusion.
+      // Once every photo is uploaded and we're only waiting for the number (or the payment),
+      // the set is locked: finalize must print exactly what was sent, so edits could only
+      // cause confusion.
       function photosLocked() { return !!(state.pending && state.pending.finalizing); }
       function lockedNotice() { notice('Your photos are already uploaded – tap Retry to get your number.'); }
 
       function renderPhotos() {
         const grid = $('photo-grid');
         grid.textContent = '';
+        const extras = state.event && state.event.extras ? state.event.extras : null;
+        const free = freeCount();
+        const locked = photosLocked();
         state.photos.forEach((p, i) => {
           const tile = document.createElement('div');
           tile.className = 'tile';
@@ -726,7 +1400,7 @@
 
           tile.appendChild(btn);
           tile.appendChild(badge);
-          if (!photosLocked()) {
+          if (!locked) {
             const rm = document.createElement('button');
             rm.type = 'button';
             rm.className = 'tile-remove';
@@ -735,27 +1409,53 @@
             rm.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); removePhoto(p.id); });
             tile.appendChild(rm);
           }
+          if (extras && i >= free) {
+            const tag = document.createElement('span');
+            tag.className = 'tile-extra';
+            tag.textContent = 'Extra · ' + money(extras.price);
+            tile.appendChild(tag);
+          }
           grid.appendChild(tile);
         });
 
         const n = state.photos.length;
         const max = state.maxPhotos;
-        const locked = photosLocked();
+        const extraN = extrasIn(n);
+        const freeMax = Math.min(free, max);
         grid.classList.toggle('hidden', n === 0);
-        $('photo-counter').textContent = n + ' of ' + max;
-        $('add-wrap').classList.toggle('hidden', n >= max || locked);
-        $('add-label').textContent = n === 0 ? (max === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
+        $('photo-counter').textContent = extras
+          ? Math.min(n, free) + ' of ' + free + ' free' + (extraN > 0 ? ' · ' + extraN + ' extra' : '')
+          : n + ' of ' + max;
+        // The main box only fills the free photos; extras are always a separate, deliberate choice.
+        $('add-wrap').classList.toggle('hidden', n >= freeMax || locked);
+        $('add-label').textContent = n === 0 ? (freeMax === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
+
+        const upsell = $('extras-card');
+        upsell.classList.toggle('hidden', !(extras && !locked && n >= free && n < max));
+        if (extras) {
+          $('extras-text').textContent = extraN === 0
+            ? 'Add up to ' + extras.max + ' extra for ' + money(extras.price) + ' each'
+            : 'You can add ' + Math.max(0, max - n) + ' more for ' + money(extras.price) + ' each';
+        }
 
         const hint = $('photo-hint');
         if (locked) {
-          hint.textContent = 'Your photos are uploaded – just tap Retry to get your number.';
+          hint.textContent = state.pending && state.pending.extrasCount > 0
+            ? 'Your photos are uploaded – tap Retry to carry on.'
+            : 'Your photos are uploaded – just tap Retry to get your number.';
         } else if (n > max) {
           hint.textContent = 'This event allows up to ' + max + ' ' + plural(max, 'photo', 'photos') +
             ' – please remove ' + (n - max) + '.';
         } else if (n === 0) {
-          hint.textContent = max === 1
-            ? 'You can send 1 photo – it becomes your magnet.'
-            : 'You can send up to ' + max + ' photos – each one becomes a magnet.';
+          if (extras) {
+            hint.textContent = free === 1
+              ? 'Your first photo is free – it becomes your magnet.'
+              : 'You get ' + free + ' free photos – each one becomes a magnet.';
+          } else {
+            hint.textContent = max === 1
+              ? 'You can send 1 photo – it becomes your magnet.'
+              : 'You can send up to ' + max + ' photos – each one becomes a magnet.';
+          }
         } else if (n >= max) {
           hint.textContent = 'That’s the maximum. Tap a photo to re-crop it, or ✕ to remove it.';
         } else {
@@ -767,12 +1467,18 @@
       function updateSubmit() {
         const btn = $('submit-btn');
         const n = state.photos.length;
+        const extraN = extrasIn(n);
         btn.disabled = state.busy || state.cropping || n === 0 || n > state.maxPhotos;
+        $('pay-note').classList.toggle('hidden', !(extraN > 0));
         if (state.busy) return;   // label is driven by the upload flow
         if (n === 0) { btn.textContent = 'Add a photo to continue'; return; }
         if (state.pending && state.pending.sig === photoSig()) {
           const left = state.photos.filter((p) => !state.pending.keys[p.id]).length;
           btn.textContent = left > 0 ? 'Retry (' + left + ' ' + plural(left, 'photo', 'photos') + ' left)' : 'Retry';
+          return;
+        }
+        if (extraN > 0) {
+          btn.textContent = 'Pay ' + money(extrasTotal(extraN, state.event.extras.price)) + ' & send';
           return;
         }
         btn.textContent = n === 1 ? 'Send my photo' : 'Send my ' + n + ' photos';
@@ -814,43 +1520,65 @@
         return true;   // some pickers give no type; let the cropper decide
       }
 
-      $('file-input').addEventListener('change', async (e) => {
-        const input = e.target;
+      // extra=false: the main "Add photos" box (free photos only while extras are on sale)
+      // extra=true:  the "Add extra photos" button (up to the free + extras total)
+      async function onFilesChosen(input, extra) {
         const all = Array.from(input.files || []);
         try { input.value = ''; } catch (err) {}
-        if (!all.length || state.busy || state.cropping) return;
+        if (!all.length || state.busy || state.cropping || !state.event) return;
         if (photosLocked()) { lockedNotice(); return; }
 
         let files = all.filter(looksLikeImage);
         if (files.length < all.length) notice('Only photos can be added.');
         if (!files.length) return;
 
-        const room = state.maxPhotos - state.photos.length;
-        if (room <= 0) { notice('You can add up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') + '.'); return; }
+        const hasExtras = !!state.event.extras;
+        const free = freeCount();
+        const max = state.maxPhotos;
+        const limit = hasExtras && !extra ? Math.min(free, max) : max;
+        const room = limit - state.photos.length;
+        if (room <= 0) {
+          if (hasExtras && !extra && state.photos.length < max) notice('Your free photos are all added – tap “Add extra photos” for more.');
+          else notice('You can add up to ' + max + ' ' + plural(max, 'photo', 'photos') + '.');
+          return;
+        }
         if (files.length > room) {
-          notice('You can add up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') +
-            ' – we’ve added the first ' + room + '.');
+          if (hasExtras && !extra) {
+            notice('You get ' + free + ' free ' + plural(free, 'photo', 'photos') + ' – we’ve added the first ' + room +
+              '. You can add extra magnets for ' + money(state.event.extras.price) + ' each below.');
+          } else if (hasExtras) {
+            const x = max - free;
+            notice('You can add up to ' + x + ' extra ' + plural(x, 'photo', 'photos') + ' – we’ve added the first ' + room + '.');
+          } else {
+            notice('You can add up to ' + max + ' ' + plural(max, 'photo', 'photos') +
+              ' – we’ve added the first ' + room + '.');
+          }
           files = files.slice(0, room);
         }
-        await cropNewFiles(files);
-      });
+        await cropNewFiles(files, limit);
+      }
 
-      async function cropNewFiles(files) {
+      $('file-input').addEventListener('change', (e) => onFilesChosen(e.target, false));
+      $('extra-file-input').addEventListener('change', (e) => onFilesChosen(e.target, true));
+
+      async function cropNewFiles(files, limit) {
         state.cropping = true;
         updateSubmit();
         let failed = 0;
         try {
           for (let i = 0; i < files.length; i++) {
-            if (state.photos.length >= state.maxPhotos) break;
+            if (state.photos.length >= limit) break;
             let srcUrl = null;
             try { srcUrl = URL.createObjectURL(files[i]); } catch (e) { failed++; continue; }
             const label = files.length > 1 ? 'Photo ' + (i + 1) + ' of ' + files.length : '';
-            const result = await openCropper(srcUrl, label);
+            const result = await openCropper(srcUrl, label, state.lastOverlayId);
             if (result && result.blob) {
               state.photos.push({
                 id: state.nextId++, ver: 1, srcUrl: srcUrl,
-                blob: result.blob, thumbUrl: URL.createObjectURL(result.blob)
+                blob: result.blob, thumbUrl: URL.createObjectURL(result.blob),
+                overlayId: result.overlayId || ''
               });
+              if (state.overlayMode !== 'off') state.lastOverlayId = result.overlayId || '';
               hideStatus();
               renderPhotos();
             } else {
@@ -877,11 +1605,13 @@
         state.cropping = true;
         updateSubmit();
         try {
-          const result = await openCropper(p.srcUrl, '');
+          const result = await openCropper(p.srcUrl, '', p.overlayId);
           if (result && result.blob && state.photos.indexOf(p) !== -1) {
             try { URL.revokeObjectURL(p.thumbUrl); } catch (e) {}
             p.blob = result.blob;
             p.thumbUrl = URL.createObjectURL(result.blob);
+            p.overlayId = result.overlayId || '';
+            if (state.overlayMode !== 'off') state.lastOverlayId = p.overlayId;
             p.ver++;
             hideStatus();
           } else if (result && result.error) {
@@ -898,6 +1628,10 @@
       let cropDone = null;
       let cropSeq = 0;
       let cropReady = false;
+      let cropSaving = false;
+      let cropSel = '';          // design chosen for the photo being cropped ('' = none)
+      let cropNotice = '';
+      let cropLayer = null;      // <img> of the design, inside Cropper's crop box
       let scrollLocked = false;
       let lockedY = 0;
 
@@ -924,22 +1658,194 @@
         try { window.scrollTo(0, lockedY); } catch (e) {}
       }
 
+      // A required design that failed to load: nothing can be saved until it's retried.
+      function overlayBlocksSave() {
+        if (state.overlayMode !== 'required') return false;
+        const o = overlayById(cropSel);
+        return !o || o.status === 'error';
+      }
+
+      function updateCropSave() {
+        if (cropSaving) return;
+        const save = $('crop-save');
+        save.disabled = !cropReady || overlayBlocksSave();
+        save.textContent = 'Save';
+      }
+
       function setCropReady(ready) {
         cropReady = ready;
-        const save = $('crop-save');
-        save.disabled = !ready;
-        save.textContent = 'Save';
+        cropSaving = false;
         $('crop-loading').classList.toggle('hidden', ready);
+        updateCropSave();
       }
 
       function destroyCropper() {
         if (cropper) { try { cropper.destroy(); } catch (e) {} cropper = null; }
+        cropLayer = null;   // it lived inside the cropper's markup
       }
 
-      function openCropper(srcUrl, label) {
+      // Put the design on top of Cropper's crop square so it follows every move / zoom.
+      // Placed just after the photo preview (.cropper-view-box), below the drag handles.
+      function mountCropLayer() {
+        cropLayer = null;
+        if (state.overlayMode === 'off') return;
+        let box = null;
+        try { box = cropper && cropper.cropBox ? cropper.cropBox : null; } catch (e) {}
+        if (!box) { try { box = document.querySelector('#crop-modal .cropper-crop-box'); } catch (e) {} }
+        if (!box) return;
+        const el = document.createElement('img');
+        el.className = 'crop-overlay-layer';
+        el.alt = '';
+        el.setAttribute('aria-hidden', 'true');
+        el.setAttribute('draggable', 'false');
+        const s = el.style;
+        s.position = 'absolute'; s.top = '0'; s.left = '0';
+        s.width = '100%'; s.height = '100%';
+        s.maxWidth = 'none'; s.maxHeight = 'none';
+        s.pointerEvents = 'none';
+        s.display = 'none';
+        let vb = null;
+        try { vb = typeof box.querySelector === 'function' ? box.querySelector('.cropper-view-box') : null; } catch (e) {}
+        try {
+          if (vb && vb.nextSibling && typeof box.insertBefore === 'function') box.insertBefore(el, vb.nextSibling);
+          else box.appendChild(el);
+        } catch (e) { return; }
+        cropLayer = el;
+      }
+
+      function setCropLayer(url) {
+        if (!cropLayer) return;
+        if (url) {
+          if (cropLayer.src !== url) cropLayer.src = url;
+          cropLayer.style.display = 'block';
+        } else {
+          cropLayer.style.display = 'none';
+        }
+      }
+
+      function pickerButton(o) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        const selected = o ? cropSel === o.id : cropSel === '';
+        b.className = o ? 'ov-btn checker' : 'ov-btn ov-none';
+        b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        b.setAttribute('data-overlay-id', o ? o.id : '');
+        b.setAttribute('aria-label', o ? 'Design: ' + o.name : 'No design');
+        if (!o) {
+          b.textContent = 'None';
+        } else if (o.status === 'ready') {
+          const im = document.createElement('img');
+          im.src = o.objUrl;
+          im.alt = '';
+          b.appendChild(im);
+        } else {
+          const s = document.createElement('span');
+          s.className = 'ov-state' + (o.status === 'error' ? ' err' : '');
+          s.textContent = o.status === 'error' ? '!' : '…';
+          b.appendChild(s);
+        }
+        b.addEventListener('click', (e) => { e.preventDefault(); selectOverlay(o ? o.id : ''); });
+        return b;
+      }
+
+      function selectOverlay(id) {
+        if (!cropDone || cropSaving) return;
+        if (id) {
+          const o = overlayById(id);
+          if (!o) return;
+          if (o.status === 'error') { o.status = 'idle'; loadOverlay(o); }   // tap a failed design = try it again
+        } else if (state.overlayMode !== 'optional') {
+          return;
+        }
+        cropNotice = '';
+        cropSel = id;
+        refreshCropOverlay();
+      }
+
+      // Picker row, caption, messages, the live design on the crop square and Save.
+      function refreshCropOverlay() {
+        const mode = state.overlayMode;
+        const wrap = $('crop-overlay-wrap');
+        const card = $('crop-card');
+        if (mode === 'off' || !state.overlays.length) {
+          wrap.classList.add('hidden');
+          card.classList.remove('has-ov');
+          setCropLayer(null);
+          updateCropSave();
+          return;
+        }
+        wrap.classList.remove('hidden');
+        card.classList.add('has-ov');
+
+        let sel = overlayById(cropSel);
+        if (cropSel && !sel) { cropSel = initialOverlay(null); sel = overlayById(cropSel); }
+        if (sel && sel.status === 'error' && mode === 'optional') {
+          cropNotice = 'Sorry – the design “' + sel.name + '” couldn’t load, so this photo will be saved without it. Tap the design to try again.';
+          cropSel = '';
+          sel = null;
+        }
+        if (mode === 'required' && !sel) { cropSel = state.overlays[0].id; sel = state.overlays[0]; }
+
+        const row = $('crop-overlays');
+        row.textContent = '';
+        const showRow = mode === 'optional' || state.overlays.length > 1;
+        row.classList.toggle('hidden', !showRow);
+        if (showRow) {
+          if (mode === 'optional') row.appendChild(pickerButton(null));
+          state.overlays.forEach((o) => row.appendChild(pickerButton(o)));
+        }
+
+        $('crop-overlay-caption').textContent = !showRow
+          ? 'The event design is added to your photo'
+          : (sel ? 'Design: ' + sel.name : 'No design');
+
+        const msg = $('crop-overlay-msg');
+        const retry = $('crop-overlay-retry');
+        msg.classList.remove('warn', 'error', 'info');
+        if (sel && sel.status === 'error') {
+          msg.classList.add('error');
+          msg.textContent = 'The event design couldn’t load. Please check your signal and tap Retry.';
+          msg.classList.remove('hidden');
+          retry.classList.remove('hidden');
+        } else if (cropNotice) {
+          msg.classList.add('warn');
+          msg.textContent = cropNotice;
+          msg.classList.remove('hidden');
+          retry.classList.add('hidden');
+        } else if (sel && sel.status !== 'ready') {
+          msg.classList.add('info');
+          msg.textContent = 'Loading the design…';
+          msg.classList.remove('hidden');
+          retry.classList.add('hidden');
+        } else {
+          msg.textContent = '';
+          msg.classList.add('hidden');
+          retry.classList.add('hidden');
+        }
+        setCropLayer(sel && sel.status === 'ready' ? sel.objUrl : null);
+        updateCropSave();
+      }
+
+      $('crop-overlay-retry').addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!cropDone) return;
+        // The design this photo needs first (weak signal: don't split it with the rest),
+        // then any other failed ones once it's done.
+        const retryOne = (o) => { if (o && o.status === 'error') { o.status = 'idle'; return loadOverlay(o); } return Promise.resolve(); };
+        const sel = overlayById(cropSel);
+        Promise.resolve(retryOne(sel)).then(() => {
+          state.overlays.forEach((o) => { if (o !== sel) retryOne(o); });
+        });
+        cropNotice = '';
+        refreshCropOverlay();
+      });
+
+      function openCropper(srcUrl, label, overlayId) {
         return new Promise((resolve) => {
           const seq = ++cropSeq;
           cropDone = resolve;
+          cropSel = initialOverlay(overlayId);
+          cropNotice = '';
 
           const step = $('crop-step');
           step.textContent = label || '';
@@ -951,6 +1857,7 @@
 
           const img = $('crop-image');
           destroyCropper();
+          refreshCropOverlay();
           img.onerror = () => { if (seq === cropSeq && cropDone) finishCrop({ error: true }); };
           img.src = srcUrl;
 
@@ -968,7 +1875,12 @@
               background: false,
               modal: true,
               toggleDragModeOnDblclick: false,
-              ready: function () { if (seq === cropSeq) setCropReady(true); }
+              ready: function () {
+                if (seq !== cropSeq) return;
+                mountCropLayer();
+                setCropReady(true);
+                refreshCropOverlay();
+              }
             });
           } catch (e) {
             finishCrop({ error: true });
@@ -984,6 +1896,7 @@
         destroyCropper();
         try { img.removeAttribute('src'); } catch (e) {}
         setCropReady(false);
+        cropNotice = '';
         $('crop-modal').classList.add('hidden');
         unlockScroll();
         const done = cropDone;
@@ -991,17 +1904,18 @@
         if (done) done(result);
       }
 
-      function canvasToBlob(canvas, quality) {
+      function canvasToBlob(canvas, quality, type) {
+        const mime = type || 'image/jpeg';
         return new Promise((resolve) => {
           try {
-            if (canvas.toBlob) { canvas.toBlob((b) => resolve(b || null), 'image/jpeg', quality); return; }
+            if (canvas.toBlob) { canvas.toBlob((b) => resolve(b || null), mime, quality); return; }
           } catch (e) { /* fall through */ }
           try {
-            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            const dataUrl = canvas.toDataURL(mime, quality);
             const bin = atob(dataUrl.split(',')[1]);
             const arr = new Uint8Array(bin.length);
             for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-            resolve(new Blob([arr], { type: 'image/jpeg' }));
+            resolve(new Blob([arr], { type: mime }));
           } catch (e) { resolve(null); }
         });
       }
@@ -1043,13 +1957,58 @@
         } catch (e) { return null; }
       }
 
+      // Bake the design into the cropped square: drawn over the whole square, exactly as
+      // previewed. A tiny (zoomed-in) crop is first scaled up to OVERLAY_MIN_SIDE so the
+      // design's lines and lettering don't come out soft. overlayImg: the design's
+      // <= 1600 canvas (see shrinkDesign). -> canvas | null
+      function drawOverlay(src, overlayImg) {
+        try {
+          let out = src;
+          if (src.width < OVERLAY_MIN_SIDE) {
+            const up = document.createElement('canvas');
+            up.width = OVERLAY_MIN_SIDE;
+            up.height = OVERLAY_MIN_SIDE;
+            const uctx = up.getContext('2d');
+            if (uctx) {
+              uctx.imageSmoothingEnabled = true;
+              try { uctx.imageSmoothingQuality = 'high'; } catch (e) {}
+              uctx.fillStyle = '#fff';
+              uctx.fillRect(0, 0, up.width, up.height);
+              uctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, up.width, up.height);
+              out = up;
+            }
+          }
+          const ctx = out.getContext('2d');
+          if (!ctx) return null;
+          ctx.imageSmoothingEnabled = true;
+          try { ctx.imageSmoothingQuality = 'high'; } catch (e) {}
+          ctx.drawImage(overlayImg, 0, 0, out.width, out.height);
+          return out;
+        } catch (e) { return null; }
+      }
+
       $('crop-save').addEventListener('click', async (ev) => {
         ev.preventDefault();
-        if (!cropper || !cropReady || !cropDone) return;
+        if (!cropper || !cropReady || !cropDone || cropSaving) return;
+        if (overlayBlocksSave()) { refreshCropOverlay(); return; }
         const seq = cropSeq;
         const save = $('crop-save');
+        cropSaving = true;
         save.disabled = true;
         save.textContent = 'Saving…';
+
+        // Wait for the chosen design to be ready (it may still be downloading).
+        const ov = state.overlayMode !== 'off' && cropSel ? overlayById(cropSel) : null;
+        if (ov && ov.status !== 'ready') {
+          const loaded = await loadOverlay(ov);
+          if (seq !== cropSeq) return;   // cancelled meanwhile
+          if (!loaded || !ov.draw) {
+            // optional -> falls back to no design with a notice; required -> error + Retry
+            cropSaving = false;
+            refreshCropOverlay();
+            return;
+          }
+        }
 
         let out = null;
         let big = cropAt(4096);
@@ -1061,11 +2020,18 @@
         if (!out) out = cropAt(OUT_MAX);   // low-memory phone: the old 1600 cap (already <= 1600)
         if (!out) { finishCrop({ error: true }); return; }
 
+        if (ov) {
+          const comp = drawOverlay(out, ov.draw);
+          if (!comp) { freeCanvas(out); finishCrop({ error: true }); return; }
+          if (comp !== out) freeCanvas(out);
+          out = comp;
+        }
+
         const blob = await canvasToBlob(out, 0.9);
         freeCanvas(out);
         out = null;
         if (seq !== cropSeq) return;   // cancelled while encoding
-        finishCrop(blob ? { blob: blob } : { error: true });
+        finishCrop(blob ? { blob: blob, overlayId: ov ? ov.id : '' } : { error: true });
       });
 
       $('crop-cancel').addEventListener('click', (ev) => {
@@ -1088,16 +2054,21 @@
         return { res: res, data: data || {} };
       }
 
-      // POST /api/guest-order -> { orderId } | { status, error } | { network: true }
-      async function createOrder(count) {
+      // POST /api/guest-order -> { orderId, data } | { status, error, data } | { network: true }
+      // expectedExtras: how many paid extras the guest was shown (always sent);
+      // expectedPrice: the extra-magnet price they were shown (only with extras).
+      // data carries the server's snapshot { freeCount, extrasCount, extraPrice, extrasTotal }.
+      async function createOrder(count, expectedExtras, expectedPrice) {
+        const body = { t: state.token, count: count, expectedExtras: expectedExtras };
+        if (expectedPrice != null) body.expectedPrice = expectedPrice;
         let last = { network: true };
         for (let a = 1; a <= 3; a++) {
           try {
-            const r = await postJSON('/api/guest-order', { t: state.token, count: count }, 25000);
-            if (r.res.ok && typeof r.data.orderId === 'string' && r.data.orderId) return { orderId: r.data.orderId };
-            if (r.res.status >= 400 && r.res.status < 500) return { status: r.res.status, error: r.data.error };
-            if (r.res.status === 503) return { status: 503, error: r.data.error };
-            last = { status: r.res.status, error: r.data.error };
+            const r = await postJSON('/api/guest-order', body, 25000);
+            if (r.res.ok && typeof r.data.orderId === 'string' && r.data.orderId) return { orderId: r.data.orderId, data: r.data };
+            if (r.res.status >= 400 && r.res.status < 500) return { status: r.res.status, error: r.data.error, data: r.data };
+            if (r.res.status === 503) return { status: 503, error: r.data.error, data: r.data };
+            last = { status: r.res.status, error: r.data.error, data: r.data };
           } catch (e) {
             last = { network: true };
           }
@@ -1129,21 +2100,66 @@
         return { failed: true };
       }
 
-      // POST /api/guest-finalize (idempotent) -> { number } | { status, error } | { network: true }
-      async function finalizeWithRetry(orderId, keys) {
+      // POST /api/guest-finalize (idempotent)
+      // -> { number, data } | { status, error, data } | { network: true }
+      // 402 = extras not paid yet; 409 may carry { full, paid }, { refunded } or { alreadyPaid }.
+      // No keys (an upload rebuilt from ?ref=): the server uses the photo list it holds.
+      async function finalizeWithRetry(orderId, keys, opts) {
+        const body = { t: state.token, orderId: orderId };
+        if (Array.isArray(keys) && keys.length) body.keys = keys;
+        if (opts && opts.skipExtras) body.skipExtras = true;
         let last = { network: true };
         for (let a = 1; a <= UPLOAD_ATTEMPTS; a++) {
           try {
-            const r = await postJSON('/api/guest-finalize', { t: state.token, orderId: orderId, keys: keys }, 30000);
+            const r = await postJSON('/api/guest-finalize', body, 30000);
             const num = r.data ? Number(r.data.number) : NaN;
-            if (r.res.ok && r.data && r.data.number != null && Number.isInteger(num)) return { number: num };
+            if (r.res.ok && r.data && r.data.number != null && Number.isInteger(num)) return { number: num, data: r.data };
             const s = r.res.status;
-            if (s === 400 || s === 403 || s === 409 || s === 503) return { status: s, error: r.data.error };
-            last = { status: s, error: r.data.error };   // 404 (KV lag) / 5xx: retry
+            if (s === 400 || s === 402 || s === 403 || s === 409 || s === 503) return { status: s, error: r.data.error, data: r.data };
+            last = { status: s, error: r.data.error, data: r.data };   // 404 (KV lag) / 5xx: retry
           } catch (e) {
             last = { network: true };
           }
           if (a < UPLOAD_ATTEMPTS) await sleep(700 * a);
+        }
+        return last;
+      }
+
+      // Finalize a stored entry. After "Send just my free photos" it finalizes with
+      // skipExtras; if the extras turn out to be paid after all, it finishes with them.
+      async function finalizeEntry(entry, eventId) {
+        const skip = !!(entry.extras && entry.skipped);
+        let r = await finalizeWithRetry(entry.orderId, entry.keys, skip ? { skipExtras: true } : null);
+        if (skip && r.status === 409 && r.data && r.data.alreadyPaid) {
+          entry.skipped = false;
+          savePendingEntry(eventId, entry);
+          state.payOrigin = 'paid';
+          r = await finalizeWithRetry(entry.orderId, entry.keys, null);
+        }
+        return r;
+      }
+
+      // POST /api/guest-pay -> { url } | { paid: true } | { status, error, data } | { network: true }
+      // No keys (an upload rebuilt from ?ref=): the server uses the photo list it holds.
+      // 502 = Stripe unavailable: returned straight away (the guest retries; no
+      // automatic repeats that could open several checkouts).
+      async function payRequest(orderId, keys) {
+        const body = { t: state.token, orderId: orderId };
+        if (Array.isArray(keys) && keys.length) body.keys = keys;
+        let last = { network: true };
+        for (let a = 1; a <= 3; a++) {
+          try {
+            const r = await postJSON('/api/guest-pay', body, 30000);
+            const d = r.data || {};
+            const s = r.res.status;
+            if (r.res.ok && d.paid === true) return { paid: true };
+            if (r.res.ok && typeof d.url === 'string' && /^https?:\/\//i.test(d.url)) return { url: d.url };
+            if ((s >= 400 && s < 500) || s === 502 || s === 503) return { status: s, error: d.error, data: d };
+            last = { status: r.res.ok ? 500 : s, error: d.error, data: d };
+          } catch (e) {
+            last = { network: true };
+          }
+          if (a < 3) await sleep(700 * a);
         }
         return last;
       }
@@ -1156,6 +2172,299 @@
         if (r.status === 400) return r.error || 'Please check your photos and try again.';
         return r.error || 'Something went wrong – please try again.';
       }
+
+      // ── Paying for extra magnets ──────────────────────────────────
+      function redirectToPayment(url) {
+        state.redirecting = true;
+        state.leaving = true;   // no "leave this page?" prompt on the way to Stripe
+        try {
+          window.location.href = url;
+        } catch (e) {
+          state.redirecting = false;
+          state.leaving = false;
+          return false;
+        }
+        // Still here much later (navigation blocked)? Give the guest their buttons back.
+        setTimeout(() => { if (state.redirecting) restoreAfterRedirect(); }, 20000);
+        return true;
+      }
+
+      // Back on this page without a reload (browser back into the page cache, or a
+      // navigation that never happened): show the pay screen for the stored upload.
+      function restoreAfterRedirect() {
+        state.redirecting = false;
+        state.leaving = false;
+        state.payBusy = false;
+        if (state.busy) setBusy(false);
+        setPayDisabled(false);
+        const entry = readPending(curEventId()) || state.redirectEntry;
+        if (entry && entry.extras) {
+          state.payOrigin = 'resume';
+          showPayPanel('resume', entry);
+        }
+      }
+
+      window.addEventListener('pageshow', (e) => {
+        if (e && e.persisted && state.redirecting) restoreAfterRedirect();
+      });
+
+      // The phone couldn't keep a record of this upload: show its reference for a
+      // moment before leaving, so the guest has something to show the team. (Stripe
+      // also sends the reference back in the return address - see resumeFromRef.)
+      async function showRefBeforeRedirect(entry, ctx) {
+        const text = 'Your reference: ' + String(entry.orderId).slice(0, 8) + ' – keep this screen. ' +
+          'This phone couldn’t save your upload, so if you don’t see your number after paying, ' +
+          'show this reference to the Magnetic Memories team. Opening secure payment…';
+        if (ctx === 'form') showStatus('warn', text); else payStatus('warn', text);
+        await sleep(REF_NOTICE_MS);
+      }
+
+      // ctx: 'form' (straight after uploading) | 'panel' (the pay screen)
+      async function startPayment(entry, ctx) {
+        const eventId = curEventId();
+        const r = await payRequest(entry.orderId, entry.keys);
+        if (r.url) {
+          if (entry.skipped) { entry.skipped = false; savePendingEntry(eventId, entry); }
+          // Read the entry back: private mode / full storage fail silently.
+          if (!pendingSaved(eventId, entry)) await showRefBeforeRedirect(entry, ctx);
+          state.redirectEntry = entry;
+          redirectToPayment(r.url);
+          return;
+        }
+        if (r.paid) {
+          if (entry.skipped) { entry.skipped = false; savePendingEntry(eventId, entry); }
+          state.payOrigin = 'paid';
+          if (ctx === 'form') setButton('Getting your number…'); else payStatus('info', 'Getting your number…');
+          const fin = await finalizeEntry(entry, eventId);
+          if (fin.number != null) { onSuccess(fin.number, false, paidExtrasOf(entry, fin), entry.orderId); return; }
+          extrasOutcome(fin, entry, { form: ctx === 'form', unpaidKind: 'unpaid' });
+          return;
+        }
+        const d = r.data || {};
+        // Paid, then the event filled up / an admin refunded it: never say "not charged"
+        if (isFullPaid(r)) { showPayPanel('refund', entry, r.error); return; }
+        if (isRefunded(r)) { refundedOrder(entry, r.error); return; }
+        if (r.status === 409 && d.extrasOff) { showPayPanel('extrasOff', entry, r.error); return; }
+        if (r.status === 409 && d.full) { showPayPanel('full', entry, r.error); return; }
+        if (r.status === 503) { showPayPanel('noPay', entry, r.error); return; }
+        if (r.status === 502) {
+          // Stripe couldn't be reached: nothing was charged, the same button tries again
+          if (ctx === 'form') {
+            showStatus('warn', 'Payment service unavailable – your photos are uploaded. Please wait a moment and tap Retry.');
+          } else {
+            payStatus('warn', 'Payment service unavailable – please wait a moment and try again.');
+          }
+          return;
+        }
+        if (r.network || !r.status || r.status >= 500) {
+          if (ctx === 'form') {
+            showStatus('warn', 'Your photos are uploaded, but we couldn’t open the payment page – please check your signal and tap Retry.');
+          } else {
+            payStatus('warn', 'We couldn’t open the payment page – please check your signal and try again.');
+          }
+          return;
+        }
+        // Anything else (e.g. the upload was finished meanwhile): ask the order itself.
+        const fin = await finalizeEntry(entry, eventId);
+        if (fin.number != null) { onSuccess(fin.number, false, paidExtrasOf(entry, fin), entry.orderId); return; }
+        if (isDeadOrder(fin)) { deadOrder(entry); return; }
+        if (isRefunded(fin)) { refundedOrder(entry, fin.error); return; }
+        if (isFullPaid(fin)) { showPayPanel('refund', entry, fin.error); return; }
+        showPayPanel('payError', entry, r.error);
+      }
+
+      // A finalize answer (for an upload with extras) that didn't give a number.
+      function extrasOutcome(r, entry, opts) {
+        opts = opts || {};
+        if (isDeadOrder(r)) { deadOrder(entry); return; }
+        if (r.status === 402) { showPayPanel(opts.unpaidKind || 'unpaid', entry, null, opts.unpaidStatus || null); return; }
+        if (isRefunded(r)) { refundedOrder(entry, r.error); return; }
+        if (isFullPaid(r)) { showPayPanel('refund', entry, r.error); return; }
+        if (r.status === 409) { showPayPanel('full', entry, r.error); return; }
+        const text = r.status === 503
+          ? 'Guest uploads are not set up yet. Please ask a member of the Magnetic Memories team.'
+          : 'We couldn’t reach the server – please check your signal and try again.';
+        if (opts.form) showStatus(r.status === 503 ? 'error' : 'warn', text);
+        else if (!$('view-pay').classList.contains('hidden')) payStatus('warn', text);
+        else showPayPanel('offline', entry, null, ['warn', text]);
+      }
+
+      function deadOrder(entry) {
+        clearPending(curEventId(), entry.orderId);
+        state.pending = null;   // start clean next time (new order, all photos re-sent)
+        showPayPanel('dead', entry);
+      }
+
+      // The team refunded the extras (e.g. the event filled up while paying): this upload
+      // will never get a number, so it is forgotten here and the guest may start again.
+      function refundedOrder(entry, err) {
+        clearPending(curEventId(), entry.orderId);
+        state.pending = null;
+        showPayPanel('refunded', entry, err);
+      }
+
+      function payStatus(kind, text) {
+        const el = $('pay-status');
+        el.classList.remove('error', 'warn', 'info', 'hidden');
+        el.classList.add(kind);
+        el.textContent = text;
+      }
+      function hidePayStatus() {
+        const el = $('pay-status');
+        el.classList.add('hidden');
+        el.textContent = '';
+      }
+      const PAY_BUTTONS = { pay: 'pay-pay-btn', check: 'pay-check-btn', free: 'pay-free-btn', restart: 'pay-restart-btn' };
+      function setPayDisabled(on) {
+        Object.keys(PAY_BUTTONS).forEach((k) => { $(PAY_BUTTONS[k]).disabled = on; });
+      }
+
+      // The pay screen. kind: resume | cancelled | unpaid | offline | extrasOff | full |
+      // noPay | payError | refund | refunded | dead. err = the server's message where one applies.
+      // All amounts / counts come from the entry = the server's snapshot of the order.
+      function showPayPanel(kind, entry, err, status) {
+        state.payEntry = entry;
+        const ev = state.event || { name: '' };
+        const n = photoCountOf(entry);
+        const free = Math.max(1, Math.min(entry.freeCount || 1, n || 1));
+        const extra = entry.extrasCount || Math.max(0, n - free);
+        const total = Number(entry.total) || 0;
+        const photosText = n === 1 ? 'Your photo is uploaded.' : 'Your ' + n + ' photos are uploaded.';
+        const extraText = extra + ' extra ' + plural(extra, 'magnet', 'magnets');
+        const freeText = free === 1 ? 'your free photo' : 'your ' + free + ' free photos';
+        const payText = photosText + ' Pay ' + (total > 0 ? money(total) : '') + ' for your ' + extraText +
+          ' to get your number – or send just ' + freeText + '.';
+        let icon = 'card', title = '', text = '', alert = '', buttons = [];
+        switch (kind) {
+          case 'cancelled':
+            title = 'Payment cancelled';
+            text = payText;
+            buttons = ['pay', 'free'];
+            break;
+          case 'unpaid':
+            icon = 'clock';
+            title = 'We haven’t received your payment yet';
+            text = 'If you’ve just paid, it can take a moment to reach us – tap Check again. If you didn’t pay, you can send just ' + freeText + '.';
+            buttons = ['check', 'free'];
+            break;
+          case 'offline':
+            icon = 'wifi';
+            title = 'We couldn’t reach the server';
+            text = photosText + ' Please check your signal and tap Check again.';
+            buttons = ['check', 'free'];
+            break;
+          case 'extrasOff':
+            icon = 'alert';
+            title = 'Extra magnets aren’t available any more';
+            text = (err || 'Extra magnets are no longer available for this event.') +
+              ' You haven’t been charged – you can still send ' + freeText + '.';
+            buttons = ['free'];
+            break;
+          case 'full':
+            icon = 'alert';
+            title = 'All numbers have been taken';
+            text = (err || 'Sorry – all numbers for this event have been taken.') +
+              ' You haven’t been charged. Please ask a member of the Magnetic Memories team.';
+            buttons = ['free'];
+            break;
+          case 'noPay':
+            icon = 'alert';
+            title = 'Card payments aren’t available right now';
+            text = (err || 'Payments are not set up.') + ' You can try again, or send just ' + freeText + '.';
+            buttons = ['pay', 'free'];
+            break;
+          case 'payError':
+            icon = 'alert';
+            title = 'We couldn’t start the payment';
+            text = (err || 'Something went wrong.') + ' You can try again, or send just ' + freeText + '.';
+            buttons = ['pay', 'free'];
+            break;
+          case 'refund':
+            icon = 'alert';
+            title = 'Please show this screen to the Magnetic Memories team';
+            alert = err || 'Sorry – all numbers were taken while you were paying. Please show this screen to the Magnetic Memories team for a refund.';
+            buttons = ['check'];
+            break;
+          case 'refunded':
+            icon = 'card';
+            title = 'Your payment was refunded';
+            alert = err || 'Your payment was refunded. Please speak to the Magnetic Memories team.';
+            text = 'This upload won’t be printed. Please speak to the Magnetic Memories team about your magnets.';
+            buttons = ['restart'];
+            break;
+          case 'dead':
+            icon = 'alert';
+            title = 'Something went wrong';
+            text = 'We couldn’t find your upload – please start again. If you paid for extra magnets, please show this screen to the Magnetic Memories team.';
+            buttons = ['restart'];
+            break;
+          default:   // 'resume'
+            title = 'Finish paying for your extra magnets';
+            text = payText;
+            buttons = ['pay', 'free'];
+        }
+
+        $('pay-icon').innerHTML = ICONS[icon] || ICONS.alert;   // static markup only
+        $('pay-event').textContent = ev.name || '';
+        $('pay-event').classList.toggle('hidden', !ev.name);
+        $('pay-title').textContent = title;
+        $('pay-text').textContent = text;
+        $('pay-text').classList.toggle('hidden', !text);
+        $('pay-alert').textContent = alert;
+        $('pay-alert').classList.toggle('hidden', !alert);
+        $('pay-pay-btn').textContent = total > 0 ? 'Pay ' + money(total) : 'Pay for my extra magnets';
+        $('pay-free-btn').textContent = free === 1 ? 'Send just my free photo' : 'Send just my ' + free + ' free photos';
+        Object.keys(PAY_BUTTONS).forEach((k) => $(PAY_BUTTONS[k]).classList.toggle('hidden', buttons.indexOf(k) === -1));
+        $('pay-secure').classList.toggle('hidden', buttons.indexOf('pay') === -1);
+        $('pay-ref').textContent = 'Reference: ' + String(entry.orderId).slice(0, 8);
+        if (status) payStatus(status[0], status[1]); else hidePayStatus();
+        showView('view-pay');
+      }
+
+      async function payAction(fn) {
+        if (state.payBusy || state.redirecting || !state.payEntry) return;
+        state.payBusy = true;
+        setPayDisabled(true);
+        try {
+          await fn(state.payEntry);
+        } catch (e) {
+          payStatus('warn', 'Something went wrong – please check your signal and try again.');
+        } finally {
+          state.payBusy = false;
+          if (!state.redirecting) setPayDisabled(false);
+        }
+      }
+
+      $('pay-pay-btn').addEventListener('click', () => payAction(async (entry) => {
+        payStatus('info', 'Opening secure payment…');
+        await startPayment(entry, 'panel');
+      }));
+
+      $('pay-check-btn').addEventListener('click', () => payAction(async (entry) => {
+        payStatus('info', 'Checking…');
+        const r = await finalizeEntry(entry, curEventId());
+        if (r.number != null) { onSuccess(r.number, false, paidExtrasOf(entry, r), entry.orderId); return; }
+        const paid = state.payOrigin === 'paid';
+        extrasOutcome(r, entry, {
+          unpaidKind: paid ? 'unpaid' : 'resume',
+          unpaidStatus: paid ? ['warn', 'We still haven’t received your payment. If you’ve paid, please wait a moment and tap Check again.'] : null
+        });
+      }));
+
+      $('pay-free-btn').addEventListener('click', () => payAction(async (entry) => {
+        entry.skipped = true;   // remembered, so a lost reply is finished the same way after a reload
+        savePendingEntry(curEventId(), entry);
+        payStatus('info', 'Getting your number…');
+        const r = await finalizeEntry(entry, curEventId());
+        if (r.number != null) { onSuccess(r.number, false, paidExtrasOf(entry, r), entry.orderId); return; }
+        extrasOutcome(r, entry, { unpaidKind: 'unpaid' });
+      }));
+
+      $('pay-restart-btn').addEventListener('click', () => {
+        if (state.payBusy) return;
+        state.payEntry = null;
+        loadEvent();
+      });
 
       // ── Submit ────────────────────────────────────────────────────
       async function submit() {
@@ -1181,10 +2490,15 @@
           const stored = readPending(eventId);
           if (stored && !(reusing && state.pending.orderId === stored.orderId)) {
             setButton('Checking your earlier photos…');
-            const prev = await finalizeWithRetry(stored.orderId, stored.keys);
-            if (prev.number != null) { onSuccess(prev.number, true); return; }
+            const prev = await finalizeEntry(stored, eventId);
+            if (prev.number != null) { onSuccess(prev.number, true, paidExtrasOf(stored, prev), stored.orderId); return; }
             if (isDeadOrder(prev)) {
-              clearPending(eventId);
+              clearPending(eventId, stored.orderId);
+            } else if (stored.extras && (prev.status === 402 || prev.status === 409)) {
+              // Earlier photos still waiting for their extras to be paid (or the event filled up)
+              state.payOrigin = 'resume';
+              extrasOutcome(prev, stored, { unpaidKind: 'resume' });
+              return;
             } else {
               // Keep it; don't start a new order that would overwrite it.
               showStatus(prev.network ? 'warn' : 'error', orderErrorText(prev));
@@ -1196,13 +2510,34 @@
           if (!reusing) {
             state.pending = null;
             setButton('Starting…');
-            const r = await createOrder(total);
+            const extraN = extrasIn(total);
+            const price = extraN > 0 ? state.event.extras.price : null;
+            const r = await createOrder(total, extraN, price);
             if (!r.orderId) {
+              const d = r.data || {};
+              if (r.status === 409 && (d.priceChanged || d.limitsChanged)) {
+                // The admin changed the price / free photos since the page loaded: take the
+                // server's numbers, re-read the event so everything on the page follows,
+                // show it and let the guest decide (the next tap works it all out again).
+                applyOrderLimits(d);
+                await refreshEventMeta();
+                showStatus('warn', limitsChangedText(d));
+                return;
+              }
               showStatus(r.network ? 'warn' : 'error', orderErrorText(r));
               if (r.status === 400) refreshEventMeta();
               return;
             }
-            state.pending = { orderId: r.orderId, sig: sig, keys: {}, complete: false };
+            // From here on only the server's snapshot of the order counts (what Stripe
+            // will charge and what finalize prints) - never the page's own numbers.
+            const snap = orderSnapshot(r.data, {
+              freeCount: freeCount(), extrasCount: extraN,
+              total: extraN > 0 ? extrasTotal(extraN, price) : 0
+            });
+            state.pending = {
+              orderId: r.orderId, sig: sig, keys: {}, complete: false,
+              freeCount: snap.freeCount, extrasCount: snap.extrasCount, total: snap.total
+            };
           }
           const p = state.pending;
 
@@ -1229,15 +2564,29 @@
             return;
           }
 
-          setButton('Getting your number…');
           setProgress(1);
           const keys = state.photos.map((ph) => p.keys[ph.id]).filter(Boolean);
           p.finalizing = true;                     // photo set is now locked (see photosLocked)
+
+          if (p.extrasCount > 0 && !p.complete) {
+            // Paid extras: remember the upload BEFORE going to Stripe, then pay.
+            const entry = {
+              orderId: p.orderId, keys: keys, extras: true,
+              freeCount: p.freeCount, extrasCount: p.extrasCount, total: p.total, skipped: false
+            };
+            savePendingEntry(eventId, entry);
+            setButton('Opening secure payment…');
+            await startPayment(entry, 'form');
+            if (!state.redirecting) showProgress(false);
+            return;
+          }
+
+          setButton('Getting your number…');
           savePending(eventId, p.orderId, keys);   // survives a lost reply / reload
           const fin = await finalizeWithRetry(p.orderId, keys);
           showProgress(false);
 
-          if (fin.number != null) { onSuccess(fin.number, false); return; }
+          if (fin.number != null) { onSuccess(fin.number, false, paidExtrasOf(null, fin), p.orderId); return; }
 
           if (fin.status === 409) {
             showStatus('error', fin.error || 'Sorry – all numbers for this event have been taken.');
@@ -1245,7 +2594,7 @@
             showStatus('error', 'Guest uploads are not set up yet. Please ask a member of the Magnetic Memories team.');
           } else if (isDeadOrder(fin)) {
             state.pending = null;   // start clean next time (new order, all photos re-sent)
-            clearPending(eventId);
+            clearPending(eventId, p.orderId);
             showStatus('error', 'Something went wrong saving your photos – please tap the button to try again.');
           } else {
             showStatus('warn', 'Your photos are uploaded, but we couldn’t get your number yet – please check your signal and tap Retry.');
@@ -1254,24 +2603,34 @@
           showProgress(false);
           showStatus('warn', 'Something went wrong – please check your signal and try again.');
         } finally {
-          setBusy(false);
+          if (!state.redirecting) setBusy(false);
         }
       }
 
       // resumed: the number belongs to photos sent before (reload / lost reply), not the
       // ones on screen now (if any - those are dropped, the earlier ones are what we print).
-      function onSuccess(number, resumed) {
+      // paidExtras: how many of the magnets are paid extras (0 = none).
+      // orderId: the upload that got the number (its stored entry is cleared, no other).
+      function onSuccess(number, resumed, paidExtras, orderId) {
         const ev = state.event || { id: '', name: '', allowRepeat: false };
         const earlier = readLock(ev.id).filter((n) => n !== number);   // never list it twice
         saveLock(ev.id, number);
-        clearPending(ev.id);
+        clearPending(ev.id, orderId);
         state.pending = null;
+        state.payEntry = null;
+        state.redirectEntry = null;
+        state.payOrigin = 'resume';
         clearPhotos();
 
         $('success-event').textContent = ev.name || '';
         renderTicketNums($('success-nums'), [number]);
         $('success-text').textContent = tableText([number]);
         $('success-resumed').classList.toggle('hidden', !resumed);
+
+        const x = Number(paidExtras) || 0;
+        const extrasEl = $('success-extras');
+        extrasEl.textContent = x > 0 ? 'Including ' + x + ' paid extra ' + plural(x, 'magnet', 'magnets') + ' – thank you!' : '';
+        extrasEl.classList.toggle('hidden', !(x > 0));
 
         const earlierEl = $('success-earlier');
         if (earlier.length) {
@@ -1290,8 +2649,10 @@
       $('msg-retry').addEventListener('click', loadEvent);
       $('again-btn').addEventListener('click', loadEvent);
 
-      // Warn before leaving mid-upload, or with photos added but not sent yet.
+      // Warn before leaving mid-upload, or with photos added but not sent yet
+      // (but not on the way to the payment page).
       window.addEventListener('beforeunload', (e) => {
+        if (state.leaving) return;
         if (state.busy || state.photos.length > 0) {
           e.preventDefault();
           e.returnValue = '';
@@ -1299,6 +2660,9 @@
         }
       });
 
+      const back = readReturnParams();
+      state.returnMode = back.mode;
+      state.returnRef = back.ref;
       loadEvent();
     })();
   </script>

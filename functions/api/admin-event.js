@@ -4,11 +4,20 @@
 //   POST { action: 'delete', id }
 //   POST { action: 'guest', id, guestUpload?: bool, allowRepeat?: bool }  (guest self-upload settings)
 //   POST { action: 'regen-token', id }                                    (new guest link; old one stops working)
-// Every success response includes dbConnected (events database bound).
+//   POST { action: 'overlay-mode', id, overlayMode: 'off'|'optional'|'required' }
+//   POST { action: 'overlay-delete', id, overlayId }
+//   POST { action: 'extras', id, extrasEnabled?, extraPrice?, maxExtras? } (paid extra magnets)
+// Every success response is { success, event?, dbConnected } (dbConnected =
+// events database bound). Overlays are uploaded by /api/admin-overlay.
 //
 // Guest links: event meta holds guestToken; KV event:guesttoken:{token} = eventId.
+// "save" keeps overlays / overlayMode and the paid-extras settings as they are.
 import { jsonResponse } from './_shared.js';
 import { hasDb } from './_tickets.js';
+import {
+  OVERLAY_MODES, overlayList, adminEventView,
+  parseExtraPrice, parseMaxExtras, MAX_EXTRAS_DEFAULT, EXTRA_PRICE_MIN, EXTRA_PRICE_MAX, MAX_EXTRAS_LIMIT,
+} from './_guest.js';
 
 const TOKEN_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -41,13 +50,46 @@ async function newGuestToken(env) {
 }
 
 function ok(env, body) {
-  return jsonResponse({ success: true, ...body, dbConnected: hasDb(env) });
+  const out = { success: true, ...body, dbConnected: hasDb(env) };
+  if (out.event) out.event = adminEventView(out.event);
+  return jsonResponse(out);
 }
 
 async function loadEvent(env, id) {
   const raw = await env.ORDERS_KV.get(`event:meta:${id}`);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
+}
+
+// Defaults for the overlay / paid-extras fields (older events have none).
+function withFeatureDefaults(event) {
+  const maxExtras = parseMaxExtras(event.maxExtras);
+  return {
+    ...event,
+    overlays: overlayList(event),
+    overlayMode: OVERLAY_MODES.includes(event.overlayMode) ? event.overlayMode : 'off',
+    extrasEnabled: event.extrasEnabled === true,
+    extraPrice: parseExtraPrice(event.extraPrice),
+    maxExtras: maxExtras ?? MAX_EXTRAS_DEFAULT,
+  };
+}
+
+// Remove an event's overlay images from R2 (best-effort).
+async function deleteOverlayObjects(env, eventId, overlays) {
+  const prefix = `event-overlays/${eventId}/`;
+  const keys = new Set(overlays.map(o => o && o.key).filter(k => typeof k === 'string' && k.startsWith(prefix)));
+  try {
+    const listed = await env.R2_BUCKET.list({ prefix });
+    for (const obj of (listed && listed.objects) || []) keys.add(obj.key);
+  } catch (err) {
+    console.error('admin-event: overlay listing failed:', err);
+  }
+  if (!keys.size) return;
+  try {
+    await env.R2_BUCKET.delete([...keys]);
+  } catch (err) {
+    console.error('admin-event: overlay delete failed:', err);
+  }
 }
 
 export async function onRequestPost({ request, env }) {
@@ -67,6 +109,7 @@ export async function onRequestPost({ request, env }) {
     const existing = await loadEvent(env, id);
     await env.ORDERS_KV.delete(`event:meta:${id}`);
     if (existing?.guestToken) await env.ORDERS_KV.delete(`event:guesttoken:${existing.guestToken}`);
+    await deleteOverlayObjects(env, id, existing ? overlayList(existing) : []);
     // Note: ticket reservations + orders are left intact for history.
     return ok(env, { deleted: id });
   }
@@ -102,6 +145,71 @@ export async function onRequestPost({ request, env }) {
     return ok(env, { event });
   }
 
+  if (action === 'overlay-mode' || action === 'overlay-delete' || action === 'extras') {
+    const id = body?.id;
+    if (!id) return jsonResponse({ error: 'Missing id.' }, 400);
+    const stored = await loadEvent(env, id);
+    if (!stored) return jsonResponse({ error: 'Event not found.' }, 404);
+    const event = withFeatureDefaults(stored);
+
+    if (action === 'overlay-mode') {
+      const mode = body?.overlayMode;
+      if (!OVERLAY_MODES.includes(mode)) {
+        return jsonResponse({ error: 'Overlay mode must be "off", "optional" or "required".' }, 400);
+      }
+      event.overlayMode = mode;
+    } else if (action === 'overlay-delete') {
+      const overlayId = String(body?.overlayId || '');
+      const target = event.overlays.find(o => o.id === overlayId);
+      if (!overlayId || !target) return jsonResponse({ error: 'Overlay not found.' }, 404);
+      event.overlays = event.overlays.filter(o => o.id !== overlayId);
+      // overlayMode is kept as is: with no overlays left the effective mode is "off".
+      if (typeof target.key === 'string' && target.key.startsWith(`event-overlays/${id}/`)) {
+        try { await env.R2_BUCKET.delete(target.key); } catch (err) {
+          console.error('admin-event: overlay object delete failed:', err);
+        }
+      }
+    } else {
+      // Paid extra magnets
+      if (body?.extraPrice !== undefined) {
+        if (body.extraPrice === null || body.extraPrice === '') {
+          event.extraPrice = null;
+        } else {
+          const price = parseExtraPrice(body.extraPrice);
+          if (price == null) {
+            return jsonResponse({
+              error: `Enter a price per extra magnet between £${EXTRA_PRICE_MIN.toFixed(2)} and £${EXTRA_PRICE_MAX.toFixed(2)} (e.g. 3.00).`,
+            }, 400);
+          }
+          event.extraPrice = price;
+        }
+      }
+      if (body?.maxExtras !== undefined) {
+        const max = parseMaxExtras(body.maxExtras);
+        if (max == null) {
+          return jsonResponse({ error: `Max extras per guest must be a whole number from 1 to ${MAX_EXTRAS_LIMIT}.` }, 400);
+        }
+        event.maxExtras = max;
+      }
+      if (body?.extrasEnabled !== undefined) event.extrasEnabled = !!body.extrasEnabled;
+      if (event.extrasEnabled) {
+        const lim = Number(event.perTicketLimit);
+        if (!(Number.isInteger(lim) && lim > 0)) {
+          return jsonResponse({ error: 'Set how many free photos each guest gets first.' }, 400);
+        }
+        if (event.extraPrice == null) {
+          return jsonResponse({ error: 'Enter a price per extra magnet.' }, 400);
+        }
+      }
+    }
+
+    event.updatedAt = new Date().toISOString();
+    await env.ORDERS_KV.put(`event:meta:${id}`, JSON.stringify(event));
+    return ok(env, { event });
+  }
+
+  if (action !== 'save') return jsonResponse({ error: 'Unknown action.' }, 400);
+
   // save (create or update)
   const name = String(body?.name || '').trim();
   if (!name) return jsonResponse({ error: 'Event name is required.' }, 400);
@@ -135,7 +243,9 @@ export async function onRequestPost({ request, env }) {
     await env.ORDERS_KV.put(`event:guesttoken:${guestToken}`, id);
   }
 
-  const event = {
+  // Overlays and paid-extras settings are only changed by their own actions:
+  // whatever the body says about them, the stored values are kept.
+  const event = withFeatureDefaults({
     ...existing,
     id,
     name,
@@ -148,7 +258,7 @@ export async function onRequestPost({ request, env }) {
     allowRepeat,
     createdAt: existing.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
+  });
 
   await env.ORDERS_KV.put(`event:meta:${id}`, JSON.stringify(event));
   return ok(env, { event });

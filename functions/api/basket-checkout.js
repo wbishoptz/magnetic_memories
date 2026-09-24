@@ -32,6 +32,9 @@ export async function onRequestPost({ request, env }) {
 
       const order = JSON.parse(raw);
 
+      // Event guest uploads are never shop items (same guard as checkout.js)
+      if (order.source === 'guest') return jsonResponse({ error: "This order can't be paid here." }, 400);
+
       // Reject if already paid (e.g. browser back button edge case)
       if (['paid', 'printing', 'shipped', 'completed'].includes(order.status)) continue;
 

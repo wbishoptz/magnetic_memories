@@ -274,6 +274,28 @@ export async function sendAdminEmail(order, env) {
   ));
 }
 
+// Plain-text Telegram alert to every configured chat (TELEGRAM_CHAT_ID may be a
+// comma-separated list). Sent WITHOUT parse_mode, so no escaping is needed.
+// -> true when at least one chat accepted it.
+export async function sendTelegramText(text, env) {
+  const token = env && env.TELEGRAM_BOT_TOKEN;
+  const chatIdsRaw = env && env.TELEGRAM_CHAT_ID;
+  if (!token || !chatIdsRaw) return false;
+
+  const chatIds = String(chatIdsRaw).split(",").map(id => id.trim()).filter(Boolean);
+  if (!chatIds.length) return false;
+
+  const apiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+  const results = await Promise.all(chatIds.map(chatId =>
+    fetchWithRetry(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: String(text) }),
+    }).catch(() => null)
+  ));
+  return results.some(r => r && r.ok);
+}
+
 export async function sendPaidTelegram(order, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = env.TELEGRAM_CHAT_ID;

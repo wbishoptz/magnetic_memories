@@ -26,6 +26,11 @@ export async function onRequestPost({ request, env }) {
       console.error("KV get error:", e);
     }
 
+    // Guest self-uploads are never paid through the shop checkout
+    if (kvOrder && kvOrder.source === 'guest') {
+      return jsonResponse({ error: "This order can't be paid here." }, 400);
+    }
+
     let successPage = "return.html";
     if (kvOrder?.event === 'BINGO') successPage = "bingo-return.html";
     const successUrl = `https://magnetic-memories.pages.dev/${successPage}?status=success&orderId=${encodeURIComponent(orderId)}`;

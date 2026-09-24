@@ -67,6 +67,26 @@
       .image-thumb a { display: block; margin-top: 3px; font-size: 11px; color: #93c5fd; text-decoration: none; }
       .image-thumb a:hover { text-decoration: underline; }
       @media (max-width: 900px) { body { padding: 12px; } .layout { grid-template-columns: minmax(0, 1fr); } .panel + .panel { border-left: none; border-top: 1px solid #1f2933; } }
+      /* Event overlays: transparent designs on a checkerboard, previewed over a sample grey "photo" */
+      .checker { background-color: #f8fafc; background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%); background-size: 14px 14px; background-position: 0 0, 0 7px, 7px -7px, -7px 0; }
+      .sample-photo { background: radial-gradient(circle at 50% 40%, #d1d5db 0 15%, transparent 15.5%), radial-gradient(ellipse 34% 30% at 50% 88%, #d1d5db 0 99%, transparent 100%), linear-gradient(160deg, #9ca3af, #6b7280 60%, #4b5563); }
+      .ev-card { border: 1px solid #1f2933; border-radius: 10px; padding: 12px; margin: 4px 0 14px; background: #0b1220; }
+      .ev-btn { padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; background: #111827; border: 1px solid #374151; color: #e5e7eb; }
+      .ev-btn:disabled { opacity: 0.5; cursor: default; }
+      input.ev-input { background: #020617; border: 1px solid #374151; border-radius: 8px; padding: 7px 9px; font-size: 13px; color: #e5e7eb; box-sizing: border-box; }
+      .ev-note { padding: 8px 10px; border-radius: 8px; margin-top: 8px; font-size: 12px; }
+      .ev-note.warn { border: 1px solid #f59e0b; background: rgba(245,158,11,0.1); color: #fbbf24; }
+      .ev-note.info { border: 1px solid #374151; background: #111827; color: #d1d5db; }
+      .ev-note.ok { border: 1px solid rgba(89,201,165,0.45); background: rgba(89,201,165,0.08); color: #a7f3d0; }
+      .ev-note.err { border: 1px solid #ef4444; background: rgba(239,68,68,0.1); color: #fca5a5; }
+      .refund-line { padding: 8px 10px; border: 1px solid #ef4444; background: rgba(239,68,68,0.1); border-radius: 8px; margin: 0 0 8px; color: #fca5a5; font-size: 13px; word-break: normal; }
+      .refund-line strong { color: #f87171; }
+      .refund-line a { color: #fca5a5; text-decoration: underline; }
+      .ov-mode { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin: 0; border-radius: 8px; cursor: pointer; font-size: 13px; text-align: left; color: #e5e7eb; }
+      .ov-mode:hover { background: #111827; }
+      .ov-mode input { margin-top: 2px; width: 16px; height: 16px; cursor: pointer; }
+      .ov-mode.disabled { opacity: 0.5; cursor: default; }
+      .ov-mode small { display: block; color: #9ca3af; font-size: 11px; margin-top: 1px; }
     </style>
   </head>
   <body>
@@ -383,7 +403,9 @@
 
       // An event order is COMPLETE (printable) once it has a ticket number. Guest
       // self-uploads only get their number after every photo is safely stored, so
-      // unfinished ones (raffleNumber null) are ignored by every event view.
+      // unfinished ones (raffleNumber null) are ignored by every event view. An unfinished
+      // guest upload whose payment was refunded (extrasRefunded) can never get a number, so
+      // it never prints; a numbered ticket keeps its number and photos after a refund.
       function isCompleteEventOrder(o) { return o.raffleNumber != null; }
       // Capture order: when a guest upload was completed, else when the staff order was created.
       function captureTime(o) {
@@ -412,6 +434,7 @@
         const d = Date.parse((res && res.headers && res.headers.get('Date')) || '');
         if (Number.isFinite(d)) { ordersServerTime = d; serverClockOffset = d - Date.now(); }
         else ordersServerTime = Date.now() + serverClockOffset;
+        if (guestResolutions.size) orders.forEach(applyGuestResolution); // refund decisions made here
       }
       function sheetCutoff() {
         return (ordersServerTime || (Date.now() + serverClockOffset)) - SHEET_SETTLE_MS;
@@ -420,13 +443,42 @@
         const cutoff = sheetCutoff();
         return completeEventOrders(id).filter(o => captureTime(o) < cutoff);
       }
-      // Unfinished guest uploads. Older than 2h = almost certainly abandoned.
+      // A guest owed money back: they paid while the event filled up (fullAfterPayment, until
+      // an admin resolves it), or paid after sending only the free photos / paid twice
+      // (refundNeeded). Already refunded (extrasRefunded) -> false.
+      // (Refunding clears refundNeeded, so a refunded order only shows one again if a
+      // second payment arrived afterwards - which is money owed too.)
+      function needsRefund(o) {
+        return !!o && ((o.fullAfterPayment === true && o.extrasRefunded !== true) || !!o.refundNeeded);
+      }
+      // Unfinished guest uploads. Older than 2h = almost certainly abandoned. Guests owed a
+      // refund, refunded ones and ones just given a number here are listed apart - never
+      // counted as "in progress" or "abandoned".
       const GUEST_STALE_MS = 2 * 60 * 60 * 1000;
       function unfinishedGuestOrders(id) {
         const cutoff = Date.now() - GUEST_STALE_MS;
-        const all = orders.filter(o => o.eventId === id && o.source === 'guest' && !isCompleteEventOrder(o));
-        const recent = all.filter(o => new Date(o.createdAt || 0).getTime() >= cutoff);
-        return { recent, stale: all.length - recent.length };
+        const all = orders.filter(o => o.eventId === id && o.source === 'guest' && !isCompleteEventOrder(o) && !o.resolvedHere);
+        const refunded = all.filter(o => o.extrasRefunded === true && !needsRefund(o));
+        const refund = all.filter(needsRefund);
+        const open = all.filter(o => o.extrasRefunded !== true && !needsRefund(o));
+        const recent = open.filter(o => new Date(o.createdAt || 0).getTime() >= cutoff);
+        return { recent, stale: open.length - recent.length, refund, refunded };
+      }
+      // Refund decisions made on this page (orderId -> { action, number, at }). The order
+      // list is eventually consistent (KV), so for a few minutes a stale copy can still show
+      // the order unresolved (with its buttons): the decision is re-applied to every fetched
+      // copy until the server shows it. "honour" never fakes a ticket number - the order only
+      // joins the sheets once the server's list has it.
+      const GUEST_RESOLVE_KEEP_MS = 10 * 60 * 1000;
+      const guestResolutions = new Map();
+      function applyGuestResolution(o) {
+        const r = o && guestResolutions.get(o.orderId);
+        if (!r) return o;
+        const settled = r.action === 'honour' ? o.raffleNumber != null : o.extrasRefunded === true;
+        if (settled || Date.now() - r.at > GUEST_RESOLVE_KEEP_MS) { guestResolutions.delete(o.orderId); return o; }
+        if (r.action === 'honour') Object.assign(o, { resolvedHere: 'honour', givenNumber: r.number, fullAfterPayment: false, refundNeeded: null });
+        else Object.assign(o, { extrasRefunded: true, extrasPaid: false, fullAfterPayment: false, refundNeeded: null });
+        return o;
       }
 
       function eventOrderCount(id) {
@@ -449,12 +501,16 @@
             const statusPill = (e.active
               ? `<span class="status-pill paid">Active</span>`
               : `<span class="status-pill abandoned">Off</span>`)
-              + (e.guestUpload ? ` <span class="tag" style="color:#59c9a5; border-color:rgba(89,201,165,0.4);" title="Guest self-upload link is on">📲 Guest</span>` : '');
-            const pending = unfinishedGuestOrders(e.id).recent.length;
+              + (e.guestUpload ? ` <span class="tag" style="color:#59c9a5; border-color:rgba(89,201,165,0.4);" title="Guest self-upload link is on">📲 Guest</span>` : '')
+              + (effectiveOverlayMode(e) !== 'off' ? ` <span class="tag" style="color:#d8b4fe; border-color:rgba(168,85,247,0.4);" title="Photo designs (overlays) are on">🎨</span>` : '')
+              + (extrasAllowed(e) ? ` <span class="tag" style="color:#fcd34d; border-color:rgba(252,211,77,0.4);" title="Guests can buy extra magnets">💳</span>` : '');
+            const unfinished = unfinishedGuestOrders(e.id);
+            const pending = unfinished.recent.length;
+            const owed = unfinished.refund.length; // paid but no number: waiting for an admin decision
             html += `<tr class="${sel}" data-event-id="${escHtml(e.id)}">
               <td style="font-weight:700;">${escHtml(e.name)}</td>
               <td style="font-family:monospace;">${e.rangeStart}–${e.rangeEnd}</td>
-              <td>${eventOrderCount(e.id)}${pending ? ` <span style="color:#9ca3af; font-size:11px;">(+${pending} uploading)</span>` : ''}</td>
+              <td>${eventOrderCount(e.id)}${pending ? ` <span style="color:#9ca3af; font-size:11px;">(+${pending} uploading)</span>` : ''}${owed ? ` <span style="color:#f87171; font-size:11px; font-weight:700;" title="Guests who paid but have no number - open the event">💸 ${owed} refund</span>` : ''}</td>
               <td>${statusPill}</td>
             </tr>`;
           }
@@ -508,7 +564,8 @@
       }
 
       async function deleteEvent(ev) {
-        if (!confirm(`Delete event "${ev.name}"?\n\nUploaded photos/orders are kept, but the event disappears from the stall page.`)) return;
+        const designs = overlayList(ev).length;
+        if (!confirm(`Delete event "${ev.name}"?\n\nUploaded photos/orders are kept, but the event disappears from the stall page.${designs ? `\nIts ${designs} photo design${designs === 1 ? '' : 's'} (overlays) will be deleted too.` : ''}`)) return;
         try {
           await fetch('/api/admin-event', {
             method: 'POST',
@@ -523,6 +580,7 @@
 
       function selectAdminEvent(id) {
         selectedEventId = id;
+        guestResolveMsg = null; // the last refund decision's message belongs to the previous view
         renderEventManager();
         const ev = events.find(e => e.id === id);
         if (!ev) return;
@@ -531,15 +589,24 @@
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${escHtml(ev.name)}</div>`;
         html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · <span id="ev-uploaded-count">${evOrders.length}</span> uploaded</div>`;
-        html += `<div class="field-label">Photos per ticket</div><div class="field-value">${ev.perTicketLimit ? ev.perTicketLimit : 'No limit'}</div>`;
+        // Editable: the staff page's per-ticket limit = each guest's FREE photos
+        const lim = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;
+        html += `<div class="field-label">Photos per ticket · free photos per guest</div>
+          <div class="field-value" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; word-break:normal;">
+            <input id="ev-limit" class="ev-input" type="number" min="0" step="1" inputmode="numeric" value="${lim || ''}" placeholder="No limit" style="width:96px;" />
+            <button id="ev-limit-save" class="ev-btn">Save</button>
+            <span id="ev-limit-msg" style="font-size:12px; color:#9ca3af;">${lim ? `${lim} per ticket` : 'No limit (guests capped at 20)'}</span>
+          </div>`;
         html += `<button id="ev-print" class="btn-action" style="width:100%; margin:10px 0 6px; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Download ALL Sheets (PDF)</button>`;
         html += `<div class="field-value" style="display:flex; gap:8px; margin:0 0 10px;">
           <button id="ev-toggle" class="btn-action" style="flex:1;">${ev.active ? 'Set Inactive' : 'Set Active'}</button>
           <button id="ev-delete" class="btn-danger" style="flex:1; margin:0;">Delete Event</button>
         </div>`;
 
-        // Guest self-upload (link + QR) card — rendered by renderGuestCard()
+        // Guest self-upload (link + QR + paid extras) card — rendered by renderGuestCard()
         html += `<div id="ev-guest-card"></div>`;
+        // Photo designs (overlays) for guests AND the staff page — rendered by renderOverlayCard()
+        html += `<div id="ev-overlay-card"></div>`;
 
         // Per-sheet (real-time) download section
         html += `<div class="field-label" style="display:flex; justify-content:space-between; align-items:center;">
@@ -556,7 +623,11 @@
         document.getElementById('ev-delete').onclick = () => deleteEvent(ev);
         document.getElementById('ev-print').onclick = () => generatePrintSheets(ev);
         document.getElementById('ev-refresh').onclick = () => refreshEventData(ev);
+        document.getElementById('ev-limit-save').onclick = (e) => saveTicketLimit(ev, e.currentTarget);
+        document.getElementById('ev-limit').onkeydown = (e) => { if (e.key === 'Enter') saveTicketLimit(ev, document.getElementById('ev-limit-save')); };
+        ovState(ev).msg = null;
         renderGuestCard(ev);
+        renderOverlayCard(ev);
         renderEventUploads(ev);
 
         // Clear the previous event's timers BEFORE loading — loadEventSheets arms the
@@ -571,22 +642,36 @@
 
       // Uploads table (complete tickets only, in capture order) + in-progress guest note.
       // Re-rendered in place by the poller so new tickets show up without a full refresh.
+      let guestResolveMsg = null; // last refund decision on the event page: { eventId, text, kind }
       function renderEventUploads(ev) {
         const box = document.getElementById('ev-uploads');
         if (!box || selectedEventId !== ev.id) return;
         const evOrders = completeEventOrders(ev.id);
-        const { recent, stale } = unfinishedGuestOrders(ev.id);
+        const { recent, stale, refund, refunded } = unfinishedGuestOrders(ev.id);
         const cnt = document.getElementById('ev-uploaded-count');
         if (cnt) cnt.textContent = evOrders.length;
 
         let h = '';
+        // 💸 Money owed back first, in red: paid while the event filled up (with the two
+        // ways to resolve it), then numbered tickets that paid after skipping / paid twice
+        const msg = guestResolveMsg && guestResolveMsg.eventId === ev.id ? guestResolveMsg : null;
+        if (msg) h += `<div class="ev-note ${escHtml(msg.kind || 'info')}" style="margin:0 0 8px; font-size:13px;">${escHtml(msg.text)}</div>`;
+        for (const o of refund.concat(evOrders.filter(needsRefund))) h += refundNoteHtml(o, { link: true });
         if (recent.length) {
+          // Guests who went to Stripe for paid extras and haven't got a number yet
+          const atPay = recent.filter(o => o.extrasStarted).length;
           h += `<div style="padding:8px 12px; border:1px solid rgba(89,201,165,0.4); background:rgba(89,201,165,0.08); border-radius:8px; margin-bottom:8px; color:#a7f3d0; font-size:13px;">
-            ⏳ ${recent.length} guest upload${recent.length === 1 ? '' : 's'} in progress — ${recent.length === 1 ? 'it gets a number and appears' : 'they get a number and appear'} below once every photo is in.
+            ⏳ ${recent.length} guest upload${recent.length === 1 ? '' : 's'} in progress${atPay ? ` (💳 ${atPay} at payment)` : ''} — ${recent.length === 1 ? 'it gets a number and appears' : 'they get a number and appear'} below once every photo is in${atPay ? ' and extras are paid' : ''}.
           </div>`;
         }
         if (stale) {
           h += `<div class="field-value" style="color:#6b7280; font-size:12px; margin-bottom:8px;">${stale} unfinished guest upload${stale === 1 ? '' : 's'} older than 2 hours (abandoned) — ignored for printing.</div>`;
+        }
+        if (refunded.length) {
+          h += `<div class="field-value" style="color:#9ca3af; font-size:12px; margin-bottom:8px; word-break:normal;">${refunded.map(o => {
+            const amt = extrasPounds(o);
+            return `↩️ <strong>Refunded</strong>${amt != null ? ' ' + escHtml(fmtGBP(amt)) : ''} · <a href="#" data-open-order="${escHtml(o.orderId)}" style="color:#9ca3af; text-decoration:underline;">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
+          }).join('<br>')}<br>${refunded.length === 1 ? 'It has' : 'They have'} no number and ${refunded.length === 1 ? 'is' : 'are'} left off the print sheets.</div>`;
         }
         if (evOrders.length === 0) {
           h += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
@@ -600,7 +685,7 @@
               : `<span class="tag">Staff</span>`;
             h += `<tr data-order-id="${escHtml(o.orderId)}">
               <td style="font-family:monospace; font-weight:800; color:#66d19e;">#${escHtml(o.raffleNumber)}</td>
-              <td>${escHtml(o.packSize ?? '?')}</td>
+              <td>${escHtml(o.packSize ?? '?')}${extrasBadgeHtml(o)}${refundTagHtml(o)}</td>
               <td>${by}</td>
               <td>${when}</td>
             </tr>`;
@@ -610,6 +695,12 @@
         box.innerHTML = h;
         box.querySelectorAll('tbody tr').forEach(row => {
           row.addEventListener('click', () => loadOrderDetails(row.getAttribute('data-order-id')));
+        });
+        box.querySelectorAll('[data-open-order]').forEach(a => {
+          a.onclick = (e) => { e.preventDefault(); loadOrderDetails(a.getAttribute('data-open-order')); };
+        });
+        box.querySelectorAll('[data-resolve]').forEach(b => {
+          b.onclick = () => resolveFromEvent(ev, b.getAttribute('data-order-id'), b.getAttribute('data-resolve'), b);
         });
       }
 
@@ -676,6 +767,7 @@
           } else {
             h += `<button id="ev-guest-regen" style="${btnGhost} margin-top:8px;">Create guest link</button>`;
           }
+          h += extrasSectionHtml(ev); // 💳 Paid extra magnets
         }
         h += `</div>`;
         box.innerHTML = h;
@@ -688,6 +780,8 @@
           if (link && !confirm('Regenerate the guest link?\n\nThe old link and QR code stop working straight away — you will need to reprint / reshare the new QR.')) return;
           guestAction(ev, { action: 'regen-token' }, e.currentTarget);
         };
+
+        if (on) wireExtrasSection(ev);
 
         if (!on || !link) return;
 
@@ -840,6 +934,621 @@
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(a.href), 4000);
         }, 'image/png');
+      }
+
+      // ─── Event settings helpers (free photos, paid extras, overlays) ───
+      const MSG_OK = '#66d19e', MSG_ERR = '#f87171', MSG_WARN = '#fbbf24';
+
+      // POST an admin-event action -> response data; throws Error(server message)
+      async function adminEventPost(payload) {
+        const res = await fetch('/api/admin-event', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      }
+      // Merge the event from an admin-event / admin-overlay response into our copies
+      function applyEventUpdate(ev, data) {
+        if (data && typeof data.dbConnected === 'boolean') guestDbConnected = data.dbConnected;
+        if (data && data.event) {
+          Object.assign(ev, data.event);
+          const inList = events.find(e => e.id === ev.id);
+          if (inList && inList !== ev) Object.assign(inList, data.event);
+        }
+      }
+      function fmtGBP(n) { return '£' + (Math.round(Number(n) * 100) / 100).toFixed(2); }
+      function setMsg(id, text, color) {
+        const el = document.getElementById(id);
+        if (el) { el.style.color = color || '#9ca3af'; el.textContent = text || ''; }
+      }
+
+      // Photos per ticket (staff) = free photos per guest. Uses the normal "save" action
+      // (active isn't sent, so a stale copy can't flip it; guest/extras/overlay settings are kept by the server).
+      async function saveTicketLimit(ev, btn) {
+        const inp = document.getElementById('ev-limit');
+        if (!inp || !btn) return;
+        const raw = inp.value.trim();
+        const lim = raw === '' ? 0 : Number(raw);
+        if (!Number.isInteger(lim) || lim < 0 || lim > 1000) return setMsg('ev-limit-msg', 'Enter a whole number (blank or 0 = no limit).', MSG_ERR);
+        const cur = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;
+        if (lim === cur) return setMsg('ev-limit-msg', 'No change.');
+        if (!lim && ev.extrasEnabled === true && !confirm('With no free-photo limit, guests won\'t be offered paid extra magnets.\n\nSave "no limit" anyway?')) return;
+        btn.disabled = true;
+        setMsg('ev-limit-msg', 'Saving…');
+        try {
+          const data = await adminEventPost({ action: 'save', id: ev.id, name: ev.name, rangeStart: ev.rangeStart, rangeEnd: ev.rangeEnd, perTicketLimit: lim });
+          applyEventUpdate(ev, data);
+          if (selectedEventId !== ev.id) return;
+          const now = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;
+          inp.value = now || '';
+          setMsg('ev-limit-msg', `Saved ✓ ${now ? `${now} per ticket` : 'no limit (guests capped at 20)'}`, MSG_OK);
+          renderGuestCard(ev); // the "capped at 20" note + paid extras depend on it
+          if (currentMode === 'events') renderEventManager();
+        } catch (e) {
+          setMsg('ev-limit-msg', 'Could not save: ' + e.message, MSG_ERR);
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      // ─── 💳 Paid extra magnets (guest uploads) ───
+      // Stored price if valid (GBP, 2dp, 0.30..100), else null
+      function extraPriceOf(ev) {
+        if (!ev || ev.extraPrice == null || ev.extraPrice === '' || typeof ev.extraPrice === 'boolean') return null;
+        const n = Number(ev.extraPrice);
+        if (!Number.isFinite(n)) return null;
+        const p = Math.round(n * 100);
+        if (Math.abs(n * 100 - p) > 1e-6 || p < 30 || p > 10000) return null;
+        return p / 100;
+      }
+      function maxExtrasOf(ev) {
+        const n = Number(ev && ev.maxExtras);
+        return Number.isInteger(n) && n >= 1 && n <= 50 ? n : 10;
+      }
+      // Same rule as the server: switched on + a real free-photo limit + a valid price
+      function extrasAllowed(ev) {
+        const lim = Number(ev && ev.perTicketLimit);
+        return !!ev && ev.extrasEnabled === true && Number.isInteger(lim) && lim > 0 && extraPriceOf(ev) != null;
+      }
+      // "3", "3.5", "£3.00" -> { value } | { empty: true } | { error }
+      function parsePriceInput(s) {
+        const t = String(s ?? '').trim().replace(/^£\s*/, '');
+        if (!t) return { empty: true };
+        if (!/^(\d{1,3}(\.\d{0,2})?|\.\d{1,2})$/.test(t)) return { error: 'Enter the price in pounds and pence, e.g. 3.00' };
+        const p = Math.round(Number(t) * 100);
+        if (p < 30 || p > 10000) return { error: 'The price per extra magnet must be between £0.30 and £100.' };
+        return { value: p / 100 };
+      }
+      // Paid extras in pounds for an order (summary or full). The server always stores
+      // extrasAmount in GBP, so it is used as it is. When it is missing, the order's own
+      // snapshot (extrasTotal) is used - never the event's CURRENT price, which the admin
+      // may have changed since. null = unknown.
+      function poundsOrNull(v) {
+        if (v == null || v === '' || typeof v === 'boolean') return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+      }
+      function extrasPounds(o) {
+        if (!o) return null;
+        const a = poundsOrNull(o.extrasAmount);
+        return a != null ? a : poundsOrNull(o.extrasTotal);
+      }
+      // Uploads-table badge: "+2 paid £6.00" (or "extras skipped")
+      function extrasBadgeHtml(o) {
+        const n = Number(o && o.extrasCount) || 0;
+        if (o && o.extrasPaid && n > 0) {
+          const amt = extrasPounds(o);
+          return ` <span class="tag" style="margin-left:4px; color:#fcd34d; border-color:rgba(252,211,77,0.45);" title="Paid extra magnets">+${n} paid${amt != null ? ' ' + escHtml(fmtGBP(amt)) : ''}</span>`;
+        }
+        if (o && o.extrasSkipped) {
+          return ` <span class="tag" style="margin-left:4px;" title="The guest sent only their free photos">extras skipped</span>`;
+        }
+        return '';
+      }
+
+      // ─── 💸 Refunds owed to guests (paid extras) ───
+      const REFUND_REASONS = {
+        full: 'paid, but every number was taken',
+        'paid-after-skip': 'paid after sending only the free photos',
+        'paid-twice': 'paid twice',
+      };
+      // { amount (GBP | null), reason, why } for an order owed money back, else null.
+      // refundNeeded = { amount (GBP), reason: "full" | "paid-after-skip" | "paid-twice", at }
+      function refundInfo(o) {
+        if (!needsRefund(o)) return null;
+        const rn = o.refundNeeded && typeof o.refundNeeded === 'object' ? o.refundNeeded : {};
+        const reason = rn.reason ? String(rn.reason) : (o.fullAfterPayment === true ? 'full' : '');
+        let amount = poundsOrNull(rn.amount);
+        if (amount == null && reason === 'full') amount = extrasPounds(o); // the whole extras payment
+        return { amount, reason, why: REFUND_REASONS[reason] || reason };
+      }
+      // "Refund needed £6.00 (paid, but every number was taken)"
+      function refundText(info) {
+        return `Refund needed${info.amount != null ? ' ' + fmtGBP(info.amount) : ''}${info.why ? ` (${info.why})` : ''}`;
+      }
+      // Uploads-table tag for a numbered ticket that is owed money back (or was refunded)
+      function refundTagHtml(o) {
+        if (o && o.extrasRefunded === true) {
+          return ` <span class="tag" style="margin-left:4px;" title="A payment for this ticket was refunded - it keeps its number and prints as normal">↩️ refunded</span>`;
+        }
+        const info = refundInfo(o);
+        if (!info) return '';
+        return ` <span class="tag" style="margin-left:4px; color:#f87171; border-color:rgba(248,113,113,0.6); font-weight:700;" title="${escHtml(refundText(info))}">💸 refund${info.amount != null ? ' ' + escHtml(fmtGBP(info.amount)) : ''}</span>`;
+      }
+      // Red "Refund needed £X (reason)" line. An unfinished order whose payment arrived after
+      // the event filled up also gets the two ways to resolve it (POST /api/admin-guest-resolve).
+      // opts.link: add "ticket #N / no number yet · order xxxxxxxx" (event uploads area)
+      function refundNoteHtml(o, opts = {}) {
+        const info = refundInfo(o);
+        if (!info) return '';
+        const id = escHtml(o.orderId);
+        const complete = isCompleteEventOrder(o);
+        let h = `<div class="refund-line" data-refund-order="${id}">💸 <strong>${escHtml(refundText(info))}</strong>`;
+        if (opts.link) {
+          h += ` · ${complete ? `ticket #${escHtml(o.raffleNumber)}` : 'no number yet'} · <a href="#" data-open-order="${id}">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
+        }
+        if (o.fullAfterPayment === true && !complete) {
+          h += `<div style="font-size:12px; margin-top:4px;">Refund them in the Stripe dashboard, then tap “Mark refunded”. Or, if there is room (widen the ticket range first if needed), give them a number and keep their paid extras.</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:6px;">
+              <button type="button" class="ev-btn" data-resolve="refunded" data-order-id="${id}">Mark refunded</button>
+              <button type="button" class="ev-btn" data-resolve="honour" data-order-id="${id}">Give them a number</button>
+            </div>`;
+        } else if (complete) {
+          h += `<div style="font-size:12px; margin-top:4px;">Their ticket prints as normal - refund the extra payment in the Stripe dashboard.</div>`;
+        }
+        return h + `</div>`;
+      }
+
+      // POST /api/admin-guest-resolve { orderId, action }: "refunded" (the admin refunded the
+      // guest in Stripe) or "honour" (give them a number now, paid extras kept).
+      // -> null when cancelled (or one is already running for this order), else
+      //    { ok, number?, full?, text, kind: 'ok' | 'err' }
+      const guestResolving = new Set(); // orderIds with a decision on its way (one at a time)
+      async function resolveGuestOrder(o, action) {
+        if (!o || (action !== 'refunded' && action !== 'honour') || guestResolving.has(o.orderId)) return null;
+        const info = refundInfo(o);
+        const amt = info && info.amount != null ? fmtGBP(info.amount) : '';
+        const question = action === 'refunded'
+          ? `Mark the ${amt ? amt + ' ' : ''}payment as refunded?\n\nOnly do this after refunding the guest in the Stripe dashboard. Their upload keeps no number and is left off the print sheets.`
+          : `Give this guest a ticket number now?\n\nTheir paid extra magnets are kept (no refund). If every number is still taken, widen the event's ticket range first.`;
+        if (!confirm(question) || guestResolving.has(o.orderId)) return null;
+        guestResolving.add(o.orderId);
+        let res, data;
+        try {
+          res = await fetch('/api/admin-guest-resolve', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: o.orderId, action })
+          });
+          data = await res.json().catch(() => ({}));
+        } catch (e) {
+          return { ok: false, text: 'Could not reach the server - nothing was changed. ' + e.message, kind: 'err' };
+        } finally {
+          guestResolving.delete(o.orderId);
+        }
+        data = data || {};
+        const remember = (rec) => {
+          guestResolutions.set(o.orderId, { action, ...rec, at: Date.now() });
+          applyGuestResolution(o);
+          const summary = orders.find(x => x.orderId === o.orderId);
+          if (summary && summary !== o) applyGuestResolution(summary);
+        };
+        if (action === 'honour') {
+          const n = data.number;
+          if (res.ok && n != null && n !== '') {
+            remember({ number: n });
+            return { ok: true, number: n, text: `✅ Given ticket #${n} - their paid extras are kept. It joins the print sheets shortly.`, kind: 'ok' };
+          }
+          if (res.status === 409 && data.full) {
+            return { ok: false, full: true, text: 'Every number is still taken, so no number was given. Widen the event\'s ticket range and try again - or refund the guest in Stripe and tap “Mark refunded”.', kind: 'err' };
+          }
+        } else if (res.ok && data.success) {
+          remember({});
+          return { ok: true, text: `↩️ Marked as refunded${amt ? ' (' + amt + ')' : ''}. The upload has no number and is left off the print sheets.`, kind: 'ok' };
+        }
+        return { ok: false, text: 'Could not update: ' + (typeof data.error === 'string' && data.error ? data.error : `HTTP ${res.status}`), kind: 'err' };
+      }
+      // Both buttons of the order's refund line (just `btn` when it isn't in one)
+      function resolveButtons(btn) {
+        const line = btn && typeof btn.closest === 'function' ? btn.closest('.refund-line') : null;
+        return line ? [...line.querySelectorAll('[data-resolve]')] : (btn ? [btn] : []);
+      }
+      // From the event uploads area: resolve, show the outcome there, refresh the view
+      async function resolveFromEvent(ev, orderId, action, btn) {
+        const o = orders.find(x => x.orderId === orderId);
+        if (!o) return;
+        const btns = resolveButtons(btn);
+        btns.forEach(b => { b.disabled = true; });
+        const r = await resolveGuestOrder(o, action);
+        if (!r) { btns.forEach(b => { b.disabled = false; }); return; }
+        guestResolveMsg = { eventId: ev.id, text: r.text, kind: r.kind };
+        renderEventUploads(ev);
+        if (currentMode === 'events') renderEventManager();
+        await refreshOrdersAndSync(ev); // fresh list -> uploads area, counts, sheets
+      }
+      // From the ticket detail: resolve, refresh the order list, reload the detail with the outcome
+      async function resolveFromDetail(order, action, btn) {
+        const btns = resolveButtons(btn);
+        btns.forEach(b => { b.disabled = true; });
+        const r = await resolveGuestOrder(order, action);
+        if (!r) { btns.forEach(b => { b.disabled = false; }); return; }
+        try {
+          const res = await fetch('/api/admin-orders', { headers: { Authorization: `Bearer ${adminKey}` } });
+          if (res.ok) { orders = (await res.json()).orders || orders; noteOrdersFetched(res); }
+        } catch {}
+        await loadOrderDetails(order.orderId, r);
+      }
+
+      function extrasSectionHtml(ev) {
+        const free = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;
+        const on = ev.extrasEnabled === true;
+        const price = extraPriceOf(ev);
+        const max = maxExtrasOf(ev);
+        let h = `<div style="border-top:1px solid #1f2933; margin-top:14px; padding-top:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="font-weight:700; font-size:14px;">💳 Paid extra magnets</div>
+            <button id="ev-extras-toggle" class="ev-btn" style="min-width:74px; ${on ? 'background:#fcd34d; border-color:#fcd34d; color:#1f1300;' : 'color:#9ca3af;'}">${on ? 'On' : 'Off'}</button>
+          </div>
+          <div style="font-size:12px; color:#9ca3af; margin-top:4px;">Guests who want more than their free photos pay by card (Stripe) for the extra magnets before they get their number.</div>`;
+        if (!free) {
+          h += `<div class="ev-note warn">⚠️ Set how many free photos each guest gets first (“Photos per ticket · free photos per guest” above) — paid extras need a free-photo limit.${on ? ' Until then guests are not offered extras.' : ''}</div>`;
+        } else if (on && price != null) {
+          h += `<div class="ev-note ok">✅ Guests get ${free} free, can buy up to ${max} more at ${escHtml(fmtGBP(price))} each.</div>`;
+        } else if (on) {
+          h += `<div class="ev-note warn">⚠️ Enter a price per extra magnet — guests aren't offered extras until there is one.</div>`;
+        } else if (price != null) {
+          h += `<div class="ev-note info">Off. When on: guests get ${free} free, can buy up to ${max} more at ${escHtml(fmtGBP(price))} each.</div>`;
+        }
+        h += `<div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-top:10px;">
+            <label style="display:flex; flex-direction:column; gap:4px; margin:0; font-size:12px; color:#9ca3af; text-align:left;">Price per extra magnet (£)
+              <input id="ev-extras-price" class="ev-input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 3.00" value="${price != null ? price.toFixed(2) : ''}" style="width:110px;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px; margin:0; font-size:12px; color:#9ca3af; text-align:left;">Max extras per guest
+              <input id="ev-extras-max" class="ev-input" type="number" min="1" max="50" step="1" inputmode="numeric" value="${max}" style="width:90px;" />
+            </label>
+            <button id="ev-extras-save" class="ev-btn">Save</button>
+          </div>
+          <div id="ev-extras-msg" style="font-size:12px; margin-top:6px; color:#9ca3af;"></div>
+          <div style="font-size:11px; color:#6b7280; margin-top:4px;">Change these any time. A guest part-way through is shown the new price before paying.</div>
+        </div>`;
+        return h;
+      }
+
+      function wireExtrasSection(ev) {
+        const tog = document.getElementById('ev-extras-toggle');
+        const save = document.getElementById('ev-extras-save');
+        if (tog) tog.onclick = () => saveExtras(ev, ev.extrasEnabled !== true, tog);
+        if (save) save.onclick = () => saveExtras(ev, undefined, save);
+        const price = document.getElementById('ev-extras-price');
+        if (price && save) price.onkeydown = (e) => { if (e.key === 'Enter') saveExtras(ev, undefined, save); };
+      }
+
+      // enable: true (switch on), false (switch off) or undefined (just save price / max)
+      async function saveExtras(ev, enable, btn) {
+        const payload = { action: 'extras', id: ev.id };
+        if (enable !== false) { // saving values or switching on: both need a valid price + max
+          const p = parsePriceInput((document.getElementById('ev-extras-price') || {}).value);
+          if (p.empty) return setMsg('ev-extras-msg', 'Enter a price per extra magnet', MSG_ERR);
+          if (p.error) return setMsg('ev-extras-msg', p.error, MSG_ERR);
+          const m = Number(String((document.getElementById('ev-extras-max') || {}).value ?? '').trim());
+          if (!Number.isInteger(m) || m < 1 || m > 50) return setMsg('ev-extras-msg', 'Max extras per guest must be a whole number from 1 to 50.', MSG_ERR);
+          if (enable === true && !(Number(ev.perTicketLimit) > 0)) return setMsg('ev-extras-msg', 'Set how many free photos each guest gets first', MSG_ERR);
+          payload.extraPrice = p.value;
+          payload.maxExtras = m;
+        }
+        if (enable !== undefined) payload.extrasEnabled = enable;
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try {
+          const data = await adminEventPost(payload);
+          applyEventUpdate(ev, data);
+          if (selectedEventId !== ev.id) return;
+          renderGuestCard(ev);
+          if (currentMode === 'events') renderEventManager();
+          setMsg('ev-extras-msg', enable === true ? 'Paid extras are on ✓' : enable === false ? 'Paid extras are off ✓' : 'Saved ✓', MSG_OK);
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = orig;
+          setMsg('ev-extras-msg', e.message, MSG_ERR);
+        }
+      }
+
+      // ─── 🎨 Overlays (photo designs) — guest uploads AND the staff page ───
+      const OVERLAY_MAX = 8;
+      const OVERLAY_MAX_BYTES = 5 * 1024 * 1024;
+      const OVERLAY_MAX_SIDE = 3000; // px, longest side (same limit as the server)
+      const OVERLAY_MODES = [
+        { v: 'off', label: 'Off', help: 'Photos print as they are, with no design.' },
+        { v: 'optional', label: "Guest's choice", help: 'Guests (and staff) can pick a design or "None".' },
+        { v: 'required', label: 'Required', help: 'Every photo gets a design (they pick which if there are several).' },
+      ];
+      // Overlay card UI state: which design the big preview shows + the last message
+      let overlayPreviewFor = { eventId: null, id: null, msg: null };
+      function ovState(ev) {
+        if (overlayPreviewFor.eventId !== ev.id) overlayPreviewFor = { eventId: ev.id, id: null, msg: null };
+        return overlayPreviewFor;
+      }
+
+      function overlayList(ev) {
+        return Array.isArray(ev && ev.overlays) ? ev.overlays.filter(o => o && o.id) : [];
+      }
+      function overlaySrc(ev, o) {
+        return (typeof o.url === 'string' && o.url.startsWith('/api/event-overlay?')) ? o.url
+          : `/api/event-overlay?e=${encodeURIComponent(ev.id)}&id=${encodeURIComponent(o.id)}`;
+      }
+      // What guests / staff actually get: "off" whenever there are no designs
+      function effectiveOverlayMode(ev) {
+        const m = ev && ev.overlayMode;
+        return overlayList(ev).length && (m === 'optional' || m === 'required') ? m : 'off';
+      }
+      function fmtBytes(b) {
+        const n = Number(b) || 0;
+        return n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1)} MB`;
+      }
+      function joinWords(a) {
+        return a.length < 2 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+      }
+
+      function renderOverlayCard(ev) {
+        const box = document.getElementById('ev-overlay-card');
+        if (!box || selectedEventId !== ev.id) return;
+        const list = overlayList(ev);
+        const stored = OVERLAY_MODES.some(m => m.v === ev.overlayMode) ? ev.overlayMode : 'off';
+        const eff = effectiveOverlayMode(ev);
+        const st = ovState(ev);
+        const shown = list.find(o => o.id === st.id) || list[0] || null;
+        const effLabel = (OVERLAY_MODES.find(m => m.v === eff) || OVERLAY_MODES[0]).label;
+
+        let h = `<div class="ev-card" style="${eff !== 'off' ? 'border-color:rgba(168,85,247,0.45);' : ''}">`;
+        h += `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="font-weight:700; font-size:14px;">🎨 Overlays</div>
+          <span class="tag">${list.length}/${OVERLAY_MAX} · ${escHtml(effLabel)}</span>
+        </div>`;
+        h += `<div style="font-size:12px; color:#9ca3af; margin-top:4px;">A see-through frame (e.g. flowers + names &amp; date) added on top of photos, for guest uploads <strong>and</strong> the staff event page. It's baked into each photo before upload, so what they see is what prints.</div>`;
+
+        h += `<div style="margin-top:10px;">` + OVERLAY_MODES.map(m => `
+          <label class="ov-mode${list.length ? '' : ' disabled'}">
+            <input type="radio" name="ev-ov-mode" value="${m.v}" ${stored === m.v ? 'checked' : ''} ${list.length ? '' : 'disabled'} />
+            <span><strong>${escHtml(m.label)}</strong><small>${escHtml(m.help)}</small></span>
+          </label>`).join('') + `</div>`;
+        if (!list.length) {
+          h += `<div class="ev-note info">No designs yet, so overlays are off. Upload one below (the first design switches this to Required; you can change it after).</div>`;
+        }
+
+        if (list.length) {
+          h += `<div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">`;
+          for (const o of list) {
+            const sel = !!shown && o.id === shown.id;
+            const w = Number(o.w), hh = Number(o.h);
+            const dims = w > 0 && hh > 0 ? `${w}×${hh}px` : '';
+            const soft = w > 0 && hh > 0 && Math.min(w, hh) < 1000;
+            h += `<div style="width:112px;">
+              <button type="button" class="checker" data-ov-show="${escHtml(o.id)}" title="Preview on a sample photo" style="display:block; width:112px; height:112px; padding:0; border-radius:10px; overflow:hidden; cursor:pointer; border:2px solid ${sel ? '#a855f7' : '#1f2933'};">
+                <img src="${escHtml(overlaySrc(ev, o))}" alt="" style="width:100%; height:100%; object-fit:contain; display:block;" />
+              </button>
+              <div style="font-size:12px; font-weight:600; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(o.name)}">${escHtml(o.name || 'Design')}</div>
+              <div style="font-size:11px; color:#6b7280;">${dims}${o.bytes ? ` · ${escHtml(fmtBytes(o.bytes))}` : ''}${soft ? '<br><span style="color:#fbbf24;">may print soft</span>' : ''}</div>
+              <button type="button" class="ev-btn" data-ov-del="${escHtml(o.id)}" style="margin-top:4px; padding:4px 10px; font-size:11px; color:#fca5a5; border-color:rgba(248,113,113,0.4);">Delete</button>
+            </div>`;
+          }
+          h += `</div>`;
+          if (shown) {
+            // Drawn stretched to the full square, exactly like the guest / staff pages bake it in
+            h += `<div style="display:flex; gap:12px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+              <div class="sample-photo" style="position:relative; width:180px; height:180px; border-radius:6px; overflow:hidden; flex:0 0 auto;">
+                <img src="${escHtml(overlaySrc(ev, shown))}" alt="" style="position:absolute; inset:0; width:100%; height:100%; display:block;" />
+                <div style="position:absolute; inset:1.9%; border:1px dashed rgba(255,255,255,0.85); pointer-events:none;"></div>
+              </div>
+              <div style="flex:1; min-width:160px; font-size:12px; color:#9ca3af;">Preview of <strong style="color:#e5e7eb;">${escHtml(shown.name || 'Design')}</strong> on a sample photo. The dashed line is the front of the magnet; about 1mm outside it wraps round the edge. Tap a design to preview it.</div>
+            </div>`;
+          }
+        }
+
+        const full = list.length >= OVERLAY_MAX;
+        h += `<div style="display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+          <button type="button" id="ev-ov-upload" class="ev-btn" ${full ? 'disabled' : ''}>⬆️ Upload overlay</button>
+          <input id="ev-ov-file" type="file" accept=".png,.webp,image/png,image/webp" style="display:none;" />
+          <span style="font-size:11px; color:#6b7280;">${full ? `Maximum ${OVERLAY_MAX} designs. Delete one to add another.` : `PNG or WebP with a transparent middle · square · 500 to ${OVERLAY_MAX_SIDE}px (1000px+ prints best) · max 5 MB`}</span>
+        </div>
+        <div id="ev-ov-msg" style="font-size:12px; margin-top:8px; white-space:pre-line; color:${st.msg ? st.msg.color : '#9ca3af'};">${st.msg ? escHtml(st.msg.text) : ''}</div>`;
+        h += `</div>`;
+        box.innerHTML = h;
+
+        box.querySelectorAll('input[name="ev-ov-mode"]').forEach(r => {
+          r.onchange = () => { if (r.checked) setOverlayMode(ev, r.value); };
+        });
+        box.querySelectorAll('[data-ov-show]').forEach(b => {
+          b.onclick = () => { ovState(ev).id = b.getAttribute('data-ov-show'); renderOverlayCard(ev); };
+        });
+        box.querySelectorAll('[data-ov-del]').forEach(b => {
+          b.onclick = () => deleteOverlay(ev, b.getAttribute('data-ov-del'), b);
+        });
+        const fileIn = document.getElementById('ev-ov-file');
+        document.getElementById('ev-ov-upload').onclick = () => fileIn.click();
+        fileIn.onchange = () => {
+          const f = fileIn.files && fileIn.files[0];
+          fileIn.value = '';
+          if (f) uploadOverlay(ev, f);
+        };
+      }
+
+      function overlayMsg(ev, text, color) {
+        ovState(ev).msg = text ? { text, color: color || '#9ca3af' } : null;
+        if (selectedEventId === ev.id) setMsg('ev-ov-msg', text, color);
+      }
+      // Re-render after a change (card + the list's 🎨 tag)
+      function overlayChanged(ev) {
+        if (selectedEventId === ev.id) renderOverlayCard(ev);
+        if (currentMode === 'events') renderEventManager();
+      }
+
+      async function setOverlayMode(ev, mode) {
+        const m = OVERLAY_MODES.find(x => x.v === mode);
+        if (!m) return;
+        overlayMsg(ev, 'Saving…');
+        document.querySelectorAll('input[name="ev-ov-mode"]').forEach(r => { r.disabled = true; });
+        try {
+          const data = await adminEventPost({ action: 'overlay-mode', id: ev.id, overlayMode: mode });
+          applyEventUpdate(ev, data);
+          ovState(ev).msg = { text: `Overlays: ${m.label} ✓`, color: MSG_OK };
+        } catch (e) {
+          ovState(ev).msg = { text: 'Could not change the mode: ' + e.message, color: MSG_ERR };
+        }
+        overlayChanged(ev);
+      }
+
+      async function deleteOverlay(ev, oid, btn) {
+        const list = overlayList(ev);
+        const o = list.find(x => x.id === oid);
+        if (!o) return;
+        const last = list.length === 1;
+        if (!confirm(`Delete the design "${o.name || 'Design'}"?\n\nPhotos already uploaded keep it.${last ? '\nIt is the only design, so overlays switch off for this event.' : ''}`)) return;
+        btn.disabled = true;
+        btn.textContent = 'Deleting…';
+        try {
+          const data = await adminEventPost({ action: 'overlay-delete', id: ev.id, overlayId: oid });
+          applyEventUpdate(ev, data);
+          const st = ovState(ev);
+          if (st.id === oid) st.id = null;
+          st.msg = { text: `Deleted "${o.name || 'Design'}".`, color: MSG_OK };
+        } catch (e) {
+          ovState(ev).msg = { text: 'Could not delete: ' + e.message, color: MSG_ERR };
+        }
+        overlayChanged(ev);
+      }
+
+      async function uploadOverlay(ev, file) {
+        const list = overlayList(ev);
+        if (list.length >= OVERLAY_MAX) return overlayMsg(ev, `This event already has ${OVERLAY_MAX} designs. Delete one first.`, MSG_ERR);
+        overlayMsg(ev, 'Checking the design…');
+        let check;
+        try { check = await checkOverlayFile(file); }
+        catch (e) { check = { error: 'Could not read that file: ' + e.message }; }
+        if (check.error) return overlayMsg(ev, check.error, MSG_ERR);
+
+        const notes = check.notes.map(n => '• ' + n).join('\n');
+        const def = `Design ${list.length + 1}`;
+        let name = prompt(`${notes ? notes + '\n\n' : ''}Name for this design (guests and staff see it):`, def);
+        if (name === null) return overlayMsg(ev, '');
+        name = name.trim().slice(0, 40) || def;
+
+        overlayMsg(ev, 'Uploading…');
+        const btn = document.getElementById('ev-ov-upload');
+        if (btn) btn.disabled = true;
+        try {
+          const fd = new FormData();
+          fd.append('file', file, file.name || `overlay.${check.type}`);
+          const res = await fetch(`/api/admin-overlay?eventId=${encodeURIComponent(ev.id)}&name=${encodeURIComponent(name)}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}` },
+            body: fd
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+          const before = new Set(list.map(o => o.id));
+          applyEventUpdate(ev, data);
+          const added = overlayList(ev).find(o => !before.has(o.id));
+          const st = ovState(ev);
+          if (added) st.id = added.id;
+          st.msg = { text: `Uploaded "${name}" ✓${notes ? '\n' + notes : ''}`, color: notes ? MSG_WARN : MSG_OK };
+        } catch (e) {
+          ovState(ev).msg = { text: 'Upload failed: ' + e.message, color: MSG_ERR };
+        }
+        overlayChanged(ev);
+      }
+
+      // ── Client-side overlay checks (the server re-checks type, size, shape) ──
+      // PNG 89 50 4E 47 0D 0A 1A 0A, or WebP RIFF....WEBP -> 'png' | 'webp' | null
+      function sniffOverlayType(b) {
+        if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47
+            && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A) return 'png';
+        if (b.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46
+            && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'webp';
+        return null;
+      }
+      // Square within 2%, at least 500px and at most 3000px a side -> error text, or null.
+      // (Guests' phones decode every design; bigger than 3000px gains nothing - photos are
+      // printed from 1600px - and can crash older iPhones. The server checks the same.)
+      function overlayShapeError(w, h) {
+        if (!(w > 0 && h > 0)) return "That image couldn't be read.";
+        if (Math.abs(w - h) > 0.02 * Math.max(w, h)) return `The design must be square. This one is ${w}×${h}px; export it with the same width and height.`;
+        if (Math.min(w, h) < 500) return `The design is too small (${w}×${h}px). It needs to be at least 500×500px (1000px or more prints best).`;
+        if (Math.max(w, h) > OVERLAY_MAX_SIDE) return `The design is too big (${w}×${h}px). It can be at most ${OVERLAY_MAX_SIDE}×${OVERLAY_MAX_SIDE}px - export it smaller (1600 to 2000px is plenty).`;
+        return null;
+      }
+      // RGBA pixels -> share of see-through pixels (alpha < 250) and which edges carry
+      // visible artwork (alpha >= 128) inside the outer 2% band (a few stray pixels ignored)
+      function analyseOverlayPixels(data, W, H) {
+        const band = Math.max(1, Math.round(Math.min(W, H) * 0.02));
+        const hits = { top: 0, right: 0, bottom: 0, left: 0 };
+        let clear = 0;
+        for (let y = 0; y < H; y++) {
+          const row = y * W * 4;
+          for (let x = 0; x < W; x++) {
+            const a = data[row + x * 4 + 3];
+            if (a < 250) clear++;
+            if (a >= 128) {
+              if (y < band) hits.top++;
+              if (y >= H - band) hits.bottom++;
+              if (x < band) hits.left++;
+              if (x >= W - band) hits.right++;
+            }
+          }
+        }
+        const need = Math.max(3, Math.round(band * Math.max(W, H) * 0.005));
+        return {
+          transparentShare: clear / (W * H),
+          edges: ['right', 'top', 'bottom', 'left'].filter(k => hits[k] >= need),
+        };
+      }
+      // Shape + pixel analysis -> { error } | { w, h, notes: [] }
+      function overlayVerdict(w, h, a) {
+        const shape = overlayShapeError(w, h);
+        if (shape) return { error: shape };
+        if (!a || !(a.transparentShare >= 0.05)) {
+          return { error: 'This design has no see-through area, so it would cover the whole photo - export it as a PNG with a transparent background' };
+        }
+        const notes = [];
+        if (Math.min(w, h) < 1000) notes.push(`It is ${Math.min(w, h)}px, so it may print soft (1000px or more is best).`);
+        if (a.edges.length) {
+          notes.push(`The artwork reaches the ${joinWords(a.edges)} edge${a.edges.length === 1 ? '' : 's'}: about 1mm wraps round the edge of the magnet, so the outer 2% won't be on the front.`);
+        }
+        return { w, h, notes };
+      }
+      // Downscaled (<= 800px) RGBA pixels of a decoded image
+      function overlayPixels(img, w, h) {
+        const scale = Math.min(1, 800 / Math.max(w, h));
+        const W = Math.max(1, Math.round(w * scale)), H = Math.max(1, Math.round(h * scale));
+        const cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d', { willReadFrequently: true });
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(img, 0, 0, W, H);
+        return { data: ctx.getImageData(0, 0, W, H).data, W, H };
+      }
+      // File -> { error } | { type, w, h, notes }
+      async function checkOverlayFile(file) {
+        if (!file || !(file.size > 0)) return { error: 'That file is empty.' };
+        if (file.size > OVERLAY_MAX_BYTES) return { error: `That file is ${(file.size / 1048576).toFixed(1)} MB. A design must be 5 MB or smaller.` };
+        const type = sniffOverlayType(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+        if (!type) return { error: 'Please choose a PNG or WebP image (with a transparent background).' };
+        const url = URL.createObjectURL(file);
+        try {
+          let img;
+          try { img = await loadImg(url); }
+          catch { return { error: "That image couldn't be opened. Try exporting it again as a PNG." }; }
+          const w = img.naturalWidth, h = img.naturalHeight;
+          const shape = overlayShapeError(w, h);
+          if (shape) return { error: shape };
+          const px = overlayPixels(img, w, h);
+          return { type, ...overlayVerdict(w, h, analyseOverlayPixels(px.data, px.W, px.H)) };
+        } finally {
+          URL.revokeObjectURL(url);
+        }
       }
 
       // ─── Per-sheet (real-time) event printing ───
@@ -1735,7 +2444,8 @@
         btn.textContent = `🖨️ Print selected (${n})`;
       }
 
-      async function loadOrderDetails(orderId) {
+      // flash (optional): { text, kind } shown at the top, e.g. the outcome of a refund decision
+      async function loadOrderDetails(orderId, flash) {
         detailsContainer.innerHTML = '<div class="empty-state">Loading...</div>';
         try {
           const res = await fetch(`/api/admin-orders?orderId=${encodeURIComponent(orderId)}`, { headers: { Authorization: `Bearer ${adminKey}` } });
@@ -1743,12 +2453,13 @@
           const data = await res.json();
           const order = data.order;
           if (!order) { detailsContainer.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
+          applyGuestResolution(order); // a refund decision made here that the (KV) copy doesn't show yet
 
           // --- TOP BANNER LOGIC ---
           let topBanner = "";
           if (order.eventId) {
               const evName = (events.find(e => e.id === order.eventId) || {}).name || order.eventId;
-              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${escHtml(evName)}<div style="font-size:3em; line-height:1; margin-top:4px;">#${escHtml(order.raffleNumber ?? '?')}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
+              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${escHtml(evName)}<div style="font-size:3em; line-height:1; margin-top:4px;">#${escHtml(order.raffleNumber ?? order.givenNumber ?? '?')}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
           } else if (order.event === 'BINGO') {
               let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
@@ -1765,12 +2476,35 @@
           if (order.packType === 'big_picture') packLabel = `<span class="tag purple">🧩 JIGSAW PICTURE</span>`;
 
           let html = topBanner;
+          if (flash && flash.text) html += `<div class="ev-note ${escHtml(flash.kind || 'info')}" style="margin:0 0 14px; font-size:13px;">${escHtml(flash.text)}</div>`;
           html += `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
           if (order.eventId) {
             const who = order.source === 'guest' ? '📲 Guest (self-upload)' : '🧑‍💼 Staff (event page)';
             html += `<div class="field-label">Uploaded by</div><div class="field-value">${who}</div>`;
-            if (!isCompleteEventOrder(order)) {
+            if (order.extrasRefunded === true) {
+              html += `<div style="padding:8px 10px; border:1px solid #374151; background:#111827; border-radius:8px; margin-top:6px; color:#d1d5db; font-size:12px;">↩️ <strong>Refunded</strong> — ${isCompleteEventOrder(order)
+                ? "a payment for this ticket was refunded. The ticket keeps its number and prints as normal."
+                : "the guest's payment was refunded. This upload has no ticket number and is left off the event's print sheets."}</div>`;
+            } else if (order.resolvedHere === 'honour' && !isCompleteEventOrder(order)) {
+              html += `<div style="padding:8px 10px; border:1px solid rgba(89,201,165,0.45); background:rgba(89,201,165,0.08); border-radius:8px; margin-top:6px; color:#a7f3d0; font-size:12px;">✅ Given ticket #${escHtml(order.givenNumber)} — saving; it joins the event's print sheets shortly.</div>`;
+            } else if (!isCompleteEventOrder(order)) {
               html += `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:6px; color:#fbbf24; font-size:12px;">⏳ Upload not finished — no ticket number yet, so it's left off the event's print sheets.</div>`;
+            }
+            // 💸 Money owed back to the guest (red), with the two choices when the event filled up while they paid
+            if (needsRefund(order)) html += `<div style="margin-top:8px;">${refundNoteHtml(order)}</div>`;
+            // Paid extra magnets (guest uploads)
+            const xn = Number(order.extrasCount) || 0;
+            if (order.extrasRefunded === true && xn > 0 && !isCompleteEventOrder(order)) {
+              const amt = extrasPounds(order);
+              html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#9ca3af; word-break:normal;">Refunded: +${xn} extra magnet${xn === 1 ? '' : 's'}${amt != null ? ` · ${escHtml(fmtGBP(amt))}` : ''} — nothing prints for this upload.</div>`;
+            } else if (order.extrasPaid && xn > 0) {
+              const amt = extrasPounds(order);
+              const paidAt = order.extrasPaidAt ? new Date(order.extrasPaidAt) : null;
+              html += `<div class="field-label" style="color:#fcd34d;">💳 Paid extra magnets</div><div class="field-value" style="word-break:normal;">+${xn} extra magnet${xn === 1 ? '' : 's'}${order.freeCount != null ? ` on top of ${escHtml(order.freeCount)} free` : ''}${amt != null ? ` · <strong>${escHtml(fmtGBP(amt))}</strong>` : ''}${order.extrasEmail ? ` · receipt to ${escHtml(order.extrasEmail)}` : ''}${paidAt && !isNaN(paidAt) ? ` · ${escHtml(paidAt.toLocaleString())}` : ''}</div>`;
+            } else if (order.extrasSkipped) {
+              html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#9ca3af;">Skipped — the guest sent only their free photos.</div>`;
+            } else if (xn > 0 && !isCompleteEventOrder(order)) {
+              html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#fbbf24;">${order.extrasSessionId ? 'At payment' : 'Chosen'}: +${xn} extra magnet${xn === 1 ? '' : 's'}${Number(order.extrasTotal) > 0 ? ` (${escHtml(fmtGBP(order.extrasTotal))})` : ''} — not paid yet.</div>`;
             }
           }
 
@@ -1899,7 +2633,8 @@
           // Print sheet: anything with photos (magnets, frames, keyrings). Not flexi/vouchers/large magnets.
           const canPrintSheet = !isVoucher
             && order.productType !== 'flexi'
-            && order.productType !== 'large_magnet';   // 65×90 template coming separately
+            && order.productType !== 'large_magnet'    // 65×90 template coming separately
+            && !(order.eventId && order.extrasRefunded === true && !isCompleteEventOrder(order)); // refunded, no number: never printed
           if (canPrintSheet) {
             const printLabel = order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
             html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">${printLabel}</button>`;
@@ -1926,6 +2661,9 @@
           detailsContainer.innerHTML = html;
 
           // Wire up interactions
+          detailsContainer.querySelectorAll('[data-resolve]').forEach(b => {
+            b.onclick = () => resolveFromDetail(order, b.getAttribute('data-resolve'), b);
+          });
           const printOneBtn = document.getElementById("print-one-btn");
           if (printOneBtn) printOneBtn.onclick = () => generateOrderSheet(order, printOneBtn);
 

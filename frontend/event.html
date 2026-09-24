@@ -13,6 +13,18 @@
   <script src="/pwa.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Transparent designs are shown on a checkerboard so the see-through area is obvious */
+    .checker { background-color: #f8fafc; background-image: linear-gradient(45deg, #cbd5e1 25%, transparent 25%), linear-gradient(-45deg, #cbd5e1 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cbd5e1 75%), linear-gradient(-45deg, transparent 75%, #cbd5e1 75%); background-size: 14px 14px; background-position: 0 0, 0 7px, 7px -7px, -7px 0; }
+    .design-opt { flex: 0 0 auto; width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border-radius: 14px; border: 2px solid #334155; background: #0f172a; color: #cbd5e1; cursor: pointer; }
+    .design-opt.is-sel { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); color: #fff; }
+    .design-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+    .design-opt.static { cursor: default; }
+    .design-thumb { width: 76px; height: 76px; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #64748b; }
+    .design-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .design-thumb.none { background: #1e293b; color: #94a3b8; border: 1px dashed #475569; }
+    .design-name { font-size: 11px; line-height: 1.2; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center p-6">
 
@@ -43,6 +55,16 @@
       </select>
       <p id="taken-notice" class="text-sm font-bold text-amber-400 mt-2 hidden"></p>
       <p class="text-xs text-slate-500 mt-2">Only un-used numbers are shown. Once saved, a number disappears from this list.</p>
+    </div>
+
+    <!-- Design (event overlay) - only shown when the event has designs switched on -->
+    <div id="design-card" class="bg-slate-800 p-5 rounded-xl border border-slate-700" style="display:none;">
+      <div class="flex items-center justify-between mb-3">
+        <label class="block text-sm font-bold uppercase tracking-wider text-slate-400">Design</label>
+        <span id="design-state" class="text-xs text-slate-500"></span>
+      </div>
+      <div id="design-options" class="flex gap-3 overflow-x-auto pb-1"></div>
+      <p id="design-hint" class="text-xs text-slate-400 mt-3"></p>
     </div>
 
     <!-- Photos -->
@@ -123,7 +145,7 @@
           eventHelp.textContent = 'No active event found. Create one in Admin → Events.';
           return;
         }
-        eventSelect.innerHTML = events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        eventSelect.innerHTML = events.map(e => `<option value="${escHtml(e.id)}">${escHtml(e.name)}</option>`).join('');
         await selectEvent(events[0].id);
       } catch (e) {
         eventSelect.innerHTML = '<option value="">Error loading</option>';
@@ -136,6 +158,7 @@
     async function selectEvent(id) {
       currentEvent = events.find(e => e.id === id) || null;
       if (!currentEvent) return;
+      syncDesign(); // show + preload this event's designs straight away (from the list)
       raffleSelect.disabled = true;
       raffleSelect.innerHTML = '<option value="">Loading numbers…</option>';
       try {
@@ -144,6 +167,7 @@
         usedNumbers = withRecentlyUsed(id, new Set((data.used || []).map(Number)));
         currentEvent = data.event || currentEvent;
         populateNumbers();
+        syncDesign();
         renderPreviews(); // refresh the per-ticket limit label
       } catch (e) {
         raffleSelect.innerHTML = '<option value="">Error loading numbers</option>';
@@ -210,6 +234,7 @@
         populateNumbers();
         if (prev && raffleSelect.value !== prev) showTakenNotice(prev);
         if (currentEvent.perTicketLimit !== prevLimit) renderPreviews();
+        syncDesign(); // the admin may have added / removed designs or changed the mode
         return true;
       } catch (e) {
         return false; // offline / weak signal — the server still blocks duplicates
@@ -228,6 +253,12 @@
     }
 
     document.getElementById('files').addEventListener('change', (e) => {
+      // The ticket's photos are fixed while it uploads (the upload works from a snapshot)
+      if (submitting) {
+        e.target.value = '';
+        alert('Wait for this ticket to finish uploading before adding photos.');
+        return;
+      }
       const lim = ticketLimit();
       const incoming = Array.from(e.target.files);
       let blocked = false;
@@ -243,48 +274,426 @@
     function renderPreviews() {
       const grid = document.getElementById('preview-grid');
       const lim = ticketLimit();
+      const design = currentDesign();
       document.getElementById('count').innerText = selectedFiles.length;
       document.getElementById('limit-label').innerText = lim < Infinity ? '/' + lim : '';
-      document.getElementById('limit-hint').innerText = lim < Infinity
+      document.getElementById('limit-hint').innerText = (lim < Infinity
         ? `Up to ${lim} photo${lim > 1 ? 's' : ''} per ticket · tap a photo to view it larger.`
-        : 'Tap a photo to view it larger.';
-      grid.innerHTML = selectedFiles.map((f, i) => `
+        : 'Tap a photo to view it larger.')
+        + (design ? ' Photos are squared and the design is added - what you see is what prints.' : '');
+      grid.innerHTML = selectedFiles.map((f, i) => {
+        let src = previewUrlOf(f), note = '';
+        if (design) {
+          const c = stateOf(f).comps.get(design.url);
+          if (c && c.status === 'ready') src = c.url;
+          else if (c && c.status === 'error') note = '<div class="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[10px] font-bold text-center py-0.5">Design failed</div>';
+          else note = '<div class="absolute inset-x-0 bottom-0 bg-slate-900/80 text-slate-200 text-[10px] text-center py-0.5">Adding design…</div>';
+        }
+        // No ✕ while the ticket uploads: its photos are fixed until it finishes
+        return `
         <div class="relative aspect-square bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
-          <img src="${URL.createObjectURL(f)}" onclick="openPreview(${i})" class="w-full h-full object-cover opacity-80 cursor-pointer">
-          <button onclick="removeFile(${i})" class="absolute top-0 right-0 bg-red-500 text-white p-1 z-10"><i data-lucide="x" class="w-3 h-3"></i></button>
-        </div>
-      `).join('');
+          <img src="${src}" onclick="openPreview(${i})" class="w-full h-full object-cover ${design ? '' : 'opacity-80'} cursor-pointer">
+          ${note}
+          ${submitting ? '' : `<button onclick="removeFile(${i})" class="absolute top-0 right-0 bg-red-500 text-white p-1 z-10"><i data-lucide="x" class="w-3 h-3"></i></button>`}
+        </div>`;
+      }).join('');
       const addBtn = document.getElementById('add-photo-btn');
       const atLimit = selectedFiles.length >= lim;
-      addBtn.disabled = atLimit;
+      addBtn.disabled = atLimit || submitting;
       addBtn.style.display = atLimit ? 'none' : '';
       lucide.createIcons();
+      if (design) pumpComposites();
     }
 
-    window.removeFile = (i) => { selectedFiles.splice(i, 1); renderPreviews(); };
+    window.removeFile = (i) => {
+      if (submitting) return; // photos can't change while the ticket uploads
+      const [f] = selectedFiles.splice(i, 1);
+      if (f) forgetPhoto(f);
+      renderPreviews();
+    };
 
     // ── Tap-to-enlarge preview ────────────────────────────────────
-    let previewIdx = null, previewUrl = null;
+    let previewIdx = null;
     window.openPreview = (i) => {
       const f = selectedFiles[i];
       if (!f) return;
       previewIdx = i;
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      previewUrl = URL.createObjectURL(f);
-      document.getElementById('photo-modal-img').src = previewUrl;
+      const design = currentDesign();
+      const c = design ? stateOf(f).comps.get(design.url) : null;
+      document.getElementById('photo-modal-img').src = (c && c.status === 'ready') ? c.url : previewUrlOf(f);
       document.getElementById('photo-modal-pos').innerText = `${i + 1} of ${selectedFiles.length}`;
       document.getElementById('photo-modal').style.display = 'flex';
       lucide.createIcons();
     };
     window.closePreview = () => {
       document.getElementById('photo-modal').style.display = 'none';
-      if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
       previewIdx = null;
     };
+
+    // ── Event design (overlay) ────────────────────────────────────
+    // An event can have decorative see-through frames (PNG/WebP). When a design is
+    // chosen for a ticket, EVERY photo of that ticket is turned into a composite before
+    // upload: centre-cropped to a 1600px square (same maths as the admin print sheet),
+    // design drawn over the whole square, JPEG 0.9. So the print sheet needs no change
+    // and the previews show exactly what prints. None / mode off -> originals, as before.
+    const COMPOSITE_PX = 1600;
+    const OVERLAY_THUMB_PX = 160;     // design picker thumbnail (shown at 76px)
+    const overlayCache = new Map();   // overlay url -> { status: 'loading'|'ready'|'error', promise, img (canvas ≤1600px), objUrl (small thumbnail) }
+    const designPicks = new Map();    // eventId -> overlay id, or null for "None" (missing = default)
+    const photoState = new WeakMap(); // File -> { preview: objectURL, comps: Map(overlay url -> composite) }
+    let designSig = '';
+
+    // Designs of an event (public shape {id, name, url}).
+    function overlaysOf(ev) {
+      if (!ev || !Array.isArray(ev.overlays)) return [];
+      return ev.overlays
+        .filter(o => o && typeof o.id === 'string' && o.id)
+        .map(o => ({
+          id: o.id,
+          name: String(o.name || 'Design'),
+          url: (typeof o.url === 'string' && o.url.startsWith('/api/event-overlay?')) ? o.url
+            : `/api/event-overlay?e=${encodeURIComponent(ev.id)}&id=${encodeURIComponent(o.id)}`,
+        }));
+    }
+    // "off" | "optional" | "required" - always "off" when the event has no designs.
+    function overlayModeOf(ev) {
+      const m = ev && ev.overlayMode;
+      return overlaysOf(ev).length && (m === 'optional' || m === 'required') ? m : 'off';
+    }
+    // The unfinished (resumable) upload for the selected event, if any. Its design is
+    // fixed: changing it now would mix designs within one ticket.
+    function lockedUpload() {
+      return (activeUpload && currentEvent && activeUpload.eventId === currentEvent.id) ? activeUpload : null;
+    }
+    // Design for the current ticket: { id, name, url } or null (no design).
+    function currentDesign() {
+      const locked = lockedUpload();
+      if (locked) return locked.design || null;
+      const ev = currentEvent;
+      const mode = overlayModeOf(ev);
+      if (mode === 'off') return null;
+      const list = overlaysOf(ev);
+      const pick = designPicks.has(ev.id) ? designPicks.get(ev.id) : undefined;
+      if (pick === null && mode === 'optional') return null;
+      return list.find(o => o.id === pick) || list[0];
+    }
+
+    function decodeImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Image failed to load'));
+        img.src = src;
+      });
+    }
+
+    // A tiny image to point a finished <img> at, so the browser drops its decoded pixels
+    const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+    function releaseImage(img) {
+      img.onload = null; img.onerror = null;
+      img.src = BLANK_GIF;
+    }
+    // Draw `src` (w x h) into a new canvas no bigger than maxPx a side (never enlarged)
+    function scaledCanvas(src, w, h, maxPx) {
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+      return canvas;
+    }
+
+    // Fetch + decode a design once (fetch -> blob -> object URL -> Image), then draw it once
+    // into a canvas of at most 1600x1600 (all the 1600px composites need) and keep only
+    // that plus a small thumbnail: the full-size image is released straight away, so a big
+    // design never sits decoded in the phone's memory. A failure is remembered (no
+    // automatic re-fetching) until retry is asked for.
+    function loadOverlay(url, retry = false) {
+      let e = overlayCache.get(url);
+      if (e && !(retry && e.status === 'error')) return e.promise;
+      e = { status: 'loading', promise: null, img: null, objUrl: null };
+      e.promise = (async () => {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        const fullUrl = URL.createObjectURL(blob);
+        let full = null, canvas;
+        try {
+          full = await decodeImage(fullUrl);
+          const w = full.naturalWidth, h = full.naturalHeight;
+          if (!w || !h) throw new Error('The design could not be read');
+          canvas = scaledCanvas(full, w, h, COMPOSITE_PX);
+        } finally {
+          if (full) releaseImage(full); // only the ≤1600px canvas is kept
+          URL.revokeObjectURL(fullUrl);
+        }
+        // Picker thumbnail: a small PNG made from the canvas (the design is never shown full size)
+        let thumbUrl = null;
+        try {
+          const t = scaledCanvas(canvas, canvas.width, canvas.height, OVERLAY_THUMB_PX);
+          const thumb = await canvasToBlob(t, 'image/png');
+          t.width = 0; t.height = 0;
+          thumbUrl = URL.createObjectURL(thumb);
+        } catch { /* no thumbnail: the picker shows the name only */ }
+        e.img = canvas; e.objUrl = thumbUrl; e.status = 'ready';
+        return canvas;
+      })();
+      e.promise.catch(() => { e.status = 'error'; });
+      e.promise.then(onOverlaySettled, onOverlaySettled);
+      overlayCache.set(url, e);
+      return e.promise;
+    }
+    function onOverlaySettled() { renderDesignCard(); renderPreviews(); }
+
+    function preloadOverlays(ev) {
+      for (const o of overlaysOf(ev)) loadOverlay(o.url);
+    }
+
+    // Same centre-square crop as the admin print sheet (admin.html squareDataUrl).
+    function centreSquare(w, h) {
+      const s = Math.min(w, h);
+      return { sx: (w - s) / 2, sy: (h - s) / 2, s };
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not create the photo')), type, quality);
+      });
+    }
+    function canvasToJpeg(canvas, quality) { return canvasToBlob(canvas, 'image/jpeg', quality); }
+
+    // Photo + design (its ≤1600px canvas) -> 1600px square JPEG blob
+    async function makeComposite(file, overlayImg) {
+      const src = URL.createObjectURL(file);
+      let img;
+      try { img = await decodeImage(src); } finally { URL.revokeObjectURL(src); }
+      if (!img.naturalWidth || !img.naturalHeight) throw new Error('This photo could not be read');
+      const px = COMPOSITE_PX;
+      const canvas = document.createElement('canvas');
+      canvas.width = px; canvas.height = px;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      const { sx, sy, s } = centreSquare(img.naturalWidth, img.naturalHeight);
+      ctx.drawImage(img, sx, sy, s, s, 0, 0, px, px);
+      ctx.drawImage(overlayImg, 0, 0, px, px); // design scaled to the full square
+      const blob = await canvasToJpeg(canvas, 0.9);
+      canvas.width = 0; canvas.height = 0; // free the pixels now (iOS canvas memory)
+      return blob;
+    }
+
+    function stateOf(file) {
+      let s = photoState.get(file);
+      if (!s) { s = { preview: null, comps: new Map() }; photoState.set(file, s); }
+      return s;
+    }
+    function previewUrlOf(file) {
+      const s = stateOf(file);
+      if (!s.preview) s.preview = URL.createObjectURL(file);
+      return s.preview;
+    }
+    function dropComposite(s, url) {
+      const c = s.comps.get(url);
+      if (c && c.url) URL.revokeObjectURL(c.url);
+      s.comps.delete(url);
+    }
+    function forgetPhoto(file) {
+      const s = photoState.get(file);
+      if (!s) return;
+      if (s.preview) URL.revokeObjectURL(s.preview);
+      for (const url of [...s.comps.keys()]) dropComposite(s, url);
+      photoState.delete(file);
+    }
+    // Keep only the composites for `design` (the others would just use memory)
+    function pruneComposites(design) {
+      for (const f of selectedFiles) {
+        const s = photoState.get(f);
+        if (!s) continue;
+        for (const url of [...s.comps.keys()]) if (!design || url !== design.url) dropComposite(s, url);
+      }
+    }
+
+    // Composite of one photo with a design (cached). A failed one stays failed until retry.
+    function compositeFor(file, design, retry = false) {
+      const s = stateOf(file);
+      const old = s.comps.get(design.url);
+      if (old && !(retry && old.status === 'error')) return old;
+      const c = { status: 'working', blob: null, url: null, promise: null };
+      c.promise = loadOverlay(design.url, retry)
+        .then(overlayImg => makeComposite(file, overlayImg))
+        .then(blob => {
+          c.blob = blob;
+          c.url = URL.createObjectURL(blob);
+          c.status = 'ready';
+          return c;
+        }, err => { c.status = 'error'; throw err; });
+      c.promise.catch(() => {}); // callers / the preview grid look at c.status
+      s.comps.set(design.url, c);
+      return c;
+    }
+
+    // Build the previews' composites one photo at a time (keeps phone memory low)
+    let pumping = false;
+    async function pumpComposites() {
+      if (pumping) return;
+      pumping = true;
+      try {
+        for (;;) {
+          const design = currentDesign();
+          if (!design) break;
+          const file = selectedFiles.find(f => !stateOf(f).comps.has(design.url));
+          if (!file) break;
+          try { await compositeFor(file, design).promise; } catch { /* shown as "Design failed" */ }
+          renderPreviews();
+        }
+      } finally {
+        pumping = false;
+      }
+    }
+
+    // Re-render the design card + previews when the event's designs / mode changed
+    // (event switch, or the admin edited them - picked up by the 15s refresh).
+    function syncDesign() {
+      const ev = currentEvent;
+      const sig = ev ? `${ev.id}|${overlayModeOf(ev)}|${overlaysOf(ev).map(o => o.id + '=' + o.url).join(',')}` : '';
+      if (sig === designSig) return;
+      designSig = sig;
+      if (ev) preloadOverlays(ev);
+      pruneComposites(currentDesign());
+      renderDesignCard();
+      renderPreviews();
+    }
+
+    function renderDesignCard() {
+      const card = document.getElementById('design-card');
+      const ev = currentEvent;
+      const mode = overlayModeOf(ev);
+      const locked = lockedUpload();
+      // An unfinished upload with a design keeps the card visible (its design is locked in)
+      if (mode === 'off' && !(locked && locked.design)) {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = '';
+      const list = overlaysOf(ev);
+      const design = currentDesign();
+      const frozen = !!locked || submitting;
+      const single = mode === 'required' && list.length === 1 && !(locked && locked.design && locked.design.id !== list[0].id);
+
+      const thumb = (o) => {
+        const e = overlayCache.get(o.url);
+        if (e && e.status === 'ready') return e.objUrl ? `<span class="design-thumb checker"><img src="${e.objUrl}" alt=""></span>` : `<span class="design-thumb checker">🎨</span>`;
+        if (e && e.status === 'error') return `<span class="design-thumb checker" style="color:#b91c1c;">⚠️</span>`;
+        return `<span class="design-thumb checker">…</span>`;
+      };
+      const opt = (id, label, inner) => {
+        const sel = id === '' ? design === null : !!design && design.id === id;
+        return `<button type="button" data-design="${escHtml(id)}" class="design-opt${sel ? ' is-sel' : ''}" aria-pressed="${sel}" ${frozen && !sel ? 'disabled' : ''}>
+          ${inner}<span class="design-name">${escHtml(label)}</span></button>`;
+      };
+
+      let h = '';
+      if (single) {
+        h = `<div class="design-opt is-sel static">${thumb(list[0])}<span class="design-name">${escHtml(list[0].name)}</span></div>`;
+      } else {
+        if (mode === 'optional') h += opt('', 'None', '<span class="design-thumb none">None</span>');
+        const shown = list.slice();
+        if (locked && locked.design && !shown.some(o => o.id === locked.design.id)) shown.unshift(locked.design);
+        for (const o of shown) h += opt(o.id, o.name, thumb(o));
+      }
+      document.getElementById('design-options').innerHTML = h;
+
+      const state = design ? (overlayCache.get(design.url) || {}).status : null;
+      document.getElementById('design-state').textContent = design ? design.name : 'No design';
+
+      let hint;
+      if (locked) hint = "Design is fixed until this ticket's upload finishes (Retry Upload).";
+      else if (submitting) hint = 'Uploading…';
+      else if (single) hint = 'The event design is added to every photo.';
+      else if (mode === 'required') hint = 'Pick the design for this ticket - it is added to every photo.';
+      else hint = 'Pick a design for this ticket (or None) - it is added to every photo.';
+      let html = escHtml(hint);
+      if (state === 'error') {
+        html = `<span class="text-amber-400 font-bold">⚠️ Couldn't load "${escHtml(design.name)}"${mode === 'optional' && !frozen ? ' - tap Retry, or choose None' : ' - tap Retry'}.</span>
+          <button type="button" data-design-retry="1" class="ml-2 px-3 py-1 rounded-lg bg-slate-700 text-white font-bold">Retry</button>`;
+      } else if (state === 'loading') {
+        html += ' <span class="text-slate-500">Loading design…</span>';
+      }
+      document.getElementById('design-hint').innerHTML = html;
+    }
+
+    function pickDesign(id) {
+      if (!currentEvent || lockedUpload() || submitting) return;
+      const mode = overlayModeOf(currentEvent);
+      if (mode === 'off') return;
+      const pick = id === '' ? null : id;
+      if (pick === null && mode !== 'optional') return;
+      if (pick !== null && !overlaysOf(currentEvent).some(o => o.id === pick)) return;
+      designPicks.set(currentEvent.id, pick);
+      pruneComposites(currentDesign());
+      renderDesignCard();
+      renderPreviews();
+    }
+
+    function retryDesign() {
+      const design = currentDesign();
+      if (!design) return;
+      for (const f of selectedFiles) {
+        const s = photoState.get(f);
+        const c = s && s.comps.get(design.url);
+        if (c && c.status === 'error') dropComposite(s, design.url); // let the preview rebuild it
+      }
+      loadOverlay(design.url, true);
+      renderDesignCard();
+      renderPreviews();
+    }
+
+    document.getElementById('design-card').addEventListener('click', (e) => {
+      const t = e.target && e.target.closest ? e.target : null;
+      if (!t) return;
+      if (t.closest('[data-design-retry]')) { retryDesign(); return; }
+      const b = t.closest('[data-design]');
+      if (b && !b.disabled) pickDesign(b.getAttribute('data-design'));
+    });
+
+    // Before upload: make sure every photo that still has to go up has its composite.
+    // `files` is the ticket's photo snapshot and `indices` point into it.
+    // -> { ok: true, blobs: {index: Blob} } | { ok: false, msg }
+    async function prepareComposites(design, files, indices, btn) {
+      try {
+        await loadOverlay(design.url, true);
+      } catch {
+        const canSkip = overlayModeOf(currentEvent) === 'optional' && !lockedUpload();
+        return { ok: false, msg: `Couldn't load the design "${design.name}" (weak signal?). Tap to try again${canSkip ? ', or choose None' : ''}.` };
+      }
+      const blobs = {};
+      let n = 0;
+      for (const i of indices) {
+        btn.innerHTML = `Adding design ${++n}/${indices.length}…`;
+        try {
+          const c = compositeFor(files[i], design, true);
+          await c.promise;
+          blobs[i] = c.blob;
+        } catch {
+          renderPreviews();
+          return { ok: false, msg: `Photo ${i + 1} couldn't be prepared with the design - remove it and try another photo.` };
+        }
+      }
+      renderPreviews();
+      return { ok: true, blobs };
+    }
     window.removeFromPreview = () => {
-      if (previewIdx != null) removeFile(previewIdx);
+      if (previewIdx != null && !submitting) removeFile(previewIdx);
       closePreview();
     };
+    // Same photos, same order?
+    function sameFiles(a, b) {
+      return a.length === b.length && a.every((f, i) => f === b[i]);
+    }
 
     // ── Submit (with upload verification + auto-retry) ─────────────
     // Tracks an in-progress upload so a weak-signal failure can be retried
@@ -316,21 +725,60 @@
       const btn = document.getElementById('submit-btn');
       const status = document.getElementById('status');
 
+      if (submitting) return; // already running (double tap)
       if (!currentEvent) return alert('Select an event first.');
       if (!raffle) return alert('Pick a raffle ticket number.');
       if (selectedFiles.length === 0) return alert('Select at least 1 photo.');
 
+      // This ticket's photos, fixed for the whole upload: the composites, packSize, resume
+      // and the upload loop all use this snapshot (adding / removing is blocked meanwhile).
+      const files = selectedFiles.slice();
+      const labelBefore = btn.innerHTML;
       btn.disabled = true;
       submitting = true;
+      renderDesignCard(); // design can't change while this ticket uploads
+      renderPreviews();   // no ✕ / add button while it uploads
       status.classList.remove('hidden');
       status.innerHTML = '';
       const uploadEventId = currentEvent.id; // the event this ticket belongs to, even if the dropdown changes mid-upload
 
       try {
         let orderId, done;
+        const resuming = !!(activeUpload && activeUpload.eventId === currentEvent.id && activeUpload.raffle === raffle && activeUpload.count === files.length);
+        // One design per ticket: a resumed upload keeps the design it started with
+        const design = resuming ? (activeUpload.design || null) : currentDesign();
+
+        // With a design, build every composite BEFORE a number is taken, so a photo that
+        // can't be processed (or a design that won't load) never leaves a half-used ticket.
+        let blobs = null;
+        if (design) {
+          const todo = files.map((_, i) => i).filter(i => !(resuming && activeUpload.done[i]));
+          const prep = await prepareComposites(design, files, todo, btn);
+          if (!prep.ok) {
+            status.innerHTML = `<span class="text-amber-400">⚠️ ${escHtml(prep.msg)}</span>`;
+            btn.disabled = false;
+            btn.innerHTML = labelBefore;
+            return;
+          }
+          blobs = prep.blobs;
+          if (!currentEvent || currentEvent.id !== uploadEventId) {
+            status.innerHTML = '<span class="text-amber-400">⚠️ The event was changed - check the ticket and tap again.</span>';
+            btn.disabled = false;
+            btn.innerHTML = labelBefore;
+            return;
+          }
+        }
+        // Safety net: the photos must still be exactly the ones the composites were made
+        // from - checked BEFORE a number is taken (or a resumed upload continues)
+        if (!sameFiles(files, selectedFiles)) {
+          status.innerHTML = '<span class="text-amber-400">⚠️ The photos changed while this ticket was being prepared - check them and tap again.</span>';
+          btn.disabled = false;
+          btn.innerHTML = labelBefore;
+          return;
+        }
 
         // Resume a previous attempt for the same event + ticket + same photos, or start fresh
-        if (activeUpload && activeUpload.eventId === currentEvent.id && activeUpload.raffle === raffle && activeUpload.count === selectedFiles.length) {
+        if (resuming) {
           orderId = activeUpload.orderId;
           done = activeUpload.done;
           btn.innerHTML = 'Retrying…';
@@ -352,7 +800,7 @@
               event: 'MANUAL',
               eventId: currentEvent.id,
               raffleNumber: raffle,
-              packSize: selectedFiles.length,
+              packSize: files.length,
               email: `raffle-${currentEvent.id}-${raffle}@event.local`,
               phone: '00000000',
               status: 'paid'
@@ -362,6 +810,7 @@
             const d = await res.json().catch(() => ({}));
             alert(d.error || 'That number was just taken. Refreshing list.');
             activeUpload = null;
+            renderDesignCard();
             await selectEvent(currentEvent.id);
             btn.disabled = false;
             btn.innerHTML = 'Confirm & Upload';
@@ -377,16 +826,17 @@
           }
           orderId = (await res.json()).orderId;
           rememberUsed(uploadEventId, raffle); // the number is taken on the server from here on
-          done = new Array(selectedFiles.length).fill(false);
-          activeUpload = { orderId, eventId: currentEvent.id, raffle, count: selectedFiles.length, done };
+          done = new Array(files.length).fill(false);
+          activeUpload = { orderId, eventId: uploadEventId, raffle, count: files.length, done, design };
         }
 
-        // Upload every photo that hasn't been confirmed yet
+        // Upload every photo that hasn't been confirmed yet (the composite when there's a design)
         let failed = 0;
-        for (let i = 0; i < selectedFiles.length; i++) {
+        for (let i = 0; i < files.length; i++) {
           if (done[i]) continue;
-          btn.innerHTML = `Uploading ${i + 1}/${selectedFiles.length}…`;
-          const ok = await uploadWithRetry(orderId, selectedFiles[i], `Ticket-${raffle}-${i + 1}.jpg`);
+          btn.innerHTML = `Uploading ${i + 1}/${files.length}…`;
+          const body = design ? blobs[i] : files[i];
+          const ok = await uploadWithRetry(orderId, body, `Ticket-${raffle}-${i + 1}.jpg`);
           if (ok) done[i] = true; else failed++;
         }
 
@@ -402,7 +852,8 @@
         activeUpload = null;
         rememberUsed(uploadEventId, raffle);
         if (currentEvent && currentEvent.id === uploadEventId) usedNumbers.add(Number(raffle));
-        selectedFiles = [];
+        files.forEach(forgetPhoto);
+        selectedFiles = selectedFiles.filter(f => !files.includes(f)); // (the list is locked, so this empties it)
         renderPreviews();
         populateNumbers();
         status.innerHTML = `<span class="text-emerald-400">✅ Saved ticket #${raffle} — all ${done.length} photo(s) confirmed.</span>`;
@@ -416,6 +867,8 @@
         btn.innerText = 'Try Again';
       } finally {
         submitting = false;
+        renderDesignCard(); // unlocks the design (or keeps it fixed while a retry is pending)
+        renderPreviews();   // photos can be added / removed again
       }
     }
 
