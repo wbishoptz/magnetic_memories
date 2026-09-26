@@ -184,16 +184,21 @@
       for (let n = rangeStart; n <= rangeEnd; n++) {
         if (!usedNumbers.has(n) || n === mine) free.push(n);
       }
-      eventHelp.textContent = `Range ${rangeStart}–${rangeEnd} · ${usedNumbers.size} used`;
+      // ...even if the admin has since moved the range past it (it already holds the number)
+      const mineOutside = mine != null && (mine < rangeStart || mine > rangeEnd);
+      const options = mineOutside ? [...free, mine].sort((a, b) => a - b) : free;
+      const inRangeUsed = [...usedNumbers].filter(n => n >= rangeStart && n <= rangeEnd).length;
+      const outsideUsed = usedNumbers.size - inRangeUsed;
+      eventHelp.textContent = `Range ${rangeStart}–${rangeEnd} · ${inRangeUsed} used` + (outsideUsed ? ` (+${outsideUsed} outside the range)` : '');
       freeCount.textContent = `${free.length} free`;
-      if (free.length === 0) {
+      if (options.length === 0) {
         raffleSelect.innerHTML = '<option value="">All numbers used 🎉</option>';
         raffleSelect.disabled = true;
         return;
       }
       raffleSelect.innerHTML = '<option value="">— pick a number —</option>' +
-        free.map(n => `<option value="${n}">#${n}</option>`).join('');
-      if (keep && free.includes(Number(keep))) raffleSelect.value = keep;
+        options.map(n => `<option value="${n}">#${n}${mineOutside && n === mine ? ' (finish upload)' : ''}</option>`).join('');
+      if (keep && options.includes(Number(keep))) raffleSelect.value = keep;
       raffleSelect.disabled = false;
     }
 
@@ -207,7 +212,11 @@
 
     function showTakenNotice(n) {
       const el = document.getElementById('taken-notice');
-      el.textContent = `#${n} was just taken — pick another.`;
+      const num = Number(n);
+      const outside = currentEvent && (num < Number(currentEvent.rangeStart) || num > Number(currentEvent.rangeEnd));
+      el.textContent = outside
+        ? `#${n} is no longer in this event's numbers (${currentEvent.rangeStart}–${currentEvent.rangeEnd}) — pick another.`
+        : `#${n} was just taken — pick another.`;
       el.classList.remove('hidden');
       clearTimeout(takenTimer);
       takenTimer = setTimeout(() => el.classList.add('hidden'), 8000);

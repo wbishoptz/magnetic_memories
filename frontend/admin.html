@@ -553,11 +553,16 @@
 
       async function toggleEventActive(ev) {
         try {
-          await fetch('/api/admin-event', {
+          const res = await fetch('/api/admin-event', {
             method: 'POST',
             headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'save', id: ev.id, name: ev.name, rangeStart: ev.rangeStart, rangeEnd: ev.rangeEnd, active: !ev.active })
+            // Only "active" is sent: the server keeps the name, range and everything else
+            body: JSON.stringify({ action: 'save', id: ev.id, active: !ev.active })
           });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert('Could not update event: ' + (d.error || `HTTP ${res.status}`));
+          }
           await loadEvents();
           selectAdminEvent(ev.id);
         } catch (e) { alert('Could not update event.'); }
@@ -588,7 +593,16 @@
         const evOrders = completeEventOrders(id);
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${escHtml(ev.name)}</div>`;
-        html += `<div class="field-label">Ticket Range</div><div class="field-value" style="font-family:monospace;">${ev.rangeStart}–${ev.rangeEnd} · <span id="ev-uploaded-count">${evOrders.length}</span> uploaded</div>`;
+        // Editable any time, even mid-event: the guest link / QR code never changes
+        html += `<div class="field-label">Ticket Range</div>
+          <div class="field-value" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; word-break:normal;">
+            <input id="ev-range-start" class="ev-input" type="number" min="0" step="1" inputmode="numeric" value="${Number(ev.rangeStart)}" aria-label="First ticket number" style="width:84px;" />
+            <span>–</span>
+            <input id="ev-range-end" class="ev-input" type="number" min="0" step="1" inputmode="numeric" value="${Number(ev.rangeEnd)}" aria-label="Last ticket number" style="width:84px;" />
+            <button id="ev-range-save" class="ev-btn">Save</button>
+            <span style="font-size:12px; color:#9ca3af;">· <span id="ev-uploaded-count">${evOrders.length}</span> uploaded</span>
+          </div>
+          <div id="ev-range-msg" style="font-size:12px; color:#9ca3af; margin:-2px 0 10px;">You can change this during the event — the guest link and QR code stay the same.</div>`;
         // Editable: the staff page's per-ticket limit = each guest's FREE photos
         const lim = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;
         html += `<div class="field-label">Photos per ticket · free photos per guest</div>
@@ -623,6 +637,10 @@
         document.getElementById('ev-delete').onclick = () => deleteEvent(ev);
         document.getElementById('ev-print').onclick = () => generatePrintSheets(ev);
         document.getElementById('ev-refresh').onclick = () => refreshEventData(ev);
+        document.getElementById('ev-range-save').onclick = (e) => saveTicketRange(ev, e.currentTarget);
+        ['ev-range-start', 'ev-range-end'].forEach(fid => {
+          document.getElementById(fid).onkeydown = (e) => { if (e.key === 'Enter') saveTicketRange(ev, document.getElementById('ev-range-save')); };
+        });
         document.getElementById('ev-limit-save').onclick = (e) => saveTicketLimit(ev, e.currentTarget);
         document.getElementById('ev-limit').onkeydown = (e) => { if (e.key === 'Enter') saveTicketLimit(ev, document.getElementById('ev-limit-save')); };
         ovState(ev).msg = null;
@@ -965,6 +983,79 @@
         if (el) { el.style.color = color || '#9ca3af'; el.textContent = text || ''; }
       }
 
+      // Ticket range - editable any time, even mid-event. Only the range is sent (with
+      // rangeEdit: true), so the event id - and with it the guest link / QR code - and every
+      // other setting stay put. The server is asked first (dryRun) so every warning can be
+      // shown before anything changes; numbers already given out are never taken away.
+      async function saveTicketRange(ev, btn) {
+        const s = document.getElementById('ev-range-start'), e = document.getElementById('ev-range-end');
+        if (!s || !e || !btn || btn.disabled) return;
+        const rawS = s.value.trim(), rawE = e.value.trim();
+        const start = Number(rawS), end = Number(rawE);
+        if (rawS === '' || rawE === '' || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
+          return setMsg('ev-range-msg', 'Enter whole numbers, with the last one at least as big as the first.', MSG_ERR);
+        }
+        if (end - start > 5000) return setMsg('ev-range-msg', 'That range is too big (max 5000 numbers).', MSG_ERR);
+        const send = async (extra) => {
+          const res = await fetch('/api/admin-event', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save', id: ev.id, rangeStart: start, rangeEnd: end, rangeEdit: true, ...extra })
+          });
+          return { res, data: await res.json().catch(() => ({})) };
+        };
+        const listNums = (arr) => arr.slice(0, 10).map(n => '#' + n).join(', ') + (arr.length > 10 ? ` and ${arr.length - 10} more` : '');
+        btn.disabled = true;
+        setMsg('ev-range-msg', 'Checking…');
+        try {
+          // 1) Ask first (nothing is saved): what would this change do?
+          const dry = await send({ dryRun: true });
+          if (!dry.res.ok || !dry.data.success) throw new Error(dry.data.error || `HTTP ${dry.res.status}`);
+          if (dry.data.event) applyEventUpdate(ev, { event: dry.data.event }); // this tab may have been stale
+          if (!dry.data.changed) {
+            s.value = Number(ev.rangeStart); e.value = Number(ev.rangeEnd);
+            return setMsg('ev-range-msg', `No change — the range is already ${ev.rangeStart}–${ev.rangeEnd}.`);
+          }
+          const info = dry.data.rangeInfo || {};
+          const outside = Array.isArray(dry.data.outOfRange) ? dry.data.outOfRange : [];
+          // Guests part-way through right now (uploading in the last 30 min, or at payment)
+          const busySince = Date.now() - 30 * 60 * 1000;
+          const inflight = unfinishedGuestOrders(ev.id).recent.filter(o => o.extrasStarted || new Date(o.createdAt || 0).getTime() >= busySince);
+          const atPay = inflight.filter(o => o.extrasStarted).length;
+          const warns = [];
+          if (outside.length) warns.push(`${outside.length} ticket${outside.length === 1 ? ' already has a number' : 's already have numbers'} outside ${start}–${end}: ${listNums(outside)}. They keep their numbers and their photos still print.`);
+          if (info.free === 0) warns.push('No numbers would be left free: guests would be told all numbers are taken, and the staff page would have nothing to pick.');
+          else if (inflight.length > info.free) warns.push(`${inflight.length} guest${inflight.length === 1 ? ' is' : 's are'} uploading right now${atPay ? ` (${atPay} at payment)` : ''}, but only ${info.free} number${info.free === 1 ? '' : 's'} would be free — some would be told all numbers are taken, and anyone who has paid would need a refund.`);
+          if (warns.length && !confirm(`${warns.join('\n\n')}\n\nNew numbers (guests and the staff page) will only come from ${start}–${end}.\n\nSave the new range anyway?`)) {
+            return setMsg('ev-range-msg', 'Not changed.');
+          }
+          // 2) Save. Only the numbers shown above are confirmed - any that fell outside
+          //    since then are asked about again.
+          setMsg('ev-range-msg', 'Saving…');
+          let { res, data } = await send({ confirmOutOfRange: outside });
+          if (res.status === 409 && data.needsConfirm) {
+            const more = Array.isArray(data.outOfRange) ? data.outOfRange : [];
+            if (!confirm(`${data.error}\n\nThose tickets keep their numbers and their photos still print.\n\nSave the new range anyway?`)) {
+              return setMsg('ev-range-msg', 'Not changed.');
+            }
+            ({ res, data } = await send({ confirmOutOfRange: [...outside, ...more] }));
+          }
+          if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+          applyEventUpdate(ev, data);
+          if (selectedEventId !== ev.id) return;
+          s.value = Number(ev.rangeStart); e.value = Number(ev.rangeEnd);
+          const done = data.rangeInfo;
+          const freeTxt = done ? ` · ${done.free} number${done.free === 1 ? '' : 's'} free` : '';
+          setMsg('ev-range-msg', `Saved ✓ ${ev.rangeStart}–${ev.rangeEnd}${freeTxt} · guest link and QR code unchanged · other phones pick this up within about a minute`, MSG_OK);
+          if (currentMode === 'events') renderEventManager(); // the list's Range column
+          renderGuestCard(ev);                                  // link status (e.g. "full") depends on the range
+        } catch (err) {
+          setMsg('ev-range-msg', 'Could not save: ' + err.message, MSG_ERR);
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
       // Photos per ticket (staff) = free photos per guest. Uses the normal "save" action
       // (active isn't sent, so a stale copy can't flip it; guest/extras/overlay settings are kept by the server).
       async function saveTicketLimit(ev, btn) {
@@ -979,7 +1070,8 @@
         btn.disabled = true;
         setMsg('ev-limit-msg', 'Saving…');
         try {
-          const data = await adminEventPost({ action: 'save', id: ev.id, name: ev.name, rangeStart: ev.rangeStart, rangeEnd: ev.rangeEnd, perTicketLimit: lim });
+          // Only the limit is sent: the server keeps everything else (so a stale copy can't undo a range edit)
+          const data = await adminEventPost({ action: 'save', id: ev.id, perTicketLimit: lim });
           applyEventUpdate(ev, data);
           if (selectedEventId !== ev.id) return;
           const now = Number(ev.perTicketLimit) > 0 ? Number(ev.perTicketLimit) : 0;

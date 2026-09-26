@@ -49,6 +49,16 @@ export async function onRequestPost({ request, env }) {
       if (taken) {
         return jsonResponse({ error: `Ticket #${raffleNumber} is already used for this event.` }, 409);
       }
+      // The event's current number range (the admin can change it mid-event): a phone
+      // that hasn't refreshed yet can't hand out a number the admin has just cut.
+      // (If the event record can't be read, the old behaviour - no range check - applies.)
+      let evMeta = null;
+      try { evMeta = JSON.parse((await env.ORDERS_KV.get(`event:meta:${eventId}`)) || 'null'); } catch { evMeta = null; }
+      const n = Number(String(raffleNumber).trim());
+      if (evMeta && Number.isInteger(Number(evMeta.rangeStart)) && Number.isInteger(Number(evMeta.rangeEnd))
+          && Number.isFinite(n) && (n < Number(evMeta.rangeStart) || n > Number(evMeta.rangeEnd))) {
+        return jsonResponse({ error: `#${raffleNumber} is not in this event's numbers (${evMeta.rangeStart}–${evMeta.rangeEnd}) - pick another.` }, 409);
+      }
     }
 
     // With the events database, the number is reserved atomically (shared with

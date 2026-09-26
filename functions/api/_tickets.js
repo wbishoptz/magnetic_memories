@@ -352,6 +352,22 @@ export async function usedNumbers(env, eventId) {
   }
 }
 
+// Like usedNumbers, but for decisions that must not be made on partial data (the
+// admin changing an event's ticket range): every failure throws instead of falling
+// back, and legacy KV tickets that haven't been copied into D1 yet count as a failure.
+export async function usedNumbersStrict(env, eventId) {
+  const id = String(eventId);
+  if (hasDb(env)) {
+    await ensureReady(env, id);
+    const db = getDb(env);
+    const done = await db.prepare('SELECT done_at FROM event_backfill WHERE event_id = ?1').bind(id).first();
+    if (!done) throw new Error(`legacy tickets for ${id} not copied yet`);
+    const res = await db.prepare('SELECT number FROM event_tickets WHERE event_id = ?1').bind(id).all();
+    return sortedUnique(((res && res.results) || []).map(r => Number(r.number)));
+  }
+  return sortedUnique((await listKvTickets(env, id)).map(t => t.n));
+}
+
 // ─── Guest link resolution (shared by guest-event / guest-order) ───────────
 
 export const GUEST_MESSAGES = {

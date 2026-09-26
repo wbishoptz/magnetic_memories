@@ -13,7 +13,7 @@
 // Guest links: event meta holds guestToken; KV event:guesttoken:{token} = eventId.
 // "save" keeps overlays / overlayMode and the paid-extras settings as they are.
 import { jsonResponse } from './_shared.js';
-import { hasDb } from './_tickets.js';
+import { hasDb, usedNumbersStrict } from './_tickets.js';
 import {
   OVERLAY_MODES, overlayList, adminEventView,
   parseExtraPrice, parseMaxExtras, MAX_EXTRAS_DEFAULT, EXTRA_PRICE_MIN, EXTRA_PRICE_MAX, MAX_EXTRAS_LIMIT,
@@ -211,11 +211,26 @@ export async function onRequestPost({ request, env }) {
   if (action !== 'save') return jsonResponse({ error: 'Unknown action.' }, 400);
 
   // save (create or update)
-  const name = String(body?.name || '').trim();
+  // Updating an existing event (body.id): anything not sent keeps its stored value.
+  // The event id - and with it the guest link / QR code - never changes.
+  const byId = body?.id ? await loadEvent(env, String(body.id)) : null;
+  const startSent = body?.rangeStart !== undefined, endSent = body?.rangeEnd !== undefined;
+  if (startSent !== endSent) return jsonResponse({ error: 'Send both the first and the last ticket number.' }, 400);
+  if (body?.id && !byId && (!startSent || body?.name == null)) {
+    return jsonResponse({ error: 'Event not found - it may have been deleted. Refresh the list.' }, 404);
+  }
+
+  const name = String(body?.name ?? (byId ? byId.name : '')).trim();
   if (!name) return jsonResponse({ error: 'Event name is required.' }, 400);
 
-  const rangeStart = Number(body?.rangeStart);
-  const rangeEnd = Number(body?.rangeEnd);
+  // The range of an EXISTING event only changes on an explicit range edit (rangeEdit:
+  // true, sent by the admin's Ticket Range editor). Older admin pages still send the
+  // range they loaded with every Set Active / photo-limit save - ignoring it means a tab
+  // left open from before a range edit can never quietly put the old range back.
+  const applyRange = startSent && (!byId || body?.rangeEdit === true);
+  if (!applyRange && !byId) return jsonResponse({ error: 'Invalid ticket range.' }, 400);
+  const rangeStart = Number(applyRange ? body.rangeStart : byId.rangeStart);
+  const rangeEnd = Number(applyRange ? body.rangeEnd : byId.rangeEnd);
   if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeStart < 0 || rangeEnd < rangeStart) {
     return jsonResponse({ error: 'Invalid ticket range.' }, 400);
   }
@@ -223,8 +238,63 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: 'Ticket range too large (max 5000).' }, 400);
   }
 
-  const id = body?.id || slugify(name);
-  const existing = (await loadEvent(env, id)) || {};
+  let id = body?.id ? String(body.id) : null;
+  if (!id) {
+    // Creating: never merge into an existing event. The same name is refused; a
+    // different name that happens to make the same id gets the next free one (-2, -3…).
+    const base = slugify(name);
+    id = base;
+    for (let i = 2; ; i++) {
+      const clash = await loadEvent(env, id);
+      if (!clash) break;
+      if (String(clash.name || '').trim().toLowerCase() === name.toLowerCase()) {
+        return jsonResponse({ error: `An event called "${clash.name}" already exists - open it in the list to change its settings.` }, 409);
+      }
+      if (i > 50) return jsonResponse({ error: 'Too many events with a similar name - please choose a different name.' }, 409);
+      id = `${base}-${i}`;
+    }
+  }
+  const existing = byId || {};
+
+  // Changing the range of an event that's already running: numbers already given out
+  // are never taken away. If some would newly fall outside the new range the admin must
+  // confirm them (they keep their numbers and still print; new numbers come from the new
+  // range). dryRun: true answers the same checks without saving, so the admin can show
+  // every warning before anything changes.
+  const changed = !!existing.id && (rangeStart !== Number(existing.rangeStart) || rangeEnd !== Number(existing.rangeEnd));
+  let rangeInfo = null, newlyOutside = [];
+  if (changed) {
+    let used;
+    try { used = await usedNumbersStrict(env, id); } catch (err) {
+      console.error('admin-event: could not read used numbers:', err);
+      return jsonResponse({ error: 'Could not check which numbers are already used - please try again in a moment.' }, 503);
+    }
+    const outside = used.filter(n => n < rangeStart || n > rangeEnd);
+    const inside = used.length - outside.length;
+    rangeInfo = { used: used.length, outside: outside.length, free: (rangeEnd - rangeStart + 1) - inside };
+    // Only numbers this change newly leaves out need confirming (ones already outside
+    // the old range were accepted before - no need to ask again on every edit).
+    const oldStart = Number(existing.rangeStart), oldEnd = Number(existing.rangeEnd);
+    newlyOutside = outside.filter(n => n >= oldStart && n <= oldEnd);
+  }
+  if (body?.dryRun === true) {
+    if (!existing.id) return jsonResponse({ error: 'Event not found.' }, 404);
+    return ok(env, { dryRun: true, changed, rangeInfo, outOfRange: newlyOutside, event: existing });
+  }
+  if (newlyOutside.length) {
+    // confirmOutOfRange: true = all of them, or the list the admin was shown (anything
+    // that became outside since then must be confirmed again)
+    const confirmed = body?.confirmOutOfRange === true ? null
+      : new Set((Array.isArray(body?.confirmOutOfRange) ? body.confirmOutOfRange : []).map(Number));
+    const unconfirmed = confirmed ? newlyOutside.filter(n => !confirmed.has(n)) : [];
+    if (unconfirmed.length) {
+      const list = unconfirmed.slice(0, 10).map(n => '#' + n).join(', ') + (unconfirmed.length > 10 ? ` and ${unconfirmed.length - 10} more` : '');
+      return jsonResponse({
+        error: `${unconfirmed.length} ticket${unconfirmed.length === 1 ? ' already has a number' : 's already have numbers'} outside ${rangeStart}–${rangeEnd}: ${list}.`,
+        needsConfirm: true, outOfRange: unconfirmed, rangeInfo,
+      }, 409);
+    }
+  }
 
   // Per-ticket photo limit (0 = unlimited). Preserve existing when not provided.
   let perTicketLimit = existing.perTicketLimit || 0;
@@ -261,5 +331,5 @@ export async function onRequestPost({ request, env }) {
   });
 
   await env.ORDERS_KV.put(`event:meta:${id}`, JSON.stringify(event));
-  return ok(env, { event });
+  return ok(env, rangeInfo ? { event, rangeInfo } : { event });
 }
