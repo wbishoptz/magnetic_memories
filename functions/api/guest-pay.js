@@ -26,12 +26,33 @@
 // "orderId" parameter in the success/cancel URLs (the order travels as "ref")
 // and no metadata[orderId]. It carries metadata[guestExtras]=true,
 // metadata[guestOrderId], metadata[eventId].
+//
+// Add-on orders (addonTo = the ticket's root order): the same, except that a
+// "full" event is never refused (no number is needed) and the root must still
+// be a finished guest ticket of this event (else 409 { addon: true }). The
+// product is "Extra magnet(s) for ticket #N - {event}"; guestOrderId and the
+// ?ref= of the return URLs are the ADD-ON's id; metadata[addonTo] /
+// metadata[ticketNumber] are added. The ticket's extras limit is checked once
+// more before any money is taken (409 { addonLimit: true, remaining }).
+// One live add-on per ticket: before ANY checkout url is handed out, the
+// ticket's payment hold (D1 addon_holds) is taken for this add-on until the
+// session's expires_at. Held by another add-on -> 409 { addonBusy: true, addon:
+// true } and no session is made or returned. With the hold taken, the limit is
+// counted again (root's paid extras + completed add-ons), so it is exact. The
+// hold goes when the add-on completes or is cancelled (_guest.js); otherwise it
+// runs out with its checkout. A paid checkout always completes its add-on.
+// A cancelled add-on ("don't add them") is refused at every point the order is
+// read (start, reusing an open checkout, saving a new one, handing it out): the
+// checkout just made / found is expired -> 409 { cancelled: true, addon: true }.
 import { jsonResponse } from './_shared.js';
-import { hasDb, lowestFree, GUEST_MESSAGES } from './_tickets.js';
+import { hasDb, lowestFree, GUEST_MESSAGES, acquireAddonHold, extendAddonHold } from './_tickets.js';
 import {
   UUID_RE, FULL_MSG, FULL_AFTER_PAYMENT_MSG, REFUNDED_MSG, EXTRAS_OFF_MSG, STRIPE_DOWN_MSG,
+  ADDON_WAS_CANCELLED_MSG, ADDON_ROOT_GONE_MSG, ADDON_LIMIT_MSG,
   loadOrder, loadEvent, extrasConfig, extrasPaymentStatus, checkPhotoKeys, sessionPaysOrder,
   retrieveSessionChecked, orderSessionIds, expireSession, expireOpenSessions, stripeRequest, toPence,
+  isAddon, isCancelledAddon, addonRootNumber, ticketExtrasBought, addonBusyBody, otherLiveHold,
+  releaseHoldQuietly,
 } from './_guest.js';
 
 const TOKEN_RE = /^[A-Za-z0-9]{8,64}$/;
@@ -64,6 +85,9 @@ export async function onRequestPost({ request, env }) {
     }
     if (order.extrasRefunded === true) return jsonResponse({ error: REFUNDED_MSG, refunded: true }, 409);
     if (order.fullAfterPayment === true) return jsonResponse({ error: FULL_AFTER_PAYMENT_MSG, full: true, paid: true }, 409);
+    const addon = isAddon(order);
+    const cancelledReply = () => jsonResponse({ error: ADDON_WAS_CANCELLED_MSG, cancelled: true, addon: true }, 409);
+    if (addon && isCancelledAddon(order)) return cancelledReply();
     const extrasCount = Math.floor(Number(order.extrasCount) || 0);
     if (!(extrasCount > 0) || order.extrasSkipped === true) {
       return jsonResponse({ error: 'There are no extra magnets to pay for on this upload.' }, 400);
@@ -90,20 +114,92 @@ export async function onRequestPost({ request, env }) {
     const open = [...sessions.values()].filter(isOpen);
 
     // Extras switched off, or no number left: don't take any money.
-    if (!extrasConfig(event)) {
+    const extras = extrasConfig(event);
+    if (!extras) {
       await expireOpenSessions(env, sessions);
       return jsonResponse({ error: EXTRAS_OFF_MSG, extrasOff: true }, 409);
     }
-    if ((await lowestFree(env, event)) == null) {
+    // Checkout expiry: the end of the 20-minute slot EXPIRY_SLOTS_AHEAD slots on
+    const slot = Math.floor(Date.now() / 1000 / EXPIRY_SLOT_SECONDS);
+    const expiresFor = (s) => (s + EXPIRY_SLOTS_AHEAD) * EXPIRY_SLOT_SECONDS;
+    const expiryOf = (s, fallback) => (Number.isSafeInteger(Number(s && s.expires_at)) && Number(s.expires_at) > 0
+      ? Number(s.expires_at) : fallback);
+
+    let ticketNo = null; // add-on: the number of the ticket it joins
+    let rootId = null;   // add-on: the ticket's root order id (its payment hold)
+    let tookHold = false; // add-on: this request took the ticket's hold (it wasn't this add-on's before)
+    if (addon) {
+      // No number needed, but the ticket must still be there and have room
+      const root = UUID_RE.test(String(order.addonTo)) ? await loadOrder(env, String(order.addonTo)) : null;
+      ticketNo = addonRootNumber(root, order);
+      if (ticketNo == null) {
+        await expireOpenSessions(env, sessions);
+        return jsonResponse({ error: ADDON_ROOT_GONE_MSG, addon: true }, 409);
+      }
+      rootId = String(root.orderId || order.addonTo);
+      const limitReply = (remaining) => jsonResponse({
+        error: remaining > 0
+          ? `You can add up to ${remaining} more magnet${remaining === 1 ? '' : 's'} to ticket #${ticketNo}.`
+          : ADDON_LIMIT_MSG,
+        addonLimit: true,
+        remaining,
+        addon: true,
+      }, 409);
+      const room = async () => Math.max(0, extras.max - (await ticketExtrasBought(env, root)).bought);
+      let remaining = await room();
+      if (extrasCount > remaining) {
+        await expireOpenSessions(env, sessions);
+        return limitReply(remaining);
+      }
+
+      // One live add-on per ticket: take the ticket's hold BEFORE any checkout url
+      // is handed out - until the expiry of the checkout it will be (the open one
+      // reused, or the one about to be made).
+      const live = open.length ? open[open.length - 1] : null;
+      const holdArgs = {
+        rootOrderId: rootId, addonOrderId: orderId, photos: extrasCount,
+        expiresAt: live && live.url ? expiryOf(live, expiresFor(slot)) : expiresFor(slot),
+      };
+      let hold = await acquireAddonHold(env, holdArgs);
+      if (!hold.acquired && hold.hold && (await otherLiveHold(env, rootId, orderId)) == null) {
+        hold = await acquireAddonHold(env, holdArgs); // that hold was left behind (stale): released, try again
+      }
+      if (!hold.acquired) {
+        // Another add-on of this ticket is being paid for: nothing of THIS one may be payable
+        await expireOpenSessions(env, sessions);
+        return jsonResponse(addonBusyBody(ticketNo), 409);
+      }
+      tookHold = hold.took;
+
+      // Exact limit: no other add-on of this ticket can be paid while we hold it
+      remaining = await room();
+      if (extrasCount > remaining) {
+        await expireOpenSessions(env, sessions);
+        if (tookHold && ![...sessions.values()].some(s => s && s.status === 'open')) {
+          await releaseHoldQuietly(env, rootId, orderId);
+        }
+        return limitReply(remaining);
+      }
+    } else if ((await lowestFree(env, event)) == null) {
       await expireOpenSessions(env, sessions);
       return jsonResponse({ error: FULL_MSG, full: true }, 409);
     }
 
+    // Give back a hold this request took for an add-on that turned out finished / cancelled
+    const dropHold = () => (addon && tookHold ? releaseHoldQuietly(env, rootId, orderId) : Promise.resolve(false));
+
+    // Where the LATEST order record stands: "complete" (finished / gone),
+    // "cancelled" (an add-on the guest chose not to add) or "ok".
+    const standing = (fresh) => (!fresh || fresh.raffleNumber != null ? 'complete'
+      : (addon && isCancelledAddon(fresh) ? 'cancelled' : 'ok'));
+    const recheck = async () => standing(await loadOrder(env, orderId));
     // Saves pendingKeys (+ session ids) onto the LATEST order record, so a
-    // completion that landed meanwhile is never overwritten.
+    // completion that landed meanwhile is never overwritten; nothing is saved
+    // on a finished or cancelled one. -> standing()
     const saveOrder = async ({ pendingKeys, sessionIds = [], latest = null, idemNext = null }) => {
       const fresh = await loadOrder(env, orderId);
-      if (!fresh || fresh.raffleNumber != null) return false;
+      const st = standing(fresh);
+      if (st !== 'ok') return st;
       const ids = orderSessionIds(fresh);
       for (const sid of sessionIds) if (sid && !ids.includes(sid)) ids.push(sid);
       if (pendingKeys) fresh.pendingKeys = pendingKeys;
@@ -113,18 +209,62 @@ export async function onRequestPost({ request, env }) {
       if (Number.isInteger(idemNext) && idemNext > (Number(fresh.extrasIdemNext) || 0)) fresh.extrasIdemNext = idemNext;
       fresh.updatedAt = new Date().toISOString();
       await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(fresh));
-      return true;
+      return 'ok';
     };
     const sameKeys = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((k, i) => k === b[i]);
     const alreadyComplete = () => jsonResponse({ error: 'This upload is already complete.', complete: true }, 409);
+    // Expire a checkout; -> true once it is certainly dead (expired now or before)
+    const expiredForSure = async (session) => {
+      const m = new Map([[session.id, { ...session, status: 'open' }]]);
+      await expireOpenSessions(env, m);
+      return !!(m.get(session.id) && m.get(session.id).status === 'expired');
+    };
+    // The order is finished / cancelled after all: the checkout just made or
+    // found must not stay payable (an add-on's), and nothing is handed out. A
+    // hold this request took is given back once that checkout is dead.
+    const refuse = async (st, session) => {
+      const dead = !(addon && session) || await expiredForSure(session);
+      if (dead) await dropHold();
+      return st === 'cancelled' ? cancelledReply() : alreadyComplete();
+    };
+    // The very last step before a checkout url leaves (add-ons): the ticket's hold
+    // must still be this add-on's and cover the session, and the add-on must still
+    // be wanted - else the session is expired and nothing is handed out.
+    const handOut = async (session) => {
+      if (addon) {
+        const until = expiryOf(session, expiresFor(slot + 1));
+        let held = await extendAddonHold(env, { rootOrderId: rootId, addonOrderId: orderId, expiresAt: until });
+        if (!held && (await recheck()) === 'ok') {
+          // Released although the add-on is neither finished nor cancelled: take it again if free
+          const again = await acquireAddonHold(env, { rootOrderId: rootId, addonOrderId: orderId, photos: extrasCount, expiresAt: until });
+          held = again.acquired;
+          if (again.took) tookHold = true;
+        }
+        if (!held) {
+          // Completed / cancelled meanwhile, or another add-on has the ticket now
+          await expireSession(env, session.id);
+          const st = await recheck();
+          if (st !== 'ok') return st === 'cancelled' ? cancelledReply() : alreadyComplete();
+          return jsonResponse(addonBusyBody(ticketNo), 409);
+        }
+        const st = await recheck();
+        if (st !== 'ok') return refuse(st, session);
+      }
+      return jsonResponse({ url: session.url });
+    };
 
     // Still-open checkout for this order: send the guest back to it (the
     // newest; any older open one is expired - one live session per order).
     if (open.length) {
       const live = open[open.length - 1];
       for (const s of open.slice(0, -1)) await expireSession(env, s.id);
-      if (!sameKeys(order.pendingKeys, keys) && !(await saveOrder({ pendingKeys: keys }))) return alreadyComplete();
-      if (live.url) return jsonResponse({ url: live.url });
+      const st = !sameKeys(order.pendingKeys, keys) ? await saveOrder({ pendingKeys: keys })
+        : (addon ? await recheck() : 'ok');
+      if (st !== 'ok') {
+        if (!addon) return alreadyComplete();
+        return refuse(st, live);
+      }
+      if (live.url) return handOut(live);
       await expireSession(env, live.id); // unusable without a url: replaced below
     }
 
@@ -134,7 +274,12 @@ export async function onRequestPost({ request, env }) {
     const origin = new URL(request.url).origin;
     const back = `${origin}/guest?t=${encodeURIComponent(t)}`;
     const eventName = String(event.name || 'Event').slice(0, 200);
-    const productName = `Extra magnet${extrasCount === 1 ? '' : 's'} - ${eventName}`;
+    const productName = addon
+      ? `Extra magnet${extrasCount === 1 ? '' : 's'} for ticket #${ticketNo} - ${eventName}`
+      : `Extra magnet${extrasCount === 1 ? '' : 's'} - ${eventName}`;
+    const description = addon
+      ? `Add-on to ticket #${ticketNo}: ${productName} (order ${orderId.slice(0, 8)})`
+      : `${productName} (order ${orderId.slice(0, 8)})`;
     const buildParams = (expiresAt) => {
       const params = new URLSearchParams();
       params.append('mode', 'payment');
@@ -149,13 +294,14 @@ export async function onRequestPost({ request, env }) {
       params.append('metadata[guestExtras]', 'true');
       params.append('metadata[guestOrderId]', orderId);
       params.append('metadata[eventId]', String(event.id));
-      params.append('payment_intent_data[description]', `${productName} (order ${orderId.slice(0, 8)})`);
+      if (addon) {
+        params.append('metadata[addonTo]', String(order.addonTo));
+        params.append('metadata[ticketNumber]', String(ticketNo));
+      }
+      params.append('payment_intent_data[description]', description);
       params.append('expires_at', String(expiresAt));
       return params;
     };
-    const slot = Math.floor(Date.now() / 1000 / EXPIRY_SLOT_SECONDS);
-    const expiresFor = (s) => (s + EXPIRY_SLOTS_AHEAD) * EXPIRY_SLOT_SECONDS;
-
     const known = [...sessions.keys()];      // every session id made for this order
     // -> the idempotency key for the next one (skipping keys a Stripe 5xx burnt)
     let n = Math.max(known.length, Number.isInteger(order.extrasIdemNext) ? order.extrasIdemNext : 0);
@@ -178,7 +324,8 @@ export async function onRequestPost({ request, env }) {
         if (!reread) {
           reread = true;
           const fresh = await loadOrder(env, orderId);
-          if (fresh && fresh.raffleNumber != null) return alreadyComplete();
+          if (fresh && fresh.raffleNumber != null) return refuse('complete', null);
+          if (standing(fresh) === 'cancelled') return refuse('cancelled', null);
           const freshIds = orderSessionIds(fresh).filter(id => !known.includes(id));
           if (freshIds.length) {
             for (const sid of freshIds) {
@@ -187,8 +334,9 @@ export async function onRequestPost({ request, env }) {
               known.push(sid);
               if (r.session && sessionPaysOrder(r.session, order)) return jsonResponse({ paid: true });
               if (isOpen(r.session) && r.session.url) {
-                if (!sameKeys(fresh.pendingKeys, keys) && !(await saveOrder({ pendingKeys: keys }))) return alreadyComplete();
-                return jsonResponse({ url: r.session.url });
+                const st = !sameKeys(fresh.pendingKeys, keys) ? await saveOrder({ pendingKeys: keys }) : 'ok';
+                if (st !== 'ok') return addon ? refuse(st, r.session) : alreadyComplete();
+                return handOut(r.session);
               }
             }
             n = Math.max(n, known.length);
@@ -228,11 +376,13 @@ export async function onRequestPost({ request, env }) {
         return jsonResponse({ paid: true });
       }
       if (session.status === 'open' && session.url) {
-        if (!(await saveOrder({ pendingKeys: keys, sessionIds: known, latest: session.id, idemNext: burnt ? n : null }))) {
+        const st = await saveOrder({ pendingKeys: keys, sessionIds: known, latest: session.id, idemNext: burnt ? n : null });
+        if (st !== 'ok') {
+          if (addon) return refuse(st, session);
           await expireSession(env, session.id);
           return alreadyComplete();
         }
-        return jsonResponse({ url: session.url });
+        return handOut(session);
       }
       // That session can no longer be paid (expired): the next key makes a new one
       n = Math.max(n + 1, known.length);

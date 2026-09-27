@@ -263,6 +263,22 @@
     .upsell-btn input[type=file]::-webkit-file-upload-button { background: transparent; border: 0; color: transparent; }
     .is-busy .upsell { display: none !important; }
     #pay-alert { font-size: 1.05rem; line-height: 1.45; }
+
+    /* ---------- Add-on magnets (more magnets on a ticket this phone already has) ---------- */
+    .addon-offer { text-align: center; }
+    .addon-offer + .addon-offer, .addon-offer + .addon-limit, .addon-limit + .addon-offer { margin-top: 12px; }
+    button.addon-btn {
+      width: 100%; min-height: 52px; border-radius: 14px; border: 0; cursor: pointer;
+      background: var(--brand-deep); color: #fff; font-weight: 700; font-size: 1rem;
+    }
+    button.addon-btn:active { opacity: 0.9; }
+    button.link-btn {
+      background: transparent; border: 0; padding: 8px 2px; min-height: 44px; cursor: pointer;
+      color: var(--brand-deep); font-weight: 700; font-size: 0.95rem;
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    button.link-btn::before { content: '\2190\00a0'; text-decoration: none; display: inline-block; }
+    .is-busy button.link-btn { opacity: 0.45; pointer-events: none; }
   </style>
 </head>
 <body class="min-h-screen font-sans antialiased">
@@ -298,7 +314,7 @@
       </div>
     </section>
 
-    <!-- ALREADY UPLOADED ON THIS PHONE (allowRepeat off) -->
+    <!-- ALREADY UPLOADED ON THIS PHONE (allowRepeat off, or every number taken) -->
     <section id="view-done-before" class="hidden pt-2 text-center">
       <p id="done-event" class="text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
       <h1 id="done-title" class="mt-2 font-serif text-2xl font-semibold text-ink leading-snug"></h1>
@@ -309,17 +325,23 @@
         </div>
       </div>
       <p id="done-text" class="mt-6 text-base leading-relaxed text-ink"></p>
+      <!-- Add more magnets to a ticket (filled in once the server says it's possible) -->
+      <div id="done-addons" class="hidden mt-6"></div>
     </section>
 
     <!-- UPLOAD FORM -->
     <section id="view-form" class="hidden">
+      <!-- Add-on mode only: leave without sending anything -->
+      <button id="addon-back" type="button" class="hidden link-btn mb-2">Back to ticket</button>
       <div class="text-center mb-5">
-        <p class="text-xs font-bold uppercase tracking-widest text-brand-deep">Send us your photos</p>
+        <p id="form-kicker" class="text-xs font-bold uppercase tracking-widest text-brand-deep">Send us your photos</p>
         <h1 id="event-name" class="mt-1 font-serif text-2xl sm:text-3xl font-semibold text-ink leading-tight"></h1>
         <p id="intro-text" class="mt-2 text-sm leading-relaxed text-muted"></p>
       </div>
 
       <div id="prev-banner" class="hidden msg-box info mb-4"></div>
+      <!-- Return visit (allowRepeat): add more magnets to a ticket this phone already has -->
+      <div id="form-addons" class="hidden mb-4"></div>
       <div id="return-banner" class="hidden msg-box warn mb-4"></div>
 
       <div class="bg-white rounded-3xl border border-line shadow-sm p-4">
@@ -376,7 +398,8 @@
     <!-- SUCCESS -->
     <section id="view-success" class="hidden pt-2 text-center">
       <p id="success-event" class="text-xs font-bold uppercase tracking-widest text-brand-deep"></p>
-      <h1 class="mt-2 font-serif text-2xl font-semibold text-ink">All done – thank you!</h1>
+      <h1 id="success-title" class="mt-2 font-serif text-2xl font-semibold text-ink leading-snug">All done – thank you!</h1>
+      <div id="success-note" class="hidden msg-box info mt-4"></div>
       <div class="ticket mt-6 mx-2">
         <div class="ticket-inner">
           <p class="ticket-label">Your number is</p>
@@ -387,6 +410,8 @@
       <p id="success-extras" class="hidden mt-3 text-sm font-semibold text-brand-deep"></p>
       <p id="success-resumed" class="hidden mt-3 text-sm text-muted">The photos you sent earlier reached us safely – this is their number.</p>
       <p id="success-earlier" class="hidden mt-3 text-sm text-muted"></p>
+      <!-- Add more magnets to this ticket (filled in once the server says it's possible) -->
+      <div id="success-addons" class="hidden mt-6"></div>
       <button id="again-btn" type="button" class="hidden mt-8 w-full min-h-[56px] rounded-2xl btn-outline font-bold text-base">Send another set of photos</button>
     </section>
 
@@ -486,7 +511,11 @@
         payOrigin: 'resume',   // 'paid' once the guest has (or says they have) paid
         payBusy: false,
         redirecting: false,
-        leaving: false     // on the way to Stripe: no "leave this page?" prompt
+        leaving: false,    // on the way to Stripe: no "leave this page?" prompt
+        rawEvent: null,    // the open event as guest-event sent it (designs for add-on mode)
+        // Add-on mode: more (paid) magnets for a ticket this phone already has
+        // { rootId, number, remaining, price, bought, blocked: null|'limit'|'extrasOff'|'closed', from: view id }
+        addon: null
       };
       const overlayCache = Object.create(null);   // overlay id -> loaded design (kept for "send another set")
 
@@ -586,12 +615,41 @@
         return Array.from(nums).sort((a, b) => a - b);
       }
 
-      function saveLock(eventId, number) {
+      // Receipts: the ROOT upload's order id for each number this phone got
+      // (localStorage only - the cookie keeps just the numbers). They let this phone add
+      // more magnets to its ticket later; a phone without one is never offered that.
+      // -> { "5": "<root order id>", ... }
+      function readReceipts(eventId) {
+        const out = {};
+        if (!eventId) return out;
+        try {
+          const raw = window.localStorage.getItem(lockKey(eventId));
+          const obj = raw ? JSON.parse(raw) : null;
+          const o = obj && obj.orders && typeof obj.orders === 'object' ? obj.orders : null;
+          if (o) {
+            Object.keys(o).forEach((k) => {
+              const n = Number(k);
+              const id = String(o[k] || '');
+              if (Number.isInteger(n) && n >= 0 && UUID_RE.test(id)) out[String(n)] = id.toLowerCase();
+            });
+          }
+        } catch (e) { /* storage blocked / garbled */ }
+        return out;
+      }
+
+      // rootId: the ROOT order that holds this number (stored as its receipt).
+      // keepReceipt: an add-on only fills in a missing receipt, never replaces one.
+      function saveLock(eventId, number, rootId, keepReceipt) {
         if (!eventId) return;
         const nums = readLock(eventId);
         if (nums.indexOf(number) === -1) nums.push(number);
         nums.sort((a, b) => a - b);
-        try { window.localStorage.setItem(lockKey(eventId), JSON.stringify({ numbers: nums })); } catch (e) {}
+        const orders = readReceipts(eventId);
+        const key = String(number);
+        if (rootId && UUID_RE.test(String(rootId)) && !(keepReceipt && orders[key])) orders[key] = String(rootId).toLowerCase();
+        const rec = { numbers: nums };
+        if (Object.keys(orders).length) rec.orders = orders;
+        try { window.localStorage.setItem(lockKey(eventId), JSON.stringify(rec)); } catch (e) {}
         try {
           document.cookie = cookieName(eventId) + '=' + nums.join(',') +   // digits + commas only
             '; max-age=31536000; path=/; SameSite=Lax' +
@@ -605,6 +663,9 @@
       // so a lost reply / reload / closed payment page can't strand a number the guest never
       // saw - or let them upload again for a second one.
       // Entry: { orderId, keys } + for paid extras { extras: true, freeCount, extrasCount, total, skipped? }
+      // + for an add-on (more magnets for a ticket this phone has) { addon: true, addonTo:
+      // root order id, number: that ticket's number | null } - every photo is paid, freeCount 0,
+      // and "skipped" means "don't add them" (the add-on is cancelled, the ticket unchanged).
       // The numbers are the server's snapshot of the order (from guest-order / guest-status).
       // keys may be [] for an upload rebuilt from ?ref= (the server already holds its photo
       // list - pendingKeys - so guest-pay / guest-finalize are then called without keys).
@@ -623,8 +684,18 @@
             if (obj.extras === true) {
               const fc = Number(obj.freeCount), xc = Number(obj.extrasCount), tot = Number(obj.total);
               out.extras = true;
-              out.freeCount = Number.isInteger(fc) && fc >= 1 ? fc : 1;
-              out.extrasCount = Number.isInteger(xc) && xc >= 0 ? xc : Math.max(0, out.keys.length - out.freeCount);
+              const to = String(obj.addonTo || '');
+              if (obj.addon === true || UUID_RE.test(to)) {
+                const num = Number(obj.number);
+                out.addon = true;
+                out.addonTo = UUID_RE.test(to) ? to.toLowerCase() : '';
+                out.number = obj.number != null && Number.isInteger(num) && num >= 0 ? num : null;
+                out.freeCount = 0;
+                out.extrasCount = Number.isInteger(xc) && xc >= 0 ? xc : out.keys.length;
+              } else {
+                out.freeCount = Number.isInteger(fc) && fc >= 1 ? fc : 1;
+                out.extrasCount = Number.isInteger(xc) && xc >= 0 ? xc : Math.max(0, out.keys.length - out.freeCount);
+              }
               out.total = Number.isFinite(tot) && tot >= 0 ? tot : 0;
               out.skipped = obj.skipped === true;
             }
@@ -644,6 +715,11 @@
           o.extrasCount = entry.extrasCount;
           o.total = entry.total;
           if (entry.skipped) o.skipped = true;
+          if (entry.addon) {
+            o.addon = true;
+            o.addonTo = entry.addonTo || '';
+            o.number = entry.number != null ? entry.number : null;
+          }
         }
         try { window.localStorage.setItem(pendingKey(eventId), JSON.stringify(o)); } catch (e) {}
       }
@@ -684,6 +760,10 @@
       function isFullPaid(r) { return r.status === 409 && !!(r.data && r.data.full === true && r.data.paid === true); }
       // The team refunded the extras payment: this upload will not get a number.
       function isRefunded(r) { return r.status === 409 && !!(r.data && r.data.refunded === true); }
+      // Finalize for an add-on that was cancelled ("don't add them") and isn't paid
+      function isCancelledAddon(r, entry) {
+        return !!(entry && entry.addon && r.status === 402 && r.data && r.data.cancelled === true);
+      }
       // How many paid extras a finished order has: the server says so when it knows,
       // otherwise what this phone knows about the entry.
       function paidExtrasOf(entry, r) {
@@ -782,12 +862,254 @@
         renderTicketNums($('done-nums'), nums);
         $('done-text').textContent = tableText(nums);
         showView('view-done-before');
+        renderOffers('done-addons', nums);
+      }
+
+      // ── Add-on magnets: the offer on the ticket screens ───────────
+      // A phone that holds the ROOT order id for a number (its receipt) may buy more
+      // magnets for that same ticket while the event sells extras. The server decides
+      // (GET /api/guest-status?ref=ROOT -> addOn); the card only appears when it says so.
+      let offerSeq = 0;
+
+      // guest-status addOn -> { available, remaining, price, bought, reason } | null
+      function parseAddOn(s) {
+        const a = s && s.addOn;
+        if (!a || typeof a !== 'object') return null;
+        const remaining = Number(a.remaining), price = Number(a.price), bought = Number(a.bought);
+        return {
+          available: a.available === true,
+          remaining: Number.isInteger(remaining) && remaining > 0 ? remaining : 0,
+          price: a.price != null && Number.isFinite(price) && price > 0 ? pence(price) / 100 : null,
+          bought: Number.isInteger(bought) && bought > 0 ? bought : 0,
+          reason: typeof a.reason === 'string' ? a.reason : null
+        };
+      }
+
+      // known: { [rootId]: guest-status data } already fetched (no second request)
+      // boxId 'form-addons' = the upload form of a return visit (allowRepeat): offer cards
+      // only (no "most allowed" lines), shown while no new photos are on the form.
+      async function renderOffers(boxId, nums, known) {
+        const box = $(boxId);
+        const seq = ++offerSeq;
+        const onForm = boxId === 'form-addons';
+        box.textContent = '';
+        box.classList.add('hidden');
+        const ev = state.event;
+        if (!ev || !ev.id || !ev.extras) return;   // the event doesn't sell extra magnets now
+        const receipts = readReceipts(ev.id);
+        const list = nums.filter((n) => receipts[String(n)]);
+        if (!list.length) return;                  // older phone (numbers only): no offer
+        let found = [];
+        try {
+          found = await Promise.all(list.map(async (n) => {
+            const rootId = receipts[String(n)];
+            let s = known && known[rootId] ? known[rootId] : null;
+            if (!s) {
+              const st = await statusRequest(rootId);
+              if (st.network || st.status || !st.data) return null;   // no offer (nothing else changes)
+              s = st.data;
+            }
+            // Only the ticket this receipt is for: this event's finished ROOT upload with that number
+            if (String(s.eventId == null ? '' : s.eventId) !== ev.id || s.addon === true ||
+                s.complete !== true || Number(s.number) !== n) return null;
+            const info = parseAddOn(s);
+            const free = Number(s.freeCount);
+            return info ? { n: n, rootId: rootId, info: info, free: Number.isInteger(free) && free > 0 ? free : 0 } : null;
+          }));
+        } catch (e) { return; }
+        if (seq !== offerSeq || state.addon) return;   // the screen moved on meanwhile
+        const multi = list.length > 1;
+        found.forEach((f) => {
+          if (!f) return;
+          const a = f.info;
+          if (a.available && a.remaining > 0 && a.price != null) box.appendChild(offerCard(f));
+          else if (!onForm && (a.reason === 'limit' || (a.available && a.remaining === 0))) {
+            const p = document.createElement('p');
+            p.className = 'addon-limit text-sm text-muted';
+            p.textContent = multi
+              ? 'Ticket #' + f.n + ': you’ve added the most extra magnets allowed.'
+              : 'You’ve added the most extra magnets allowed.';
+            box.appendChild(p);
+          }
+        });
+        if (onForm) syncFormOffers();
+        else box.classList.toggle('hidden', box.children.length === 0);
+      }
+
+      // The form's offer box: only on the normal form with nothing selected / uploading
+      // (starting an add-on there would drop photos chosen for a new number).
+      function syncFormOffers() {
+        const box = $('form-addons');
+        box.classList.toggle('hidden', !!state.addon || state.busy || !!state.pending ||
+          state.photos.length > 0 || box.children.length === 0);
+      }
+
+      function offerCard(f) {
+        const a = f.info, n = f.n;
+        const card = document.createElement('div');
+        card.className = 'upsell addon-offer';
+        const h = document.createElement('p');
+        h.className = 'font-bold text-ink';
+        h.textContent = 'Want more magnets?';
+        const t = document.createElement('p');
+        t.className = 'addon-offer-text mt-1 text-sm text-muted';
+        const rest = ' more to ticket #' + n + ' for ' + money(a.price) + ' each – they’ll be waiting with your other magnets.';
+        const free = f.free || (state.event && state.event.freePhotos) || 1;
+        t.textContent = a.bought > 0
+          ? 'You can add up to ' + a.remaining + rest
+          : 'You’ve used your free ' + plural(free, 'magnet', 'magnets') + ', but you can add up to ' + a.remaining + rest;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'addon-btn mt-3';
+        b.textContent = 'Add more magnets';
+        b.addEventListener('click', (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          startAddon({ rootId: f.rootId, number: n, remaining: a.remaining, price: a.price, bought: a.bought });
+        });
+        card.appendChild(h);
+        card.appendChild(t);
+        card.appendChild(b);
+        return card;
+      }
+
+      // The ticket screen (view-success) for one number. o: { title, note, resumed, paidExtras, known }
+      function showTicket(number, o) {
+        o = o || {};
+        const ev = state.event || { id: '', name: '', allowRepeat: false };
+        $('success-event').textContent = ev.name || '';
+        $('success-title').textContent = o.title || 'All done – thank you!';
+        const note = $('success-note');
+        note.textContent = o.note || '';
+        note.classList.toggle('hidden', !o.note);
+        renderTicketNums($('success-nums'), [number]);
+        $('success-text').textContent = tableText([number]);
+        $('success-resumed').classList.toggle('hidden', !o.resumed);
+
+        const x = Number(o.paidExtras) || 0;
+        const extrasEl = $('success-extras');
+        extrasEl.textContent = x > 0 ? 'Including ' + x + ' paid extra ' + plural(x, 'magnet', 'magnets') + ' – thank you!' : '';
+        extrasEl.classList.toggle('hidden', !(x > 0));
+
+        const earlier = readLock(ev.id).filter((n) => n !== number);   // never list it twice
+        const earlierEl = $('success-earlier');
+        if (earlier.length) {
+          earlierEl.textContent = (earlier.length === 1 ? 'Your earlier number: ' : 'Your earlier numbers: ') + formatNums(earlier);
+          earlierEl.classList.remove('hidden');
+        } else {
+          earlierEl.textContent = '';
+          earlierEl.classList.add('hidden');
+        }
+        $('again-btn').classList.toggle('hidden', !ev.allowRepeat);
+        showView('view-success');
+        renderOffers('success-addons', [number], o.known || null);
+      }
+
+      // ── Add-on mode (the photo form, every photo paid, joins an existing ticket) ──
+      function startAddon(o) {
+        if (state.busy || state.cropping || state.payBusy || state.redirecting) return;
+        if (!state.event || !state.event.extras || !o.rootId || !(o.remaining > 0) || !(o.price > 0)) return;
+        const from = ['view-done-before', 'view-form'].find((v) => !$(v).classList.contains('hidden')) || 'view-success';
+        // From the upload form (return visit): never drop photos chosen for a new number
+        if (from === 'view-form' && (state.addon || state.photos.length || state.pending)) return;
+        offerSeq++;   // offers still loading don't matter any more
+        state.addon = {
+          rootId: o.rootId, number: o.number, remaining: o.remaining, price: o.price,
+          bought: o.bought || 0, blocked: null, from: from
+        };
+        state.pending = null;
+        clearPhotos();
+        openAddonForm();
+      }
+
+      function openAddonForm() {
+        const a = state.addon, ev = state.event;
+        if (state.rawEvent) setupOverlays(state.rawEvent);   // the same designs as any upload
+        syncMax();
+        $('form-kicker').textContent = ev.name || 'Extra magnets';
+        $('event-name').textContent = 'Add magnets to ticket #' + a.number;
+        let intro = 'You can add up to ' + a.remaining + ' more ' + plural(a.remaining, 'magnet', 'magnets') +
+          ' to ticket #' + a.number + ' for ' + money(a.price) + ' each. Crop each photo square, then pay – ' +
+          'they’ll be waiting with your other magnets.';
+        if (state.overlayMode === 'required') intro += ' The event design is added to every photo.';
+        else if (state.overlayMode === 'optional') intro += ' You can add the event design to your photos.';
+        $('intro-text').textContent = intro;
+        ['prev-banner', 'form-addons', 'return-banner'].forEach((id) => { $(id).textContent = ''; $(id).classList.add('hidden'); });
+        const back = $('addon-back');
+        back.textContent = 'Back to ticket #' + a.number;
+        back.classList.remove('hidden');
+        hideStatus();
+        hideNotice();
+        showProgress(false);
+        renderPhotos();
+        showView('view-form');
+      }
+
+      // guest-order / guest-pay 409 { addonBusy }: one add-on per ticket at a time
+      function addonBusyText(err, number) {
+        if (typeof err === 'string' && err) return err;
+        return 'Another purchase for ' + (number != null ? 'ticket #' + number : 'your ticket') +
+          ' is still in progress – finish or cancel it first.';
+      }
+
+      // Why nothing more can be added (add-on mode, remaining 0)
+      function addonBlockedText() {
+        const b = state.addon ? state.addon.blocked : null;
+        if (b === 'extrasOff') return 'Extra magnets aren’t available for this event any more.';
+        if (b === 'closed') return 'Uploads for this event are closed right now.';
+        return 'You’ve added the most extra magnets allowed.';
+      }
+
+      // Back to the ticket screen the add-on was started from; the selection is dropped.
+      function leaveAddon() {
+        const a = state.addon;
+        state.addon = null;
+        state.pending = null;
+        clearPhotos();
+        hideStatus();
+        hideNotice();
+        showProgress(false);
+        syncMax();
+        if (!a) return;
+        if (a.from === 'view-done-before') { showDoneBefore(readLock(curEventId())); return; }
+        if (a.from === 'view-form') { reopenForm(); return; }
+        showView('view-success');
+        renderOffers('success-addons', [a.number]);
+      }
+
+      // "Back to ticket #N". Photos already uploaded (waiting for payment): they are
+      // cancelled on the server first ("don't add them" - nothing is charged).
+      async function backFromAddon() {
+        const a = state.addon;
+        if (!a || state.busy || state.cropping) return;
+        const p = state.pending;
+        if (!(photosLocked() && p && p.addonTo)) { leaveAddon(); return; }
+        const eventId = curEventId();
+        const stored = readPending(eventId);
+        const keys = state.photos.map((ph) => p.keys[ph.id]).filter(Boolean);
+        const entry = stored && stored.orderId === p.orderId ? stored : pendingToEntry(p, keys);
+        entry.skipped = true;   // remembered: a lost reply is finished the same way on the next load
+        savePendingEntry(eventId, entry);
+        setBusy(true);
+        showStatus('info', 'One moment…');
+        try {
+          const r = await finalizeEntry(entry, eventId);
+          if (r.cancelled) { addonCancelled(entry, r); return; }
+          if (r.number != null) { finished(entry, r, false); return; }
+          if (r.network || !r.status || r.status >= 500) { leaveAddon(); return; }   // finished on the next load
+          extrasOutcome(r, entry, {});
+        } catch (e) {
+          leaveAddon();
+        } finally {
+          if (state.busy) setBusy(false);
+        }
       }
 
       // ── Load event ────────────────────────────────────────────────
       async function loadEvent() {
         $('loading-text').textContent = 'Loading…';
         showView('view-loading');
+        offerSeq++;          // offers still loading for the previous screen are dropped
+        state.addon = null;
         state.token = getToken();
         if (!state.token) { showMessage('invalid'); return; }
 
@@ -800,9 +1122,18 @@
           return;
         }
 
+        // Every number taken, but the server sent the event view: no new upload, yet a
+        // phone with a ticket can still add magnets to it (and finish paying for them)
+        const full = isFullView(data);
+        state.rawEvent = data && (data.open === true || full) && data.event ? data.event : null;
         if (data && data.open === true && data.event) {
           if (await resumePending(data.event, true)) return;
           openForm(data.event);
+          return;
+        }
+        if (full) {
+          if (await resumePending(data.event, 'full')) return;
+          showFull(data.event);
           return;
         }
         if (data && data.reason) {
@@ -815,9 +1146,29 @@
         showMessage('network');
       }
 
+      // guest-event "full" WITH the public event view (limits, extras, designs) - older
+      // servers send only { id, name } there (then the plain "full" message, as before).
+      function isFullView(data) {
+        const ev = data && data.open === false && data.reason === 'full' ? data.event : null;
+        return !!(ev && typeof ev === 'object' && ev.id != null &&
+          ('extras' in ev || 'freePhotos' in ev || 'maxPhotos' in ev));
+      }
+
+      // Every number is taken (nothing to resume): a phone with a number sees its ticket
+      // (plus the add-on offer when it holds the receipt); anyone else the "full" message.
+      function showFull(ev) {
+        state.event = makeEventState(ev, 'full');
+        state.maxPhotos = state.event.maxPhotos;
+        state.addon = null;
+        const prev = readLock(state.event.id);
+        if (prev.length) { showDoneBefore(prev); return; }
+        showMessage('full', ev);
+      }
+
       // An earlier finalize on this phone never got its answer (signal drop, reload), or
       // the guest is back from paying for extra magnets: finish it before anything else.
       // guest-finalize is idempotent and doesn't need the event to be open.
+      // open: true | 'full' | false - see makeEventState.
       // -> true when something (number / pay screen) is now on screen.
       async function resumePending(ev, open) {
         let mode = state.returnMode;
@@ -889,8 +1240,9 @@
             r = await finalizeEntry(pend, eventId);
           }
         }
+        if (r.cancelled) { addonCancelled(pend, r); return true; }
         if (r.number != null) {
-          onSuccess(r.number, !mode, paidExtrasOf(pend, r), pend.orderId);
+          finished(pend, r, !mode);
           return true;
         }
         if (isDeadOrder(r)) {
@@ -922,16 +1274,37 @@
       }
 
       // A paid-extras entry built from the server's view of the order (no keys: the
-      // server has the photo list).
+      // server has the photo list). An add-on (s.addon) keeps its root + ticket number.
       function entryFromStatus(ref, s) {
         const fc = Number(s.freeCount), xc = Number(s.extrasCount), tot = Number(s.extrasTotal);
-        return {
+        const entry = {
           orderId: ref, keys: [], extras: true,
           freeCount: Number.isInteger(fc) && fc >= 1 ? fc : 1,
           extrasCount: Number.isInteger(xc) && xc >= 0 ? xc : 0,
           total: s.extrasTotal != null && Number.isFinite(tot) && tot >= 0 ? pence(tot) / 100 : 0,
           skipped: false
         };
+        if (s.addon === true) {
+          const to = String(s.addonTo || '');
+          const num = Number(s.number);
+          entry.addon = true;
+          entry.addonTo = UUID_RE.test(to) ? to.toLowerCase() : '';
+          entry.number = s.number != null && Number.isInteger(num) && num >= 0 ? num : null;
+          entry.freeCount = 0;
+        }
+        return entry;
+      }
+
+      // An add-on rebuilt from ?ref= whose ticket number the server didn't say: this
+      // phone's receipt for its root, else the root's own status.
+      async function fillAddonNumber(entry) {
+        if (!entry.addon || entry.number != null || !entry.addonTo) return;
+        const receipts = readReceipts(curEventId());
+        const hit = Object.keys(receipts).find((k) => receipts[k] === entry.addonTo);
+        if (hit != null) { entry.number = Number(hit); return; }
+        const st = await statusRequest(entry.addonTo);
+        const num = st.data ? Number(st.data.number) : NaN;
+        if (st.data && st.data.complete === true && st.data.number != null && Number.isInteger(num)) entry.number = num;
       }
 
       // Back from Stripe (?ref=) without a matching entry on this phone: ask the server
@@ -947,10 +1320,17 @@
         const entry = entryFromStatus(ref, s);
         const num = Number(s.number);
         if (s.complete === true && s.number != null && Number.isInteger(num)) {
-          onSuccess(num, false, s.extrasPaid === true ? entry.extrasCount : 0, ref);   // saves the device lock
+          // saves the device lock (+ receipt); the status just read also carries the add-on offer
+          if (entry.addon) onAddonSuccess(num, entry, null);
+          else onSuccess(num, false, s.extrasPaid === true ? entry.extrasCount : 0, ref, { [ref]: s });
           return true;
         }
         if (s.refunded === true) { refundedOrder(entry, null); return true; }
+        if (entry.addon) {
+          await fillAddonNumber(entry);
+          // "Don't add them" was chosen (here or elsewhere) and nothing was paid
+          if (s.cancelled === true && mode !== 'paid' && s.extrasPaid !== true) { addonCancelled(entry, null); return true; }
+        }
         if (canSave) savePendingEntry(eventId, entry);
         if (s.fullAfterPayment === true) {
           state.payOrigin = 'paid';
@@ -988,11 +1368,15 @@
         return { price: pence(price) / 100, max: max };
       }
 
-      // open=false: a closed/full event (only id + name known; never offer another set)
-      function makeEventState(ev, open) {
+      // mode true:   an open event
+      // mode 'full': every number taken, the event view known - extras (and designs) for
+      //              add-ons to a ticket, but never another set / a new number
+      // mode false:  a closed event (only id + name known; never offer another set)
+      function makeEventState(ev, mode) {
+        const open = mode === true;
         const limit = Number(ev.perTicketLimit) || 0;
         const free = computeFree(ev);
-        const extras = open ? parseExtras(ev) : null;
+        const extras = open || mode === 'full' ? parseExtras(ev) : null;
         return {
           id: String(ev.id || ''),
           name: String(ev.name || ''),
@@ -1000,25 +1384,64 @@
           allowRepeat: open ? !!ev.allowRepeat : false,
           freePhotos: free,
           extras: extras,
-          maxPhotos: free + (extras ? extras.max : 0)
+          maxPhotos: free + (extras ? extras.max : 0),
+          full: mode === 'full'
         };
       }
 
-      function freeCount() { return state.event ? state.event.freePhotos : state.maxPhotos; }
+      // Add-on mode: no free photos, every photo is a paid extra.
+      function freeCount() {
+        if (state.addon) return 0;
+        return state.event ? state.event.freePhotos : state.maxPhotos;
+      }
       // Photos beyond the free allowance (only possible while extras are on sale)
       function extrasIn(n) {
+        if (state.addon) return n;
         return state.event && state.event.extras ? Math.max(0, n - state.event.freePhotos) : 0;
+      }
+      // Price of one extra magnet on screen (null when none are sold)
+      function extraPrice() {
+        if (state.addon) return state.addon.price;
+        return state.event && state.event.extras ? state.event.extras.price : null;
+      }
+      // Photos allowed on the form: free + extras, or (add-on mode) what's left for the ticket
+      function syncMax() {
+        if (state.addon) state.maxPhotos = Math.max(0, state.addon.remaining);
+        else if (state.event) state.maxPhotos = state.event.maxPhotos;
       }
 
       function openForm(ev) {
         state.event = makeEventState(ev, true);
         state.maxPhotos = state.event.maxPhotos;
+        state.addon = null;
+        $('form-kicker').textContent = 'Send us your photos';
+        $('addon-back').classList.add('hidden');
 
         const prev = readLock(state.event.id);
         if (prev.length && !state.event.allowRepeat) { showDoneBefore(prev); return; }
 
         setupOverlays(ev);
+        showForm(prev);
+      }
 
+      // Back from add-on mode started on the upload form (return visit): the normal form
+      // again, with the event as the page knows it now.
+      function reopenForm() {
+        const ev = state.event;
+        if (!ev) { loadEvent(); return; }
+        $('form-kicker').textContent = 'Send us your photos';
+        $('addon-back').classList.add('hidden');
+        const prev = readLock(ev.id);
+        if (!ev.allowRepeat) {   // no new set any more (e.g. the event filled up meanwhile)
+          if (prev.length) showDoneBefore(prev); else loadEvent();
+          return;
+        }
+        if (state.rawEvent) setupOverlays(state.rawEvent);
+        showForm(prev);
+      }
+
+      // The normal upload form (state.event is set). prev: this phone's numbers.
+      function showForm(prev) {
         const free = state.event.freePhotos;
         const x = state.event.extras;
         let intro = free === 1
@@ -1060,20 +1483,26 @@
         hideNotice();
         renderPhotos();
         showView('view-form');
+        // Tickets this phone holds (receipts): more magnets can be added to them
+        renderOffers('form-addons', prev);
       }
 
       // Silently refresh the event limits (e.g. after the server rejects the photo count).
       // Designs are left alone: photos already made with them stay as they are.
+      // A "full" answer with the event view counts in add-on mode (or when the page was
+      // loaded full): extras for the ticket, never another set.
       async function refreshEventMeta() {
         try {
           const res = await fetchWithTimeout('/api/guest-event?t=' + encodeURIComponent(state.token), { cache: 'no-store' }, 15000);
           const data = await res.json().catch(() => null);
-          if (data && data.open === true && data.event && state.event) {
+          const open = !!(data && data.open === true && data.event);
+          const full = isFullView(data) && !!state.event && (!!state.addon || state.event.full === true);
+          if ((open || full) && state.event) {
             state.event.freePhotos = computeFree(data.event);
             state.event.extras = parseExtras(data.event);
             state.event.maxPhotos = state.event.freePhotos + (state.event.extras ? state.event.extras.max : 0);
-            state.event.allowRepeat = !!data.event.allowRepeat;
-            state.maxPhotos = state.event.maxPhotos;
+            state.event.allowRepeat = open ? !!data.event.allowRepeat : false;
+            syncMax();
             renderPhotos();
             return true;
           }
@@ -1097,8 +1526,97 @@
           if (Number.isFinite(np) && np > 0) ev.extras.price = pence(np) / 100;
         }
         ev.maxPhotos = ev.freePhotos + (ev.extras ? ev.extras.max : 0);
-        state.maxPhotos = ev.maxPhotos;
+        syncMax();
         renderPhotos();
+      }
+
+      // Add-on mode: re-read the event and the ticket's add-on allowance (price, how many
+      // more) after the server refused the add-on. -> the addOn info | null
+      async function refreshAddon() {
+        const a = state.addon;
+        if (!a) return null;
+        await refreshEventMeta();
+        const st = await statusRequest(a.rootId);
+        if (state.addon !== a) return null;
+        const info = st.data && !st.status ? parseAddOn(st.data) : null;
+        if (info) {
+          if (info.price != null) a.price = info.price;
+          a.bought = info.bought;
+          a.remaining = info.available ? info.remaining : 0;
+          a.blocked = info.available ? (info.remaining > 0 ? null : 'limit') : (info.reason === 'closed' ? 'closed' : (info.reason === 'limit' ? 'limit' : 'extrasOff'));
+        } else if (state.event && !state.event.extras) {
+          a.remaining = 0;          // the event re-read says extras are off
+          a.blocked = 'extrasOff';
+        }
+        syncMax();
+        renderPhotos();
+        return info;
+      }
+
+      // guest-order refused an add-on: say why, take the server's numbers and let the guest
+      // decide (the next tap works it all out again).
+      async function addonOrderRefused(r) {
+        const a = state.addon;
+        const d = r.data || {};
+        const morePhotos = (k) => k + ' ' + plural(k, 'photo', 'photos');
+        const tail = () => {
+          const n = state.photos.length;
+          return n > a.remaining
+            ? '. Please remove ' + morePhotos(n - a.remaining) + ' to continue.'
+            : ' – tap again to continue.';
+        };
+        if (r.status === 409 && d.addonBusy) {
+          // Another add-on for this ticket (another tab / phone) is being paid: nothing was
+          // sent; the same tap works again once that one is finished or cancelled.
+          showStatus('warn', addonBusyText(d.error, a.number));
+          return;
+        }
+        if (r.status === 409 && d.addonLimit) {
+          const rem = Number(d.remaining);
+          a.remaining = Number.isInteger(rem) && rem > 0 ? rem : 0;
+          a.blocked = a.remaining > 0 ? null : 'limit';
+          syncMax();
+          renderPhotos();
+          if (a.remaining === 0) {
+            showStatus('error', d.error || 'You’ve already added the most extra magnets allowed for this event.');
+          } else {
+            showStatus('warn', 'You can add ' + a.remaining + ' more ' + plural(a.remaining, 'magnet', 'magnets') +
+              ' to ticket #' + a.number + tail());
+          }
+          return;
+        }
+        if (r.status === 409 && (d.priceChanged || d.limitsChanged)) {
+          if (d.priceChanged) {
+            const np = Number(d.price);
+            if (Number.isFinite(np) && np > 0) a.price = pence(np) / 100;
+          }
+          renderPhotos();
+          await refreshAddon();
+          if (state.addon !== a) return;
+          if (a.blocked) { showStatus('error', a.blocked === 'limit' ? 'You’ve already added the most extra magnets allowed for this event.' : addonBlockedText()); return; }
+          const head = d.priceChanged
+            ? 'The price for extra magnets is now ' + money(a.price)
+            : 'You can now add up to ' + a.remaining + ' more ' + plural(a.remaining, 'magnet', 'magnets') + ' to ticket #' + a.number;
+          showStatus('warn', head + tail());
+          return;
+        }
+        if (d.reason === 'extrasOff' || d.reason === 'closed' || d.extrasOff === true) {
+          a.blocked = d.reason === 'closed' ? 'closed' : 'extrasOff';
+          a.remaining = 0;
+          syncMax();
+          renderPhotos();
+          const err = d.error;
+          await refreshAddon();
+          if (state.addon !== a) return;
+          if (a.blocked) showStatus('error', err || addonBlockedText());
+          else showStatus('warn', 'Extra magnets are available again – tap again to continue.');
+          return;
+        }
+        let text;
+        if (r.network) text = orderErrorText(r);
+        else if (r.status === 503) text = orderErrorText(r);
+        else text = r.error || 'Something went wrong – please try again.';
+        showStatus(r.network ? 'warn' : 'error', text);
       }
 
       // What changed, in the page's (now updated) numbers, and what to do next.
@@ -1372,12 +1890,18 @@
       // the set is locked: finalize must print exactly what was sent, so edits could only
       // cause confusion.
       function photosLocked() { return !!(state.pending && state.pending.finalizing); }
-      function lockedNotice() { notice('Your photos are already uploaded – tap Retry to get your number.'); }
+      function lockedNotice() {
+        notice(state.addon
+          ? 'Your photos are already uploaded – tap Retry to carry on.'
+          : 'Your photos are already uploaded – tap Retry to get your number.');
+      }
 
       function renderPhotos() {
         const grid = $('photo-grid');
         grid.textContent = '';
+        const addon = state.addon;
         const extras = state.event && state.event.extras ? state.event.extras : null;
+        const price = extraPrice();
         const free = freeCount();
         const locked = photosLocked();
         state.photos.forEach((p, i) => {
@@ -1409,10 +1933,10 @@
             rm.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); removePhoto(p.id); });
             tile.appendChild(rm);
           }
-          if (extras && i >= free) {
+          if ((addon || extras) && price != null && i >= free) {
             const tag = document.createElement('span');
             tag.className = 'tile-extra';
-            tag.textContent = 'Extra · ' + money(extras.price);
+            tag.textContent = 'Extra · ' + money(price);
             tile.appendChild(tag);
           }
           grid.appendChild(tile);
@@ -1423,19 +1947,27 @@
         const extraN = extrasIn(n);
         const freeMax = Math.min(free, max);
         grid.classList.toggle('hidden', n === 0);
-        $('photo-counter').textContent = extras
-          ? Math.min(n, free) + ' of ' + free + ' free' + (extraN > 0 ? ' · ' + extraN + ' extra' : '')
-          : n + ' of ' + max;
-        // The main box only fills the free photos; extras are always a separate, deliberate choice.
-        $('add-wrap').classList.toggle('hidden', n >= freeMax || locked);
-        $('add-label').textContent = n === 0 ? (freeMax === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
-
         const upsell = $('extras-card');
-        upsell.classList.toggle('hidden', !(extras && !locked && n >= free && n < max));
-        if (extras) {
-          $('extras-text').textContent = extraN === 0
-            ? 'Add up to ' + extras.max + ' extra for ' + money(extras.price) + ' each'
-            : 'You can add ' + Math.max(0, max - n) + ' more for ' + money(extras.price) + ' each';
+        if (addon) {
+          // Every photo is an extra for the ticket: the main box adds them, no upsell card
+          $('photo-counter').textContent = n + ' of ' + max;
+          $('add-wrap').classList.toggle('hidden', n >= max || locked);
+          $('add-label').textContent = n === 0 ? (max === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
+          upsell.classList.add('hidden');
+        } else {
+          $('photo-counter').textContent = extras
+            ? Math.min(n, free) + ' of ' + free + ' free' + (extraN > 0 ? ' · ' + extraN + ' extra' : '')
+            : n + ' of ' + max;
+          // The main box only fills the free photos; extras are always a separate, deliberate choice.
+          $('add-wrap').classList.toggle('hidden', n >= freeMax || locked);
+          $('add-label').textContent = n === 0 ? (freeMax === 1 ? 'Add a photo' : 'Add photos') : 'Add more photos';
+
+          upsell.classList.toggle('hidden', !(extras && !locked && n >= free && n < max));
+          if (extras) {
+            $('extras-text').textContent = extraN === 0
+              ? 'Add up to ' + extras.max + ' extra for ' + money(extras.price) + ' each'
+              : 'You can add ' + Math.max(0, max - n) + ' more for ' + money(extras.price) + ' each';
+          }
         }
 
         const hint = $('photo-hint');
@@ -1443,6 +1975,14 @@
           hint.textContent = state.pending && state.pending.extrasCount > 0
             ? 'Your photos are uploaded – tap Retry to carry on.'
             : 'Your photos are uploaded – just tap Retry to get your number.';
+        } else if (addon) {
+          if (max === 0) hint.textContent = addonBlockedText();
+          else if (n > max) {
+            hint.textContent = 'You can add up to ' + max + ' more ' + plural(max, 'magnet', 'magnets') +
+              ' to this ticket – please remove ' + (n - max) + '.';
+          } else if (n === 0) hint.textContent = 'Each photo becomes an extra magnet (' + money(price) + ' each).';
+          else if (n >= max) hint.textContent = 'That’s the maximum. Tap a photo to re-crop it, or ✕ to remove it.';
+          else hint.textContent = 'Tap a photo to re-crop it, or ✕ to remove it.';
         } else if (n > max) {
           hint.textContent = 'This event allows up to ' + max + ' ' + plural(max, 'photo', 'photos') +
             ' – please remove ' + (n - max) + '.';
@@ -1462,6 +2002,7 @@
           hint.textContent = 'Tap a photo to re-crop it, or ✕ to remove it.';
         }
         updateSubmit();
+        syncFormOffers();
       }
 
       function updateSubmit() {
@@ -1469,12 +2010,20 @@
         const n = state.photos.length;
         const extraN = extrasIn(n);
         btn.disabled = state.busy || state.cropping || n === 0 || n > state.maxPhotos;
-        $('pay-note').classList.toggle('hidden', !(extraN > 0));
+        const note = $('pay-note');
+        note.classList.toggle('hidden', !(extraN > 0));
+        note.textContent = state.addon
+          ? 'You’ll pay securely by card with Stripe, then they’re added to ticket #' + state.addon.number
+          : 'You’ll pay securely by card with Stripe, then get your number';
         if (state.busy) return;   // label is driven by the upload flow
         if (n === 0) { btn.textContent = 'Add a photo to continue'; return; }
         if (state.pending && state.pending.sig === photoSig()) {
           const left = state.photos.filter((p) => !state.pending.keys[p.id]).length;
           btn.textContent = left > 0 ? 'Retry (' + left + ' ' + plural(left, 'photo', 'photos') + ' left)' : 'Retry';
+          return;
+        }
+        if (state.addon) {
+          btn.textContent = 'Pay ' + money(extrasTotal(n, state.addon.price)) + ' & add to ticket #' + state.addon.number;
           return;
         }
         if (extraN > 0) {
@@ -1487,7 +2036,7 @@
       function setBusy(on) {
         state.busy = on;
         document.body.classList.toggle('is-busy', on);
-        if (on) $('submit-btn').disabled = true;
+        if (on) { $('submit-btn').disabled = true; syncFormOffers(); }
         else renderPhotos();
       }
 
@@ -1531,6 +2080,21 @@
         let files = all.filter(looksLikeImage);
         if (files.length < all.length) notice('Only photos can be added.');
         if (!files.length) return;
+
+        if (state.addon) {
+          // Add-on mode: every photo is a paid extra for the ticket, up to what's left
+          const a = state.addon;
+          const max = state.maxPhotos;
+          const room = max - state.photos.length;
+          const upTo = 'You can add up to ' + max + ' more ' + plural(max, 'magnet', 'magnets') + ' to ticket #' + a.number;
+          if (room <= 0) { notice(max === 0 ? addonBlockedText() : upTo + '.'); return; }
+          if (files.length > room) {
+            notice(upTo + ' – we’ve added the first ' + room + '.');
+            files = files.slice(0, room);
+          }
+          await cropNewFiles(files, max);
+          return;
+        }
 
         const hasExtras = !!state.event.extras;
         const free = freeCount();
@@ -2058,9 +2622,12 @@
       // expectedExtras: how many paid extras the guest was shown (always sent);
       // expectedPrice: the extra-magnet price they were shown (only with extras).
       // data carries the server's snapshot { freeCount, extrasCount, extraPrice, extrasTotal }.
-      async function createOrder(count, expectedExtras, expectedPrice) {
+      // addonTo (add-on mode): the ticket's ROOT order id - every photo is a paid extra
+      // (expectedExtras = count) and data also carries { addonTo, number }.
+      async function createOrder(count, expectedExtras, expectedPrice, addonTo) {
         const body = { t: state.token, count: count, expectedExtras: expectedExtras };
         if (expectedPrice != null) body.expectedPrice = expectedPrice;
+        if (addonTo) body.addonTo = addonTo;
         let last = { network: true };
         for (let a = 1; a <= 3; a++) {
           try {
@@ -2101,8 +2668,10 @@
       }
 
       // POST /api/guest-finalize (idempotent)
-      // -> { number, data } | { status, error, data } | { network: true }
+      // -> { number, data } | { cancelled: true, data } | { status, error, data } | { network: true }
       // 402 = extras not paid yet; 409 may carry { full, paid }, { refunded } or { alreadyPaid }.
+      // cancelled: an add-on the guest chose not to add (skipExtras) - data.number is the
+      // ticket's number, but nothing was added to it (so it is NOT returned as "number").
       // No keys (an upload rebuilt from ?ref=): the server uses the photo list it holds.
       async function finalizeWithRetry(orderId, keys, opts) {
         const body = { t: state.token, orderId: orderId };
@@ -2112,6 +2681,7 @@
         for (let a = 1; a <= UPLOAD_ATTEMPTS; a++) {
           try {
             const r = await postJSON('/api/guest-finalize', body, 30000);
+            if (r.res.ok && r.data && r.data.cancelled === true) return { cancelled: true, status: r.res.status, data: r.data };
             const num = r.data ? Number(r.data.number) : NaN;
             if (r.res.ok && r.data && r.data.number != null && Number.isInteger(num)) return { number: num, data: r.data };
             const s = r.res.status;
@@ -2213,7 +2783,8 @@
       // also sends the reference back in the return address - see resumeFromRef.)
       async function showRefBeforeRedirect(entry, ctx) {
         const text = 'Your reference: ' + String(entry.orderId).slice(0, 8) + ' – keep this screen. ' +
-          'This phone couldn’t save your upload, so if you don’t see your number after paying, ' +
+          'This phone couldn’t save your upload, so if ' +
+          (entry.addon ? 'your extra magnets don’t show as added' : 'you don’t see your number') + ' after paying, ' +
           'show this reference to the Magnetic Memories team. Opening secure payment…';
         if (ctx === 'form') showStatus('warn', text); else payStatus('warn', text);
         await sleep(REF_NOTICE_MS);
@@ -2234,9 +2805,11 @@
         if (r.paid) {
           if (entry.skipped) { entry.skipped = false; savePendingEntry(eventId, entry); }
           state.payOrigin = 'paid';
-          if (ctx === 'form') setButton('Getting your number…'); else payStatus('info', 'Getting your number…');
+          const wait = entry.addon ? 'Adding your magnets…' : 'Getting your number…';
+          if (ctx === 'form') setButton(wait); else payStatus('info', wait);
           const fin = await finalizeEntry(entry, eventId);
-          if (fin.number != null) { onSuccess(fin.number, false, paidExtrasOf(entry, fin), entry.orderId); return; }
+          if (fin.cancelled) { addonCancelled(entry, fin); return; }
+          if (fin.number != null) { finished(entry, fin, false); return; }
           extrasOutcome(fin, entry, { form: ctx === 'form', unpaidKind: 'unpaid' });
           return;
         }
@@ -2245,7 +2818,16 @@
         if (isFullPaid(r)) { showPayPanel('refund', entry, r.error); return; }
         if (isRefunded(r)) { refundedOrder(entry, r.error); return; }
         if (r.status === 409 && d.extrasOff) { showPayPanel('extrasOff', entry, r.error); return; }
-        if (r.status === 409 && d.full) { showPayPanel('full', entry, r.error); return; }
+        if (entry.addon && r.status === 409) {
+          // Add-on refused before any money was taken
+          if (d.cancelled) { addonCancelled(entry, r); return; }   // "don't add them" was chosen (elsewhere)
+          // another add-on for this ticket is being paid (no checkout was opened for this one)
+          if (d.addonBusy) { showPayPanel('addonBusy', entry, r.error); return; }
+          if (d.addonLimit) { showPayPanel('addonLimit', entry, r.error, null, { remaining: d.remaining }); return; }
+          if (d.addon && !d.complete) { showPayPanel('rootGone', entry, r.error); return; }
+        }
+        // (an add-on never needs a free number: the server doesn't refuse it for "full")
+        if (r.status === 409 && d.full) { showPayPanel(entry.addon ? 'payError' : 'full', entry, r.error); return; }
         if (r.status === 503) { showPayPanel('noPay', entry, r.error); return; }
         if (r.status === 502) {
           // Stripe couldn't be reached: nothing was charged, the same button tries again
@@ -2266,21 +2848,30 @@
         }
         // Anything else (e.g. the upload was finished meanwhile): ask the order itself.
         const fin = await finalizeEntry(entry, eventId);
-        if (fin.number != null) { onSuccess(fin.number, false, paidExtrasOf(entry, fin), entry.orderId); return; }
+        if (fin.cancelled || isCancelledAddon(fin, entry)) { addonCancelled(entry, fin); return; }
+        if (fin.number != null) { finished(entry, fin, false); return; }
         if (isDeadOrder(fin)) { deadOrder(entry); return; }
         if (isRefunded(fin)) { refundedOrder(entry, fin.error); return; }
         if (isFullPaid(fin)) { showPayPanel('refund', entry, fin.error); return; }
+        // An add-on paid for that can't be added (e.g. paid after it was cancelled): refund
+        if (entry.addon && fin.status === 409) { showPayPanel('refund', entry, fin.error); return; }
         showPayPanel('payError', entry, r.error);
       }
 
       // A finalize answer (for an upload with extras) that didn't give a number.
       function extrasOutcome(r, entry, opts) {
         opts = opts || {};
+        if (r.cancelled) { addonCancelled(entry, r); return; }
+        // An add-on cancelled elsewhere, and the guest isn't waiting for a payment to land
+        // (after paying, "unpaid" keeps Check again: a late payment still adds them)
+        if (isCancelledAddon(r, entry) && opts.unpaidKind !== 'unpaid') { addonCancelled(entry, r); return; }
         if (isDeadOrder(r)) { deadOrder(entry); return; }
         if (r.status === 402) { showPayPanel(opts.unpaidKind || 'unpaid', entry, null, opts.unpaidStatus || null); return; }
         if (isRefunded(r)) { refundedOrder(entry, r.error); return; }
         if (isFullPaid(r)) { showPayPanel('refund', entry, r.error); return; }
-        if (r.status === 409) { showPayPanel('full', entry, r.error); return; }
+        // An add-on paid for but that can't join its ticket ({ orphan }: the ticket is gone;
+        // { refund }: the payment arrived after it was cancelled): the team refunds it
+        if (r.status === 409) { showPayPanel(entry.addon ? 'refund' : 'full', entry, r.error); return; }
         const text = r.status === 503
           ? 'Guest uploads are not set up yet. Please ask a member of the Magnetic Memories team.'
           : 'We couldn’t reach the server – please check your signal and try again.';
@@ -2303,6 +2894,44 @@
         showPayPanel('refunded', entry, err);
       }
 
+      // An add-on the guest chose not to add ("Don't add them" / back out after uploading):
+      // the server cancelled it and nothing was charged. Back to the ticket screen.
+      // { mayStillPay: true }: the card company couldn't confirm that no checkout for it can
+      // still be paid - never "nothing was charged" then; the entry is kept (marked "don't
+      // add them") so the next load asks again and finishes the clean-up.
+      function addonCancelled(entry, r) {
+        const eventId = curEventId();
+        const unsure = !!(r && r.data && r.data.mayStillPay === true);
+        if (entry && entry.orderId) {
+          if (!unsure) clearPending(eventId, entry.orderId);
+          else {
+            const stored = readPending(eventId);
+            if (!stored || stored.orderId === entry.orderId) {   // never replaces another upload
+              entry.skipped = true;
+              savePendingEntry(eventId, entry);
+            }
+          }
+        }
+        const fromServer = r && r.data ? Number(r.data.number) : NaN;
+        const number = r && r.data && r.data.number != null && Number.isInteger(fromServer) ? fromServer
+          : (entry && entry.number != null ? entry.number : null);
+        resetFinished();
+        if (number == null) {
+          // (a reload would ask the same again) - "Check again" repeats the cancel
+          if (unsure) { showPayPanel('cancelUnsure', entry); return; }
+          loadEvent();
+          return;
+        }
+        saveLock(eventId, number, entry && entry.addonTo, true);   // it is this phone's ticket
+        showTicket(number, unsure ? {
+          title: 'Extra magnets cancelled',
+          note: 'We couldn’t confirm with the card company – if you already paid, your magnets will still be added to ticket #' + number + '.'
+        } : {
+          title: 'Extra magnets not added',
+          note: 'Nothing was charged – your ticket is just as it was.'
+        });
+      }
+
       function payStatus(kind, text) {
         const el = $('pay-status');
         el.classList.remove('error', 'warn', 'info', 'hidden');
@@ -2320,9 +2949,11 @@
       }
 
       // The pay screen. kind: resume | cancelled | unpaid | offline | extrasOff | full |
-      // noPay | payError | refund | refunded | dead. err = the server's message where one applies.
+      // noPay | payError | refund | refunded | dead (+ for add-ons: addonLimit | rootGone |
+      // addonBusy | cancelUnsure).
+      // err = the server's message where one applies; info = { remaining } for addonLimit.
       // All amounts / counts come from the entry = the server's snapshot of the order.
-      function showPayPanel(kind, entry, err, status) {
+      function showPayPanel(kind, entry, err, status, info) {
         state.payEntry = entry;
         const ev = state.event || { name: '' };
         const n = photoCountOf(entry);
@@ -2335,7 +2966,105 @@
         const payText = photosText + ' Pay ' + (total > 0 ? money(total) : '') + ' for your ' + extraText +
           ' to get your number – or send just ' + freeText + '.';
         let icon = 'card', title = '', text = '', alert = '', buttons = [];
-        switch (kind) {
+        if (entry.addon) {
+          // Add-on: every photo is paid; the alternative is not adding them at all
+          const addonExtra = n + ' extra ' + plural(n, 'magnet', 'magnets');
+          const ticket = entry.number != null ? 'ticket #' + entry.number : 'your ticket';
+          const payFor = 'Pay ' + (total > 0 ? money(total) + ' ' : '') + 'to add your ' + addonExtra + ' to ' + ticket;
+          switch (kind) {
+            case 'cancelled':
+              title = 'Payment cancelled – your photos are uploaded';
+              text = payFor + ', or don’t add them – nothing has been charged.';
+              buttons = ['pay', 'free'];
+              break;
+            case 'unpaid':
+              icon = 'clock';
+              title = 'We haven’t received your payment yet';
+              text = 'If you’ve just paid, it can take a moment to reach us – tap Check again. If you didn’t pay, you can choose not to add them.';
+              buttons = ['check', 'free'];
+              break;
+            case 'offline':
+              icon = 'wifi';
+              title = 'We couldn’t reach the server';
+              text = photosText + ' Please check your signal and tap Check again.';
+              buttons = ['check', 'free'];
+              break;
+            case 'extrasOff':
+            case 'full':
+              icon = 'alert';
+              title = 'Extra magnets aren’t available any more';
+              text = (err || 'Extra magnets are no longer available for this event.') +
+                ' You haven’t been charged – ' + ticket + ' stays as it is.';
+              buttons = ['free'];
+              break;
+            case 'addonLimit': {
+              // e.g. more magnets were added to the ticket from another tab meanwhile
+              const rem = info && Number.isInteger(Number(info.remaining)) ? Number(info.remaining) : 0;
+              icon = 'alert';
+              title = 'That’s more magnets than you can add now';
+              text = (err || 'You’ve already added the most extra magnets allowed for this event.') + ' You haven’t been charged' +
+                (rem > 0 ? ' – tap “Don’t add them”, then add up to ' + rem + ' from your ticket.' : '.');
+              buttons = ['free'];
+              break;
+            }
+            case 'addonBusy':
+              // another add-on for the same ticket is being paid (another tab / phone)
+              icon = 'clock';
+              title = 'Another purchase is still in progress';
+              text = addonBusyText(err, entry.number) + ' You haven’t been charged for these – tap Pay to try again once it’s done, or don’t add them.';
+              buttons = ['pay', 'free'];
+              break;
+            case 'cancelUnsure':
+              // "don't add them" went through, but a checkout might still be paid
+              icon = 'clock';
+              title = 'Extra magnets cancelled';
+              text = 'We couldn’t confirm with the card company – if you already paid, your magnets will still be added to ' +
+                ticket + '. Please tap Check again in a moment.';
+              buttons = ['check'];
+              break;
+            case 'rootGone':
+              icon = 'alert';
+              title = 'We can’t add magnets to this ticket';
+              text = (err || 'We couldn’t find your ticket.') + ' You haven’t been charged. Please ask a member of the Magnetic Memories team.';
+              buttons = ['free'];
+              break;
+            case 'noPay':
+              icon = 'alert';
+              title = 'Card payments aren’t available right now';
+              text = (err || 'Payments are not set up.') + ' You can try again, or choose not to add them.';
+              buttons = ['pay', 'free'];
+              break;
+            case 'payError':
+              icon = 'alert';
+              title = 'We couldn’t start the payment';
+              text = (err || 'Something went wrong.') + ' You can try again, or choose not to add them.';
+              buttons = ['pay', 'free'];
+              break;
+            case 'refund':
+              icon = 'alert';
+              title = 'Please show this screen to the Magnetic Memories team';
+              alert = err || 'Sorry – we couldn’t add your extra magnets to your ticket. Please show this screen to the Magnetic Memories team for a refund.';
+              buttons = ['check'];
+              break;
+            case 'refunded':
+              icon = 'card';
+              title = 'Your payment was refunded';
+              alert = err || 'Your payment was refunded. Please speak to the Magnetic Memories team.';
+              text = 'These extra magnets won’t be printed – ' + ticket + ' stays as it was.';
+              buttons = ['restart'];
+              break;
+            case 'dead':
+              icon = 'alert';
+              title = 'Something went wrong';
+              text = 'We couldn’t find your extra photos. If you paid for them, please show this screen to the Magnetic Memories team.';
+              buttons = ['restart'];
+              break;
+            default:   // 'resume'
+              title = 'Finish paying for your extra magnets';
+              text = photosText + ' ' + payFor + ' – or don’t add them.';
+              buttons = ['pay', 'free'];
+          }
+        } else switch (kind) {
           case 'cancelled':
             title = 'Payment cancelled';
             text = payText;
@@ -2413,8 +3142,13 @@
         $('pay-alert').textContent = alert;
         $('pay-alert').classList.toggle('hidden', !alert);
         $('pay-pay-btn').textContent = total > 0 ? 'Pay ' + money(total) : 'Pay for my extra magnets';
-        $('pay-free-btn').textContent = free === 1 ? 'Send just my free photo' : 'Send just my ' + free + ' free photos';
+        $('pay-free-btn').textContent = entry.addon ? 'Don’t add them'
+          : (free === 1 ? 'Send just my free photo' : 'Send just my ' + free + ' free photos');
+        $('pay-restart-btn').textContent = entry.addon ? 'Back to my ticket' : 'Start again';
         Object.keys(PAY_BUTTONS).forEach((k) => $(PAY_BUTTONS[k]).classList.toggle('hidden', buttons.indexOf(k) === -1));
+        $('pay-secure').textContent = entry.addon
+          ? 'You’ll pay securely by card with Stripe.'
+          : 'You’ll pay securely by card with Stripe, then get your number.';
         $('pay-secure').classList.toggle('hidden', buttons.indexOf('pay') === -1);
         $('pay-ref').textContent = 'Reference: ' + String(entry.orderId).slice(0, 8);
         if (status) payStatus(status[0], status[1]); else hidePayStatus();
@@ -2443,7 +3177,8 @@
       $('pay-check-btn').addEventListener('click', () => payAction(async (entry) => {
         payStatus('info', 'Checking…');
         const r = await finalizeEntry(entry, curEventId());
-        if (r.number != null) { onSuccess(r.number, false, paidExtrasOf(entry, r), entry.orderId); return; }
+        if (r.cancelled) { addonCancelled(entry, r); return; }
+        if (r.number != null) { finished(entry, r, false); return; }
         const paid = state.payOrigin === 'paid';
         extrasOutcome(r, entry, {
           unpaidKind: paid ? 'unpaid' : 'resume',
@@ -2451,12 +3186,15 @@
         });
       }));
 
+      // "Send just my free photos" - or, for an add-on, "Don't add them" (cancels it: nothing
+      // is charged and the ticket stays as it was)
       $('pay-free-btn').addEventListener('click', () => payAction(async (entry) => {
         entry.skipped = true;   // remembered, so a lost reply is finished the same way after a reload
         savePendingEntry(curEventId(), entry);
-        payStatus('info', 'Getting your number…');
+        payStatus('info', entry.addon ? 'One moment…' : 'Getting your number…');
         const r = await finalizeEntry(entry, curEventId());
-        if (r.number != null) { onSuccess(r.number, false, paidExtrasOf(entry, r), entry.orderId); return; }
+        if (r.cancelled) { addonCancelled(entry, r); return; }
+        if (r.number != null) { finished(entry, r, false); return; }
         extrasOutcome(r, entry, { unpaidKind: 'unpaid' });
       }));
 
@@ -2472,6 +3210,12 @@
         const total = state.photos.length;
         if (!total) { notice('Add at least one photo first.'); return; }
         if (total > state.maxPhotos) {
+          if (state.addon) {
+            notice(state.maxPhotos === 0 ? addonBlockedText()
+              : 'You can add up to ' + state.maxPhotos + ' more ' + plural(state.maxPhotos, 'magnet', 'magnets') +
+                ' to this ticket – please remove ' + (total - state.maxPhotos) + '.');
+            return;
+          }
           notice('This event allows up to ' + state.maxPhotos + ' ' + plural(state.maxPhotos, 'photo', 'photos') + ' – please remove ' + (total - state.maxPhotos) + '.');
           return;
         }
@@ -2491,8 +3235,20 @@
           if (stored && !(reusing && state.pending.orderId === stored.orderId)) {
             setButton('Checking your earlier photos…');
             const prev = await finalizeEntry(stored, eventId);
-            if (prev.number != null) { onSuccess(prev.number, true, paidExtrasOf(stored, prev), stored.orderId); return; }
-            if (isDeadOrder(prev)) {
+            if (prev.cancelled && prev.data && prev.data.mayStillPay === true) {
+              // An add-on the guest chose not to add, but a payment for it might still land:
+              // keep it (a new upload would replace it) and ask again in a moment.
+              const sn = Number(prev.data.number);
+              const was = stored.number != null ? stored.number : (prev.data.number != null && Number.isInteger(sn) ? sn : null);
+              showStatus('warn', 'We’re still checking your earlier extra magnets with the card company – ' +
+                'if you already paid for them, they’ll still be added to ' +
+                (was != null ? 'ticket #' + was : 'your ticket') + '. Please try again in a moment.');
+              return;
+            }
+            if (prev.cancelled || isCancelledAddon(prev, stored)) {
+              clearPending(eventId, stored.orderId);   // an add-on the guest chose not to add: done with
+            } else if (prev.number != null) { finished(stored, prev, true); return; }
+            else if (isDeadOrder(prev)) {
               clearPending(eventId, stored.orderId);
             } else if (stored.extras && (prev.status === 402 || prev.status === 409)) {
               // Earlier photos still waiting for their extras to be paid (or the event filled up)
@@ -2507,7 +3263,27 @@
           }
 
           // Same photos as a failed attempt -> reuse that order and only send what's missing.
-          if (!reusing) {
+          if (!reusing && state.addon) {
+            // Add-on: a separate order joined to the ticket's ROOT order; every photo paid
+            state.pending = null;
+            setButton('Starting…');
+            const a = state.addon;
+            const r = await createOrder(total, total, a.price, a.rootId);
+            if (!r.orderId) { await addonOrderRefused(r); return; }
+            const d = r.data || {};
+            const xc = Number(d.extrasCount), tot = Number(d.extrasTotal), xp = Number(d.extraPrice);
+            const count = Number.isInteger(xc) && xc >= 1 ? xc : total;
+            const sum = d.extrasTotal != null && Number.isFinite(tot) && tot >= 0 ? pence(tot) / 100
+              : extrasTotal(count, Number.isFinite(xp) && xp > 0 ? xp : a.price);
+            const num = Number(d.number);
+            if (d.number != null && Number.isInteger(num) && num >= 0) a.number = num;   // the server's word
+            const to = String(d.addonTo || '');
+            state.pending = {
+              orderId: r.orderId, sig: sig, keys: {}, complete: false,
+              freeCount: 0, extrasCount: count, total: sum,
+              addonTo: UUID_RE.test(to) ? to.toLowerCase() : a.rootId, number: a.number
+            };
+          } else if (!reusing) {
             state.pending = null;
             setButton('Starting…');
             const extraN = extrasIn(total);
@@ -2550,7 +3326,7 @@
             if (p.complete) break;
             if (p.keys[ph.id]) continue;
             setButton('Uploading ' + (i + 1) + ' of ' + total + '…');
-            const up = await uploadWithRetry(p.orderId, ph.blob, 'Guest-' + (i + 1) + '.jpg');
+            const up = await uploadWithRetry(p.orderId, ph.blob, (p.addonTo ? 'Extra-' : 'Guest-') + (i + 1) + '.jpg');
             if (up.key) p.keys[ph.id] = up.key;
             else if (up.complete) p.complete = true;
             else failed++;
@@ -2568,12 +3344,11 @@
           const keys = state.photos.map((ph) => p.keys[ph.id]).filter(Boolean);
           p.finalizing = true;                     // photo set is now locked (see photosLocked)
 
-          if (p.extrasCount > 0 && !p.complete) {
+          // An add-on always goes this way (even if it turned out finished meanwhile:
+          // guest-pay then says so and the order itself is asked).
+          if (p.addonTo || (p.extrasCount > 0 && !p.complete)) {
             // Paid extras: remember the upload BEFORE going to Stripe, then pay.
-            const entry = {
-              orderId: p.orderId, keys: keys, extras: true,
-              freeCount: p.freeCount, extrasCount: p.extrasCount, total: p.total, skipped: false
-            };
+            const entry = pendingToEntry(p, keys);
             savePendingEntry(eventId, entry);
             setButton('Opening secure payment…');
             await startPayment(entry, 'form');
@@ -2610,44 +3385,70 @@
       // resumed: the number belongs to photos sent before (reload / lost reply), not the
       // ones on screen now (if any - those are dropped, the earlier ones are what we print).
       // paidExtras: how many of the magnets are paid extras (0 = none).
-      // orderId: the upload that got the number (its stored entry is cleared, no other).
-      function onSuccess(number, resumed, paidExtras, orderId) {
+      // orderId: the upload that got the number (its stored entry is cleared, no other) -
+      // a ROOT upload, so it is also stored as this number's receipt (add-ons: onAddonSuccess).
+      // known: guest-status answers already in hand ({ [orderId]: data }) for the add-on offer.
+      function onSuccess(number, resumed, paidExtras, orderId, known) {
         const ev = state.event || { id: '', name: '', allowRepeat: false };
-        const earlier = readLock(ev.id).filter((n) => n !== number);   // never list it twice
-        saveLock(ev.id, number);
+        saveLock(ev.id, number, orderId, false);
         clearPending(ev.id, orderId);
+        resetFinished();
+        showTicket(number, { resumed: resumed, paidExtras: paidExtras, known: known || null });
+      }
+
+      // An add-on joined its ticket: the SAME number, with k more magnets. The receipt is
+      // never replaced (only filled in with the root when this phone had none).
+      function onAddonSuccess(number, entry, r) {
+        const ev = state.event || { id: '', name: '', allowRepeat: false };
+        const d = (r && r.data) || {};
+        const rootTo = String(d.addonTo || '');
+        const rootId = UUID_RE.test(rootTo) ? rootTo : (entry && entry.addonTo) || '';
+        const k = paidExtrasOf(entry, r) || (entry && entry.extrasCount) || 0;
+        saveLock(ev.id, number, rootId, true);
+        if (entry && entry.orderId) clearPending(ev.id, entry.orderId);
+        resetFinished();
+        showTicket(number, {
+          title: k > 0
+            ? 'Done! ' + k + ' more ' + plural(k, 'magnet', 'magnets') + ' added to ticket #' + number
+            : 'Done! Your extra magnets were added to ticket #' + number
+        });
+      }
+
+      // A finalize answer with a number, for a stored entry (root or add-on)
+      function finished(entry, r, resumed) {
+        if ((entry && entry.addon) || (r && r.data && r.data.addon === true)) { onAddonSuccess(r.number, entry, r); return; }
+        onSuccess(r.number, resumed, paidExtrasOf(entry, r), entry ? entry.orderId : '');
+      }
+
+      // An upload is finished (number shown / add-on done or cancelled): forget its state
+      function resetFinished() {
         state.pending = null;
         state.payEntry = null;
         state.redirectEntry = null;
         state.payOrigin = 'resume';
+        state.addon = null;
         clearPhotos();
+      }
 
-        $('success-event').textContent = ev.name || '';
-        renderTicketNums($('success-nums'), [number]);
-        $('success-text').textContent = tableText([number]);
-        $('success-resumed').classList.toggle('hidden', !resumed);
-
-        const x = Number(paidExtras) || 0;
-        const extrasEl = $('success-extras');
-        extrasEl.textContent = x > 0 ? 'Including ' + x + ' paid extra ' + plural(x, 'magnet', 'magnets') + ' – thank you!' : '';
-        extrasEl.classList.toggle('hidden', !(x > 0));
-
-        const earlierEl = $('success-earlier');
-        if (earlier.length) {
-          earlierEl.textContent = (earlier.length === 1 ? 'Your earlier number: ' : 'Your earlier numbers: ') + formatNums(earlier);
-          earlierEl.classList.remove('hidden');
-        } else {
-          earlierEl.textContent = '';
-          earlierEl.classList.add('hidden');
+      // The in-page upload (state.pending) as a stored entry, once every photo is up
+      function pendingToEntry(p, keys) {
+        const entry = {
+          orderId: p.orderId, keys: keys, extras: true,
+          freeCount: p.freeCount, extrasCount: p.extrasCount, total: p.total, skipped: false
+        };
+        if (p.addonTo) {
+          entry.addon = true;
+          entry.addonTo = p.addonTo;
+          entry.number = p.number != null ? p.number : null;
         }
-        $('again-btn').classList.toggle('hidden', !ev.allowRepeat);
-        showView('view-success');
+        return entry;
       }
 
       // ── Wire up ───────────────────────────────────────────────────
       $('submit-btn').addEventListener('click', submit);
       $('msg-retry').addEventListener('click', loadEvent);
       $('again-btn').addEventListener('click', loadEvent);
+      $('addon-back').addEventListener('click', (e) => { if (e && e.preventDefault) e.preventDefault(); backFromAddon(); });
 
       // Warn before leaving mid-upload, or with photos added but not sent yet
       // (but not on the way to the payment page).

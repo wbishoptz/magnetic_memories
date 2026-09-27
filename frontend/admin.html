@@ -51,6 +51,10 @@
       .status-pill.draft { background: rgba(148, 163, 184, 0.2); color: #9ca3af; }
       .status-pill.abandoned { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
       .status-pill.error { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
+      .status-pill.cancelled { background: rgba(148, 163, 184, 0.15); color: #9ca3af; }
+      .addon-mark { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; color: #fcd34d; }
+      .addon-note { padding: 8px 12px; border: 1px solid rgba(252,211,77,0.4); background: rgba(252,211,77,0.06); border-radius: 8px; margin-bottom: 8px; color: #fde68a; font-size: 13px; word-break: normal; }
+      .addon-note a { color: #fde68a; text-decoration: underline; }
       .email-sent-badge { font-size: 10px; margin-left: 6px; color: #66d19e; border: 1px solid #66d19e; padding: 1px 5px; border-radius: 4px; }
       .empty-state { padding: 40px 16px; text-align: center; color: #9ca3af; font-size: 13px; }
       .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 16px; }
@@ -407,6 +411,47 @@
       // guest upload whose payment was refunded (extrasRefunded) can never get a number, so
       // it never prints; a numbered ticket keeps its number and photos after a refund.
       function isCompleteEventOrder(o) { return o.raffleNumber != null; }
+      // ➕ ADD-ON: extra magnets a guest bought LATER for a ticket they already have (same
+      // phone). It is its own order, linked to the ticket's first upload (the "root") by
+      // addonTo. Once paid it carries the ROOT's number, so it prints like any other complete
+      // event order - in capture order, labelled with that number - but it is not a ticket:
+      // the ticket COUNTS leave add-ons out.
+      function isAddonOrder(o) { return !!(o && o.addonTo); }
+      // The guest chose "Don't add them" after cancelling the payment: nothing charged, nothing prints
+      function isCancelledAddon(o) {
+        return isAddonOrder(o) && !isCompleteEventOrder(o) && (o.status === 'cancelled' || o.extrasSkipped === true);
+      }
+      // The ticket (root order) an add-on belongs to, from the order list - null if not listed
+      function addonRootOf(o) {
+        return isAddonOrder(o) ? orders.find(x => x && x.orderId === o.addonTo) || null : null;
+      }
+      // The ticket number an add-on joins: its own once complete (= the root's), else the root's,
+      // else the snapshot the server saved when it was started (addonNumber)
+      function addonTicketNumber(o) {
+        if (!o) return null;
+        if (o.raffleNumber != null) return o.raffleNumber;
+        const r = addonRootOf(o);
+        if (r && r.raffleNumber != null) return r.raffleNumber;
+        const snap = Number(o.addonNumber);
+        return o.addonNumber != null && o.addonNumber !== '' && Number.isSafeInteger(snap) ? snap : null;
+      }
+      // "#5", or "#?" while the ticket isn't in the order list (plain text - escape it)
+      function addonTicketText(o) {
+        const n = addonTicketNumber(o);
+        return `#${n != null ? n : '?'}`;
+      }
+      // "#5, #7" for a list of add-ons (each number once, at most `max` shown) - plain text
+      function addonTicketList(list, max = 8) {
+        const nums = [...new Set(list.map(addonTicketText))];
+        return nums.slice(0, max).join(', ') + (nums.length > max ? ` +${nums.length - max} more` : '');
+      }
+      // A root ticket's add-ons in the order list (every state), in capture order
+      function addonsOf(rootId) {
+        return orders.filter(o => isAddonOrder(o) && o.addonTo === rootId && o.orderId !== rootId)
+          .sort((a, b) => (captureTime(a) - captureTime(b)) || String(a.orderId).localeCompare(String(b.orderId)));
+      }
+      // Complete TICKETS only (add-ons left out) - for the ticket counts, never for printing
+      function completeEventTickets(id) { return completeEventOrders(id).filter(o => !isAddonOrder(o)); }
       // Capture order: when a guest upload was completed, else when the staff order was created.
       function captureTime(o) {
         const t = new Date(o.completedAt || o.createdAt || 0).getTime();
@@ -453,16 +498,22 @@
       }
       // Unfinished guest uploads. Older than 2h = almost certainly abandoned. Guests owed a
       // refund, refunded ones and ones just given a number here are listed apart - never
-      // counted as "in progress" or "abandoned".
+      // counted as "in progress" or "abandoned". So are add-ons the guest cancelled
+      // ("Don't add them": nothing charged). `recent` holds tickets AND add-ons in progress
+      // (tell them apart with isAddonOrder); `stale` counts abandoned ticket uploads only,
+      // abandoned add-ons are in `staleAddons`.
       const GUEST_STALE_MS = 2 * 60 * 60 * 1000;
       function unfinishedGuestOrders(id) {
         const cutoff = Date.now() - GUEST_STALE_MS;
         const all = orders.filter(o => o.eventId === id && o.source === 'guest' && !isCompleteEventOrder(o) && !o.resolvedHere);
         const refunded = all.filter(o => o.extrasRefunded === true && !needsRefund(o));
         const refund = all.filter(needsRefund);
-        const open = all.filter(o => o.extrasRefunded !== true && !needsRefund(o));
+        const cancelled = all.filter(o => o.extrasRefunded !== true && !needsRefund(o) && isCancelledAddon(o));
+        const open = all.filter(o => o.extrasRefunded !== true && !needsRefund(o) && !isCancelledAddon(o));
         const recent = open.filter(o => new Date(o.createdAt || 0).getTime() >= cutoff);
-        return { recent, stale: open.length - recent.length, refund, refunded };
+        const staleAll = open.filter(o => new Date(o.createdAt || 0).getTime() < cutoff);
+        const staleAddons = staleAll.filter(isAddonOrder);
+        return { recent, stale: staleAll.length - staleAddons.length, staleAddons, refund, refunded, cancelled };
       }
       // Refund decisions made on this page (orderId -> { action, number, at }). The order
       // list is eventually consistent (KV), so for a few minutes a stale copy can still show
@@ -481,8 +532,9 @@
         return o;
       }
 
+      // Tickets uploaded (add-ons are extra magnets for a ticket, not tickets)
       function eventOrderCount(id) {
-        return completeEventOrders(id).length;
+        return completeEventTickets(id).length;
       }
 
       function renderEventManager() {
@@ -505,12 +557,13 @@
               + (effectiveOverlayMode(e) !== 'off' ? ` <span class="tag" style="color:#d8b4fe; border-color:rgba(168,85,247,0.4);" title="Photo designs (overlays) are on">🎨</span>` : '')
               + (extrasAllowed(e) ? ` <span class="tag" style="color:#fcd34d; border-color:rgba(252,211,77,0.4);" title="Guests can buy extra magnets">💳</span>` : '');
             const unfinished = unfinishedGuestOrders(e.id);
-            const pending = unfinished.recent.length;
+            const pending = unfinished.recent.filter(o => !isAddonOrder(o)).length; // tickets on their way
+            const adding = unfinished.recent.length - pending;                      // ➕ add-ons on their way
             const owed = unfinished.refund.length; // paid but no number: waiting for an admin decision
             html += `<tr class="${sel}" data-event-id="${escHtml(e.id)}">
               <td style="font-weight:700;">${escHtml(e.name)}</td>
               <td style="font-family:monospace;">${e.rangeStart}–${e.rangeEnd}</td>
-              <td>${eventOrderCount(e.id)}${pending ? ` <span style="color:#9ca3af; font-size:11px;">(+${pending} uploading)</span>` : ''}${owed ? ` <span style="color:#f87171; font-size:11px; font-weight:700;" title="Guests who paid but have no number - open the event">💸 ${owed} refund</span>` : ''}</td>
+              <td>${eventOrderCount(e.id)}${pending ? ` <span style="color:#9ca3af; font-size:11px;">(+${pending} uploading)</span>` : ''}${adding ? ` <span style="color:#9ca3af; font-size:11px;" title="Guests adding extra magnets to a ticket they already have">(➕${adding} adding magnets)</span>` : ''}${owed ? ` <span style="color:#f87171; font-size:11px; font-weight:700;" title="Guests who paid but have no number - open the event">💸 ${owed} refund</span>` : ''}</td>
               <td>${statusPill}</td>
             </tr>`;
           }
@@ -590,7 +643,7 @@
         const ev = events.find(e => e.id === id);
         if (!ev) return;
 
-        const evOrders = completeEventOrders(id);
+        const evTickets = completeEventTickets(id); // tickets only - add-ons are not counted
 
         let html = `<div class="field-label">Event</div><div class="field-value" style="font-size:1.3em; font-weight:bold;">${escHtml(ev.name)}</div>`;
         // Editable any time, even mid-event: the guest link / QR code never changes
@@ -600,7 +653,7 @@
             <span>–</span>
             <input id="ev-range-end" class="ev-input" type="number" min="0" step="1" inputmode="numeric" value="${Number(ev.rangeEnd)}" aria-label="Last ticket number" style="width:84px;" />
             <button id="ev-range-save" class="ev-btn">Save</button>
-            <span style="font-size:12px; color:#9ca3af;">· <span id="ev-uploaded-count">${evOrders.length}</span> uploaded</span>
+            <span style="font-size:12px; color:#9ca3af;">· <span id="ev-uploaded-count">${evTickets.length}</span> uploaded</span>
           </div>
           <div id="ev-range-msg" style="font-size:12px; color:#9ca3af; margin:-2px 0 10px;">You can change this during the event — the guest link and QR code stay the same.</div>`;
         // Editable: the staff page's per-ticket limit = each guest's FREE photos
@@ -664,10 +717,12 @@
       function renderEventUploads(ev) {
         const box = document.getElementById('ev-uploads');
         if (!box || selectedEventId !== ev.id) return;
+        // Every complete event order (tickets AND ➕ add-ons), in capture order = print order
         const evOrders = completeEventOrders(ev.id);
-        const { recent, stale, refund, refunded } = unfinishedGuestOrders(ev.id);
+        const { recent, stale, staleAddons, refund, refunded, cancelled } = unfinishedGuestOrders(ev.id);
         const cnt = document.getElementById('ev-uploaded-count');
-        if (cnt) cnt.textContent = evOrders.length;
+        if (cnt) cnt.textContent = evOrders.filter(o => !isAddonOrder(o)).length; // tickets only
+        const orderLink = (o) => `<a href="#" data-open-order="${escHtml(o.orderId)}">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
 
         let h = '';
         // 💸 Money owed back first, in red: paid while the event filled up (with the two
@@ -675,25 +730,53 @@
         const msg = guestResolveMsg && guestResolveMsg.eventId === ev.id ? guestResolveMsg : null;
         if (msg) h += `<div class="ev-note ${escHtml(msg.kind || 'info')}" style="margin:0 0 8px; font-size:13px;">${escHtml(msg.text)}</div>`;
         for (const o of refund.concat(evOrders.filter(needsRefund))) h += refundNoteHtml(o, { link: true });
-        if (recent.length) {
+        const recentTickets = recent.filter(o => !isAddonOrder(o));
+        const recentAddons = recent.filter(isAddonOrder);
+        if (recentTickets.length) {
           // Guests who went to Stripe for paid extras and haven't got a number yet
-          const atPay = recent.filter(o => o.extrasStarted).length;
+          const atPay = recentTickets.filter(o => o.extrasStarted).length;
+          const n = recentTickets.length;
           h += `<div style="padding:8px 12px; border:1px solid rgba(89,201,165,0.4); background:rgba(89,201,165,0.08); border-radius:8px; margin-bottom:8px; color:#a7f3d0; font-size:13px;">
-            ⏳ ${recent.length} guest upload${recent.length === 1 ? '' : 's'} in progress${atPay ? ` (💳 ${atPay} at payment)` : ''} — ${recent.length === 1 ? 'it gets a number and appears' : 'they get a number and appear'} below once every photo is in${atPay ? ' and extras are paid' : ''}.
+            ⏳ ${n} guest upload${n === 1 ? '' : 's'} in progress${atPay ? ` (💳 ${atPay} at payment)` : ''} — ${n === 1 ? 'it gets a number and appears' : 'they get a number and appear'} below once every photo is in${atPay ? ' and extras are paid' : ''}.
+          </div>`;
+        }
+        if (recentAddons.length) {
+          // ➕ Guests buying more magnets for a ticket they already have (no new number)
+          h += `<div class="addon-note">${recentAddons.map(o => {
+            const x = Number(o.extrasCount) || 0;
+            return `➕ Guest adding extra magnets to ${escHtml(addonTicketText(o))}${x > 0 ? ` (+${x})` : ''}${o.extrasStarted ? ' · 💳 at payment' : ''} · ${orderLink(o)}`;
+          }).join('<br>')}
+            <div style="font-size:12px; margin-top:4px; color:#d1d5db;">${recentAddons.length === 1 ? 'It appears' : 'They appear'} below with that ticket number once paid.</div>
           </div>`;
         }
         if (stale) {
           h += `<div class="field-value" style="color:#6b7280; font-size:12px; margin-bottom:8px;">${stale} unfinished guest upload${stale === 1 ? '' : 's'} older than 2 hours (abandoned) — ignored for printing.</div>`;
         }
+        if (staleAddons.length) {
+          const n = staleAddons.length;
+          h += `<div class="field-value" style="color:#6b7280; font-size:12px; margin-bottom:8px; word-break:normal;">${n} unfinished add-on${n === 1 ? '' : 's'} older than 2 hours (adding extra magnets to ${escHtml(addonTicketList(staleAddons))}) — abandoned, never paid, ignored for printing.</div>`;
+        }
+        if (cancelled.length) {
+          const n = cancelled.length;
+          h += `<div class="field-value" style="color:#6b7280; font-size:12px; margin-bottom:8px; word-break:normal;">✖️ ${n} add-on${n === 1 ? '' : 's'} cancelled by the guest (${escHtml(addonTicketList(cancelled))}) — nothing was charged and nothing prints.</div>`;
+        }
         if (refunded.length) {
           h += `<div class="field-value" style="color:#9ca3af; font-size:12px; margin-bottom:8px; word-break:normal;">${refunded.map(o => {
             const amt = extrasPounds(o);
-            return `↩️ <strong>Refunded</strong>${amt != null ? ' ' + escHtml(fmtGBP(amt)) : ''} · <a href="#" data-open-order="${escHtml(o.orderId)}" style="color:#9ca3af; text-decoration:underline;">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
+            return `↩️ <strong>Refunded</strong>${amt != null ? ' ' + escHtml(fmtGBP(amt)) : ''}${isAddonOrder(o) ? ` · ➕ add-on to ${escHtml(addonTicketText(o))}` : ''} · <a href="#" data-open-order="${escHtml(o.orderId)}" style="color:#9ca3af; text-decoration:underline;">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
           }).join('<br>')}<br>${refunded.length === 1 ? 'It has' : 'They have'} no number and ${refunded.length === 1 ? 'is' : 'are'} left off the print sheets.</div>`;
         }
         if (evOrders.length === 0) {
           h += `<div class="field-value" style="color:#9ca3af;">No photos uploaded yet.</div>`;
         } else {
+          // Complete add-ons per ticket, for the "➕ N add-ons" hint on the ticket's own row
+          const addonsByRoot = new Map();
+          for (const a of evOrders) {
+            if (!isAddonOrder(a)) continue;
+            const s = addonsByRoot.get(a.addonTo) || { count: 0, photos: 0 };
+            s.count++; s.photos += Number(a.packSize) || 0;
+            addonsByRoot.set(a.addonTo, s);
+          }
           h += '<div class="table-wrapper"><table><thead><tr><th>Ticket</th><th>Photos</th><th>By</th><th>When</th></tr></thead><tbody>';
           for (const o of evOrders) {
             const t = captureTime(o);
@@ -701,9 +784,19 @@
             const by = o.source === 'guest'
               ? `<span class="tag" style="color:#59c9a5; border-color:rgba(89,201,165,0.4);">Guest</span>`
               : `<span class="tag">Staff</span>`;
+            const addon = isAddonOrder(o);
+            const num = `#${escHtml(o.raffleNumber)}`;
+            // ➕ add-on rows: "#5 · ➕ add-on" (same number as the ticket, prints with it)
+            const ticketCell = addon
+              ? `${num}<span class="addon-mark" title="Extra magnets the guest added later to ticket ${num} - they print with that number"> · ➕ add-on</span>`
+              : num;
+            const adds = addon ? null : addonsByRoot.get(o.orderId);
+            const addsTag = adds
+              ? ` <span class="tag" style="margin-left:4px; color:#fcd34d; border-color:rgba(252,211,77,0.45);" title="Extra magnets added later from the same phone - listed as their own ➕ add-on row${adds.count === 1 ? '' : 's'}">➕ ${adds.count} add-on${adds.count === 1 ? '' : 's'} (+${adds.photos})</span>`
+              : '';
             h += `<tr data-order-id="${escHtml(o.orderId)}">
-              <td style="font-family:monospace; font-weight:800; color:#66d19e;">#${escHtml(o.raffleNumber)}</td>
-              <td>${escHtml(o.packSize ?? '?')}${extrasBadgeHtml(o)}${refundTagHtml(o)}</td>
+              <td style="font-family:monospace; font-weight:800; color:#66d19e;">${ticketCell}</td>
+              <td>${escHtml(o.packSize ?? '?')}${extrasBadgeHtml(o)}${refundTagHtml(o)}${addsTag}</td>
               <td>${by}</td>
               <td>${when}</td>
             </tr>`;
@@ -1018,9 +1111,10 @@
           }
           const info = dry.data.rangeInfo || {};
           const outside = Array.isArray(dry.data.outOfRange) ? dry.data.outOfRange : [];
-          // Guests part-way through right now (uploading in the last 30 min, or at payment)
+          // Guests part-way through getting a NUMBER right now (uploading in the last 30 min, or
+          // at payment). Add-ons join an existing ticket and never need a number, so they don't count.
           const busySince = Date.now() - 30 * 60 * 1000;
-          const inflight = unfinishedGuestOrders(ev.id).recent.filter(o => o.extrasStarted || new Date(o.createdAt || 0).getTime() >= busySince);
+          const inflight = unfinishedGuestOrders(ev.id).recent.filter(o => !isAddonOrder(o) && (o.extrasStarted || new Date(o.createdAt || 0).getTime() >= busySince));
           const atPay = inflight.filter(o => o.extrasStarted).length;
           const warns = [];
           if (outside.length) warns.push(`${outside.length} ticket${outside.length === 1 ? ' already has a number' : 's already have numbers'} outside ${start}–${end}: ${listNums(outside)}. They keep their numbers and their photos still print.`);
@@ -1140,12 +1234,48 @@
         }
         return '';
       }
+      // Ticket detail: the ticket's ➕ add-ons (extra magnets bought later from the same phone),
+      // count + amount of the paid ones, and one line per add-on linking to its own order.
+      // adds = addonsOf(root.orderId) (order-list summaries, capture order)
+      function ticketAddonsHtml(root, adds) {
+        const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+        const done = adds.filter(isCompleteEventOrder);
+        const photos = done.reduce((s, o) => s + (Number(o.packSize) || 0), 0);
+        let amount = 0, priced = 0;
+        for (const o of done) {
+          if (o.extrasRefunded === true) continue; // money given back - not counted
+          const a = extrasPounds(o);
+          if (a != null) { amount += a; priced++; }
+        }
+        const summary = done.length
+          ? `<strong>${plural(done.length, 'add-on')}</strong> · +${plural(photos, 'magnet')}${priced ? ` · <strong>${escHtml(fmtGBP(amount))}</strong>` : ''}`
+          : 'None paid yet';
+        const lines = adds.map(o => {
+          const n = Number(o.packSize) || Number(o.extrasCount) || 0;
+          const amt = extrasPounds(o);
+          const state = o.extrasRefunded === true ? '↩️ refunded'
+            : needsRefund(o) ? '💸 refund needed'
+            : isCompleteEventOrder(o) ? '✅ paid'
+            : isCancelledAddon(o) ? '✖️ cancelled (nothing charged)'
+            : '⏳ not paid yet';
+          const t = captureTime(o);
+          return `<a href="#" data-open-order="${escHtml(o.orderId)}" style="color:#fde68a; text-decoration:underline;">+${plural(n, 'magnet')}${amt != null ? ' · ' + escHtml(fmtGBP(amt)) : ''}</a> · ${state}${t ? ' · ' + escHtml(new Date(t).toLocaleString()) : ''}`;
+        });
+        const num = escHtml(root.raffleNumber ?? root.givenNumber ?? '?');
+        return `<div class="field-label" style="color:#fcd34d;">➕ Add-ons (extra magnets bought later)</div>
+          <div class="field-value" style="word-break:normal;">${summary}
+            <div style="font-size:12px; margin-top:4px; line-height:1.7;">${lines.join('<br>')}</div>
+            <div style="font-size:11px; color:#9ca3af; margin-top:4px;">Each paid add-on prints with #${num} on it, in its own place on the event's sheets (capture order).</div>
+          </div>`;
+      }
 
       // ─── 💸 Refunds owed to guests (paid extras) ───
       const REFUND_REASONS = {
         full: 'paid, but every number was taken',
         'paid-after-skip': 'paid after sending only the free photos',
         'paid-twice': 'paid twice',
+        'addon-orphan': 'paid for extra magnets, but their ticket could not be found',
+        'addon-cancelled': 'paid for extra magnets after cancelling them',
       };
       // { amount (GBP | null), reason, why } for an order owed money back, else null.
       // refundNeeded = { amount (GBP), reason: "full" | "paid-after-skip" | "paid-twice", at }
@@ -1178,11 +1308,23 @@
         if (!info) return '';
         const id = escHtml(o.orderId);
         const complete = isCompleteEventOrder(o);
+        const addon = isAddonOrder(o);
         let h = `<div class="refund-line" data-refund-order="${id}">💸 <strong>${escHtml(refundText(info))}</strong>`;
         if (opts.link) {
-          h += ` · ${complete ? `ticket #${escHtml(o.raffleNumber)}` : 'no number yet'} · <a href="#" data-open-order="${id}">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
+          const where = addon
+            ? (complete ? `ticket #${escHtml(o.raffleNumber)} · ➕ add-on` : `➕ add-on to ${escHtml(addonTicketText(o))} (not joined)`)
+            : (complete ? `ticket #${escHtml(o.raffleNumber)}` : 'no number yet');
+          h += ` · ${where} · <a href="#" data-open-order="${id}">order ${escHtml(String(o.orderId).slice(0, 8))}</a>`;
         }
-        if (o.fullAfterPayment === true && !complete) {
+        if (addon && !complete) {
+          // An add-on never needs a number of its own - one that could not join its ticket is refunded
+          h += `<div style="font-size:12px; margin-top:4px;">These extra magnets could not join their ticket, so nothing prints. Refund the guest in the Stripe dashboard, then tap “Mark refunded”.</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:6px;">
+              <button type="button" class="ev-btn" data-resolve="refunded" data-order-id="${id}">Mark refunded</button>
+            </div>`;
+        } else if (addon) {
+          h += `<div style="font-size:12px; margin-top:4px;">These extra magnets print as normal with ticket #${escHtml(o.raffleNumber)} - refund the extra payment in the Stripe dashboard.</div>`;
+        } else if (o.fullAfterPayment === true && !complete) {
           h += `<div style="font-size:12px; margin-top:4px;">Refund them in the Stripe dashboard, then tap “Mark refunded”. Or, if there is room (widen the ticket range first if needed), give them a number and keep their paid extras.</div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:6px;">
               <button type="button" class="ev-btn" data-resolve="refunded" data-order-id="${id}">Mark refunded</button>
@@ -1203,8 +1345,9 @@
         if (!o || (action !== 'refunded' && action !== 'honour') || guestResolving.has(o.orderId)) return null;
         const info = refundInfo(o);
         const amt = info && info.amount != null ? fmtGBP(info.amount) : '';
+        const addonOpen = isAddonOrder(o) && !isCompleteEventOrder(o); // ➕ add-on that never joined its ticket
         const question = action === 'refunded'
-          ? `Mark the ${amt ? amt + ' ' : ''}payment as refunded?\n\nOnly do this after refunding the guest in the Stripe dashboard. Their upload keeps no number and is left off the print sheets.`
+          ? `Mark the ${amt ? amt + ' ' : ''}payment as refunded?\n\nOnly do this after refunding the guest in the Stripe dashboard. ${addonOpen ? 'These extra magnets are left off the print sheets.' : 'Their upload keeps no number and is left off the print sheets.'}`
           : `Give this guest a ticket number now?\n\nTheir paid extra magnets are kept (no refund). If every number is still taken, widen the event's ticket range first.`;
         if (!confirm(question) || guestResolving.has(o.orderId)) return null;
         guestResolving.add(o.orderId);
@@ -1239,7 +1382,7 @@
           }
         } else if (res.ok && data.success) {
           remember({});
-          return { ok: true, text: `↩️ Marked as refunded${amt ? ' (' + amt + ')' : ''}. The upload has no number and is left off the print sheets.`, kind: 'ok' };
+          return { ok: true, text: `↩️ Marked as refunded${amt ? ' (' + amt + ')' : ''}. ${addonOpen ? 'These extra magnets are left off the print sheets.' : 'The upload has no number and is left off the print sheets.'}`, kind: 'ok' };
         }
         return { ok: false, text: 'Could not update: ' + (typeof data.error === 'string' && data.error ? data.error : `HTTP ${res.status}`), kind: 'err' };
       }
@@ -1284,7 +1427,7 @@
             <div style="font-weight:700; font-size:14px;">💳 Paid extra magnets</div>
             <button id="ev-extras-toggle" class="ev-btn" style="min-width:74px; ${on ? 'background:#fcd34d; border-color:#fcd34d; color:#1f1300;' : 'color:#9ca3af;'}">${on ? 'On' : 'Off'}</button>
           </div>
-          <div style="font-size:12px; color:#9ca3af; margin-top:4px;">Guests who want more than their free photos pay by card (Stripe) for the extra magnets before they get their number.</div>`;
+          <div style="font-size:12px; color:#9ca3af; margin-top:4px;">Guests who want more than their free photos pay by card (Stripe) for the extra magnets before they get their number. They can also come back later on the same phone and add more to their ticket (➕ add-on) — the max counts everything they bought for that ticket.</div>`;
         if (!free) {
           h += `<div class="ev-note warn">⚠️ Set how many free photos each guest gets first (“Photos per ticket · free photos per guest” above) — paid extras need a free-photo limit.${on ? ' Until then guests are not offered extras.' : ''}</div>`;
         } else if (on && price != null) {
@@ -2551,7 +2694,10 @@
           let topBanner = "";
           if (order.eventId) {
               const evName = (events.find(e => e.id === order.eventId) || {}).name || order.eventId;
-              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${escHtml(evName)}<div style="font-size:3em; line-height:1; margin-top:4px;">#${escHtml(order.raffleNumber ?? order.givenNumber ?? '?')}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Raffle Ticket</span></div>`;
+              // ➕ An add-on shows the number of the ticket it joins (its own once paid)
+              const bigNum = isAddonOrder(order) ? (addonTicketNumber(order) ?? '?') : (order.raffleNumber ?? order.givenNumber ?? '?');
+              const sub = isAddonOrder(order) ? '➕ Add-on · extra magnets for this ticket' : 'Raffle Ticket';
+              topBanner = `<div style="background:linear-gradient(135deg, #059669, #10b981); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(16,185,129,0.4);">🎪 ${escHtml(evName)}<div style="font-size:3em; line-height:1; margin-top:4px;">#${escHtml(bigNum)}</div><span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">${sub}</span></div>`;
           } else if (order.event === 'BINGO') {
               let numBig = order.bingoNumber ? `<div style="font-size:3em; line-height:1; margin-top:4px;">#${order.bingoNumber}</div>` : '';
               topBanner = `<div style="background:linear-gradient(135deg, #1a9a8a, #8b5cf6); color:white; padding:16px; border-radius:12px; margin-bottom:20px; font-weight:bold; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);">🎱 BONKERS BINGO ORDER${numBig}<span style="font-size:0.9em; font-weight:normal; opacity:0.9; display:block; margin-top:4px;">Collect at Event</span></div>`;
@@ -2570,16 +2716,39 @@
           let html = topBanner;
           if (flash && flash.text) html += `<div class="ev-note ${escHtml(flash.kind || 'info')}" style="margin:0 0 14px; font-size:13px;">${escHtml(flash.text)}</div>`;
           html += `<div class="field-label">Order ID</div><div class="field-value">${order.orderId}</div>`;
+          const addon = !!order.eventId && isAddonOrder(order);
+          const complete = isCompleteEventOrder(order);
+          let rootAddons = [], doneAddons = [];  // a ticket's ➕ add-ons (from the order list)
           if (order.eventId) {
             const who = order.source === 'guest' ? '📲 Guest (self-upload)' : '🧑‍💼 Staff (event page)';
-            html += `<div class="field-label">Uploaded by</div><div class="field-value">${who}</div>`;
+            html += `<div class="field-label">Uploaded by</div><div class="field-value">${who}${addon ? ' · ➕ add-on' : ''}</div>`;
+            if (addon) {
+              // ➕ Extra magnets bought later for a ticket: link back to that ticket
+              const rn = addonTicketNumber(order);
+              const nTxt = rn != null ? `#${escHtml(rn)}` : '#?';
+              const joinTxt = complete ? `They print with ${nTxt} on them, in their own place on the sheets (capture order).`
+                : order.extrasRefunded === true ? 'Refunded — they never joined the ticket.'
+                : isCancelledAddon(order) ? 'Cancelled — they never joined the ticket.'
+                : needsRefund(order) ? `Paid, but they could not join ${nTxt} — see the refund note below.`
+                : `They join ${nTxt} once paid.`;
+              html += `<div class="field-label">➕ Add-on</div><div class="field-value" style="word-break:normal;"><strong>Add-on to ticket ${nTxt}</strong> — extra magnets the guest bought later from the same phone. ${joinTxt}<br><a href="#" data-open-order="${escHtml(order.addonTo)}" style="color:#5eead4; text-decoration:underline;">Open ticket ${nTxt} →</a></div>`;
+            }
             if (order.extrasRefunded === true) {
-              html += `<div style="padding:8px 10px; border:1px solid #374151; background:#111827; border-radius:8px; margin-top:6px; color:#d1d5db; font-size:12px;">↩️ <strong>Refunded</strong> — ${isCompleteEventOrder(order)
-                ? "a payment for this ticket was refunded. The ticket keeps its number and prints as normal."
-                : "the guest's payment was refunded. This upload has no ticket number and is left off the event's print sheets."}</div>`;
-            } else if (order.resolvedHere === 'honour' && !isCompleteEventOrder(order)) {
+              html += `<div style="padding:8px 10px; border:1px solid #374151; background:#111827; border-radius:8px; margin-top:6px; color:#d1d5db; font-size:12px;">↩️ <strong>Refunded</strong> — ${complete
+                ? (addon ? "a payment for these extra magnets was refunded. They keep the ticket's number and print as normal." : "a payment for this ticket was refunded. The ticket keeps its number and prints as normal.")
+                : (addon ? "the guest's payment for these extra magnets was refunded. They never joined the ticket and are left off the event's print sheets." : "the guest's payment was refunded. This upload has no ticket number and is left off the event's print sheets.")}</div>`;
+            } else if (order.resolvedHere === 'honour' && !complete) {
               html += `<div style="padding:8px 10px; border:1px solid rgba(89,201,165,0.45); background:rgba(89,201,165,0.08); border-radius:8px; margin-top:6px; color:#a7f3d0; font-size:12px;">✅ Given ticket #${escHtml(order.givenNumber)} — saving; it joins the event's print sheets shortly.</div>`;
-            } else if (!isCompleteEventOrder(order)) {
+            } else if (addon && isCancelledAddon(order)) {
+              html += `<div style="padding:8px 10px; border:1px solid #374151; background:#111827; border-radius:8px; margin-top:6px; color:#9ca3af; font-size:12px;">✖️ <strong>Cancelled</strong> — the guest chose not to add these magnets. Nothing was charged and nothing prints.</div>`;
+            } else if (addon && !complete) {
+              // (paid but could not join its ticket: the red refund note below says it all)
+              if (!needsRefund(order)) {
+                html += `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:6px; color:#fbbf24; font-size:12px;">${order.extrasPaid === true
+                  ? `⏳ Paid — joining ticket ${escHtml(addonTicketText(order))}; it joins the event's print sheets shortly.`
+                  : `⏳ Not paid yet — these extra magnets join ticket ${escHtml(addonTicketText(order))} and print once the guest pays.`}</div>`;
+              }
+            } else if (!complete) {
               html += `<div style="padding:8px 10px; border:1px solid #f59e0b; background:rgba(245,158,11,0.1); border-radius:8px; margin-top:6px; color:#fbbf24; font-size:12px;">⏳ Upload not finished — no ticket number yet, so it's left off the event's print sheets.</div>`;
             }
             // 💸 Money owed back to the guest (red), with the two choices when the event filled up while they paid
@@ -2592,11 +2761,20 @@
             } else if (order.extrasPaid && xn > 0) {
               const amt = extrasPounds(order);
               const paidAt = order.extrasPaidAt ? new Date(order.extrasPaidAt) : null;
-              html += `<div class="field-label" style="color:#fcd34d;">💳 Paid extra magnets</div><div class="field-value" style="word-break:normal;">+${xn} extra magnet${xn === 1 ? '' : 's'}${order.freeCount != null ? ` on top of ${escHtml(order.freeCount)} free` : ''}${amt != null ? ` · <strong>${escHtml(fmtGBP(amt))}</strong>` : ''}${order.extrasEmail ? ` · receipt to ${escHtml(order.extrasEmail)}` : ''}${paidAt && !isNaN(paidAt) ? ` · ${escHtml(paidAt.toLocaleString())}` : ''}</div>`;
+              const onTop = addon ? ` added later to ticket ${escHtml(addonTicketText(order))}`
+                : order.freeCount != null ? ` on top of ${escHtml(order.freeCount)} free` : '';
+              html += `<div class="field-label" style="color:#fcd34d;">💳 Paid extra magnets</div><div class="field-value" style="word-break:normal;">+${xn} extra magnet${xn === 1 ? '' : 's'}${onTop}${amt != null ? ` · <strong>${escHtml(fmtGBP(amt))}</strong>` : ''}${order.extrasEmail ? ` · receipt to ${escHtml(order.extrasEmail)}` : ''}${paidAt && !isNaN(paidAt) ? ` · ${escHtml(paidAt.toLocaleString())}` : ''}</div>`;
             } else if (order.extrasSkipped) {
-              html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#9ca3af;">Skipped — the guest sent only their free photos.</div>`;
+              html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#9ca3af;">${addon ? 'Cancelled — the guest chose not to add them. Nothing was charged.' : 'Skipped — the guest sent only their free photos.'}</div>`;
             } else if (xn > 0 && !isCompleteEventOrder(order)) {
               html += `<div class="field-label">💳 Paid extras</div><div class="field-value" style="color:#fbbf24;">${order.extrasSessionId ? 'At payment' : 'Chosen'}: +${xn} extra magnet${xn === 1 ? '' : 's'}${Number(order.extrasTotal) > 0 ? ` (${escHtml(fmtGBP(order.extrasTotal))})` : ''} — not paid yet.</div>`;
+            }
+            // ➕ A ticket's add-ons: extra magnets the guest bought later from the same phone.
+            // Each is its own order and prints on its own (capture order) with this number.
+            if (!addon) {
+              rootAddons = addonsOf(order.orderId);
+              doneAddons = rootAddons.filter(isCompleteEventOrder);
+              if (rootAddons.length) html += ticketAddonsHtml(order, rootAddons);
             }
           }
 
@@ -2726,10 +2904,17 @@
           const canPrintSheet = !isVoucher
             && order.productType !== 'flexi'
             && order.productType !== 'large_magnet'    // 65×90 template coming separately
-            && !(order.eventId && order.extrasRefunded === true && !isCompleteEventOrder(order)); // refunded, no number: never printed
+            && !(order.eventId && order.extrasRefunded === true && !isCompleteEventOrder(order)) // refunded, no number: never printed
+            && !(addon && isCancelledAddon(order));    // ➕ add-on the guest cancelled: never printed
           if (canPrintSheet) {
-            const printLabel = order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
+            const printLabel = addon ? "🖨️ Print this add-on's sheet" : order.eventId ? "🖨️ Print this ticket's sheet" : "🖨️ Print this order's sheet";
             html += `<button id="print-one-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">${printLabel}</button>`;
+            // A ticket with paid ➕ add-ons: everything for that number on one PDF (a reprint helper -
+            // the event's sheets already hold each add-on in its own capture-order place)
+            if (doneAddons.length && complete) {
+              const extra = doneAddons.reduce((s, o) => s + (Number(o.packSize) || 0), 0);
+              html += `<button id="print-with-addons-btn" class="btn-action" style="width:100%; background:#0b1220; border-color:rgba(252,211,77,0.55); color:#fde68a; font-weight:700;">🖨️ Print ticket #${escHtml(order.raffleNumber)} with its add-on${doneAddons.length === 1 ? '' : 's'} (+${extra} magnet${extra === 1 ? '' : 's'})</button>`;
+            }
           }
 
           // Basket: orders paid together (same Stripe checkout) → print everything at once
@@ -2756,8 +2941,15 @@
           detailsContainer.querySelectorAll('[data-resolve]').forEach(b => {
             b.onclick = () => resolveFromDetail(order, b.getAttribute('data-resolve'), b);
           });
+          // ➕ add-on <-> ticket links (open the other order's detail)
+          detailsContainer.querySelectorAll('[data-open-order]').forEach(a => {
+            a.onclick = (e) => { e.preventDefault(); loadOrderDetails(a.getAttribute('data-open-order')); };
+          });
           const printOneBtn = document.getElementById("print-one-btn");
           if (printOneBtn) printOneBtn.onclick = () => generateOrderSheet(order, printOneBtn);
+          const printAddonsBtn = doneAddons.length ? document.getElementById("print-with-addons-btn") : null;
+          if (printAddonsBtn) printAddonsBtn.onclick = () => printOrders([order, ...doneAddons], `ticket-${order.raffleNumber}-with-add-ons`, printAddonsBtn,
+            (events.find(e => e.id === order.eventId) || {}).name);
 
           const printBasketBtn = document.getElementById("print-basket-btn");
           if (printBasketBtn) printBasketBtn.onclick = () => generateBasketSheet(basketMates, printBasketBtn);

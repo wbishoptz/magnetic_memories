@@ -12,6 +12,14 @@
 // time that event is touched, so numbers used before D1 existed stay taken.
 // A failing KV list never fails a request here: the backfill is skipped (and
 // retried later) and usedNumbers degrades to what it can read.
+//
+// Add-on magnets (more magnets bought later for a guest's existing ticket) never
+// hold a row in event_tickets - the number belongs to the ticket's ROOT order.
+// Each completed add-on is one row in ticket_addons (recordAddon), which is what
+// the per-ticket extras limit is counted from (addonTally).
+// Only ONE add-on per ticket may be at the payment step at a time: addon_holds
+// has one row per root ticket (acquireAddonHold / extendAddonHold /
+// releaseAddonHold), so the limit counted at pay time is exact.
 
 const SCHEMA_SQL = [
   `CREATE TABLE IF NOT EXISTS event_tickets (
@@ -27,7 +35,40 @@ const SCHEMA_SQL = [
     event_id TEXT PRIMARY KEY,
     done_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS ticket_addons (
+    addon_order_id TEXT PRIMARY KEY,
+    root_order_id TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    number INTEGER NOT NULL,
+    photos INTEGER NOT NULL,
+    amount REAL,
+    completed_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS ticket_addons_root ON ticket_addons (root_order_id)`,
+  `CREATE TABLE IF NOT EXISTS addon_holds (
+    root_order_id TEXT PRIMARY KEY,
+    addon_order_id TEXT NOT NULL,
+    photos INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  )`,
 ];
+
+// Take (or keep) the one payment hold of a root ticket for an add-on, in ONE
+// statement: inserted when there is none, kept (and never shortened) when this
+// add-on already has it, taken over only when another add-on's hold has expired.
+// ?1 root, ?2 add-on, ?3 photos, ?4 expires_at (unix s), ?5 now (unix s).
+const ACQUIRE_HOLD_SQL = `
+INSERT INTO addon_holds (root_order_id, addon_order_id, photos, expires_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(root_order_id) DO UPDATE SET
+  addon_order_id = excluded.addon_order_id,
+  photos = excluded.photos,
+  expires_at = CASE WHEN addon_holds.addon_order_id = excluded.addon_order_id
+                    THEN MAX(addon_holds.expires_at, excluded.expires_at)
+                    ELSE excluded.expires_at END
+WHERE addon_holds.addon_order_id = excluded.addon_order_id OR addon_holds.expires_at <= ?5`;
+
+const HOLD_SELECT_SQL = 'SELECT addon_order_id, photos, expires_at FROM addon_holds WHERE root_order_id = ?1';
 
 // Lowest free number in [rangeStart, rangeEnd]. Candidates are rangeStart and
 // every used number + 1 inside the range, so this never has to generate the
@@ -368,6 +409,122 @@ export async function usedNumbersStrict(env, eventId) {
   return sortedUnique((await listKvTickets(env, id)).map(t => t.n));
 }
 
+// ─── Add-on magnets ────────────────────────────────────────────────────────
+
+// Record a completed add-on for its root ticket. Idempotent per add-on order
+// (INSERT OR IGNORE: a repeat keeps the first row). -> true
+export async function recordAddon(env, { addonOrderId, rootOrderId, eventId, number, photos, amount = null, completedAt }) {
+  const n = toTicketInt(number);
+  const count = Number(photos);
+  if (!Number.isInteger(count) || count < 1) throw new Error(`Invalid add-on photo count: ${photos}`);
+  const amt = amount === null || amount === undefined || !Number.isFinite(Number(amount)) ? null : Number(amount);
+  await ensureSchema(env);
+  await getDb(env).prepare(
+    `INSERT OR IGNORE INTO ticket_addons
+       (addon_order_id, root_order_id, event_id, number, photos, amount, completed_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+  ).bind(
+    String(addonOrderId), String(rootOrderId), String(eventId), n, count, amt,
+    String(completedAt || new Date().toISOString()),
+  ).run();
+  return true;
+}
+
+// Photos and money (GBP) of every COMPLETED add-on of a root ticket order.
+// -> { photos, amount, count }
+export async function addonTally(env, rootOrderId) {
+  await ensureSchema(env);
+  const row = await getDb(env).prepare(
+    `SELECT COUNT(*) AS c, COALESCE(SUM(photos), 0) AS p, COALESCE(SUM(amount), 0) AS a
+       FROM ticket_addons WHERE root_order_id = ?1`
+  ).bind(String(rootOrderId)).first();
+  return {
+    photos: Number(row && row.p) || 0,
+    amount: Math.round((Number(row && row.a) || 0) * 100) / 100,
+    count: Number(row && row.c) || 0,
+  };
+}
+
+// ─── Add-on payment holds (one live add-on per ticket) ─────────────────────
+// A hold says "add-on X of this ticket may be paid until expires_at" (= the
+// expiry of its Stripe Checkout Session, unix seconds). /api/guest-pay takes it
+// before handing out a checkout url; it is released when the add-on completes
+// or is cancelled, and simply runs out otherwise.
+
+export const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+const holdFromRow = (rootOrderId, row) => (row ? {
+  rootOrderId: String(rootOrderId),
+  addonOrderId: String(row.addon_order_id),
+  photos: Number(row.photos) || 0,
+  expiresAt: Number(row.expires_at),
+} : null);
+
+// The ticket's hold (expired or not), or null.
+// -> { rootOrderId, addonOrderId, photos, expiresAt } | null
+export async function addonHold(env, rootOrderId) {
+  await ensureSchema(env);
+  const row = await getDb(env).prepare(HOLD_SELECT_SQL).bind(String(rootOrderId)).first();
+  return holdFromRow(rootOrderId, row);
+}
+
+function toUnixSeconds(value, what) {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n <= 0) throw new Error(`Invalid ${what}: ${value}`);
+  return n;
+}
+
+// Take the ticket's hold for this add-on (atomic). -> { acquired, took, hold }
+//   acquired: the add-on holds it now (until at least expiresAt)
+//   took:     it did NOT hold it just before (new hold, or an expired one taken over)
+//   hold:     the hold as it now stands (another add-on's when not acquired)
+export async function acquireAddonHold(env, { rootOrderId, addonOrderId, photos, expiresAt, now = nowSeconds() }) {
+  const root = String(rootOrderId);
+  const addon = String(addonOrderId);
+  const exp = toUnixSeconds(expiresAt, 'hold expiry');
+  const at = toUnixSeconds(now, 'time');
+  const count = Math.max(0, Math.floor(Number(photos) || 0));
+  await ensureSchema(env);
+  const db = getDb(env);
+  const [before, , after] = await db.batch([ // one transaction
+    db.prepare(HOLD_SELECT_SQL).bind(root),
+    db.prepare(ACQUIRE_HOLD_SQL).bind(root, addon, count, exp, at),
+    db.prepare(HOLD_SELECT_SQL).bind(root),
+  ]);
+  const prev = holdFromRow(root, before && before.results && before.results[0]);
+  const hold = holdFromRow(root, after && after.results && after.results[0]);
+  const acquired = !!(hold && hold.addonOrderId === addon);
+  return { acquired, took: acquired && !(prev && prev.addonOrderId === addon), hold };
+}
+
+// Make this add-on's EXISTING hold last until at least expiresAt. Never creates
+// a hold (one released meanwhile - the add-on completed / was cancelled - stays
+// released). -> true when the add-on still holds it
+export async function extendAddonHold(env, { rootOrderId, addonOrderId, expiresAt }) {
+  const root = String(rootOrderId);
+  const addon = String(addonOrderId);
+  const exp = toUnixSeconds(expiresAt, 'hold expiry');
+  await ensureSchema(env);
+  const db = getDb(env);
+  const [, after] = await db.batch([
+    db.prepare(
+      'UPDATE addon_holds SET expires_at = MAX(expires_at, ?3) WHERE root_order_id = ?1 AND addon_order_id = ?2'
+    ).bind(root, addon, exp),
+    db.prepare(HOLD_SELECT_SQL).bind(root),
+  ]);
+  const hold = holdFromRow(root, after && after.results && after.results[0]);
+  return !!(hold && hold.addonOrderId === addon);
+}
+
+// Release the ticket's hold - only if this add-on has it. -> true when deleted
+export async function releaseAddonHold(env, rootOrderId, addonOrderId) {
+  await ensureSchema(env);
+  const res = await getDb(env).prepare(
+    'DELETE FROM addon_holds WHERE root_order_id = ?1 AND addon_order_id = ?2'
+  ).bind(String(rootOrderId), String(addonOrderId)).run();
+  return !!(res && res.meta && res.meta.changes > 0);
+}
+
 // ─── Guest link resolution (shared by guest-event / guest-order) ───────────
 
 export const GUEST_MESSAGES = {
@@ -378,7 +535,9 @@ export const GUEST_MESSAGES = {
 };
 
 // -> { open: true, event } | { open: false, reason, event? }
-export async function resolveGuestToken(env, token) {
+// opts.allowFull: don't refuse when every number is taken (add-on magnets join
+// an existing ticket, so they never need a free number).
+export async function resolveGuestToken(env, token, { allowFull = false } = {}) {
   const t = String(token || '').trim();
   if (!/^[A-Za-z0-9]{8,64}$/.test(t)) return { open: false, reason: 'invalid' };
 
@@ -392,6 +551,7 @@ export async function resolveGuestToken(env, token) {
   if (!event.guestUpload) return { open: false, reason: 'closed', event };
   if (!hasDb(env)) return { open: false, reason: 'not-setup', event };
   if (!event.active) return { open: false, reason: 'closed', event };
+  if (allowFull) return { open: true, event };
 
   const free = await lowestFree(env, event);
   if (free == null) return { open: false, reason: 'full', event };

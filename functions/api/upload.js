@@ -2,7 +2,10 @@
 // Upload a file to R2 for a given order and update the order record.
 // Guest self-upload orders (source "guest") are NOT written back here: their
 // photo list is rebuilt from the R2 keys by /api/guest-finalize, so an upload
-// that races the finalize can never overwrite the finished order.
+// that races the finalize can never overwrite the finished order. A finished
+// guest order, or a cancelled add-on (409 "This upload was cancelled."), takes
+// no more photos - checked before storing and again after (the photo is then
+// deleted).
 
 function json(status, body) {
   return new Response(JSON.stringify(body), {
@@ -36,6 +39,14 @@ async function isGuestJpeg(file) {
 }
 
 const COMPLETE_MSG = "This upload is already complete.";
+const CANCELLED_MSG = "This upload was cancelled.";
+
+// Add-on magnets the guest chose not to add ("don't add them"): its photos are
+// deleted, so no new photo may arrive for it.
+function isCancelledAddon(order) {
+  return !!(order && order.source === "guest" && order.addonTo
+    && (order.status === "cancelled" || order.extrasSkipped === true));
+}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -62,6 +73,9 @@ export async function onRequestPost({ request, env }) {
     // Guest self-upload that already has its number: no more photos
     if (isGuest && order.raffleNumber != null) {
       return json(409, { error: COMPLETE_MSG });
+    }
+    if (isGuest && isCancelledAddon(order)) {
+      return json(409, { error: CANCELLED_MSG });
     }
 
     const contentType = request.headers.get("content-type") || "";
@@ -101,15 +115,15 @@ export async function onRequestPost({ request, env }) {
     });
 
     if (isGuest) {
-      // If it was finalized (or deleted) while this file was uploading, don't
-      // leave a stray photo behind. Otherwise we're done: finalize builds the
-      // photo list from the keys the page sends, so the order is not rewritten.
+      // If it was finalized, cancelled (an add-on) or deleted while this file was
+      // uploading, don't leave a stray photo behind. Otherwise we're done:
+      // finalize builds the photo list from the keys the page sends, so the
+      // order is not rewritten.
       const fresh = await env.ORDERS_KV.get(kvKey, { type: "json" });
-      if (!fresh || fresh.raffleNumber != null) {
+      if (!fresh || fresh.raffleNumber != null || isCancelledAddon(fresh)) {
         await env.R2_BUCKET.delete(r2Key).catch(() => {});
-        return fresh
-          ? json(409, { error: COMPLETE_MSG })
-          : json(404, { error: "Order not found" });
+        if (!fresh) return json(404, { error: "Order not found" });
+        return json(409, { error: fresh.raffleNumber != null ? COMPLETE_MSG : CANCELLED_MSG });
       }
       return json(200, { ok: true, key: r2Key });
     }

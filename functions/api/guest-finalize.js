@@ -15,6 +15,12 @@
 // Waiting for the team (until an admin resolves it):
 //   409 { full: true, paid: true }  paid, but every number went meanwhile
 //   409 { refunded: true }          the extras payment was refunded
+// Add-on orders (more magnets for an existing ticket, addonTo = root order):
+//   -> { number (the root's), addon: true, addonTo, paidExtras }  once paid
+//   skipExtras: true ("don't add them") -> { cancelled: true, addon: true,
+//     addonTo, number } - nothing is charged, the add-on's photos are removed
+//   402 { needsPayment: true, addon: true } not paid yet
+//   409 { addon: true, orphan: true } paid, but the ticket is gone (refund)
 // The logic lives in _guest.js (completeGuestOrder), shared with the webhook.
 import { jsonResponse } from './_shared.js';
 import { hasDb, GUEST_MESSAGES } from './_tickets.js';

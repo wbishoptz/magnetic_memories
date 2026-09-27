@@ -5,6 +5,7 @@ import {
 } from './_shared.js';
 import {
   UUID_RE, completeGuestOrder, loadOrder, loadEvent, formatGBP, toPence, round2, retrieveSession, addRefundNeeded,
+  isAddon, addonRootNumber, addonRefundFinal,
 } from './_guest.js';
 
 export const onRequestPost = async ({ request, env }) => {
@@ -176,6 +177,13 @@ function json(body, status = 200) {
 // 4. success -> "✅ ... got #N" alert; money we must give back -> refundNeeded
 //    on the order (paid after the free-only finish / paid twice; "full" is
 //    recorded by completeGuestOrder) and a refund alert.
+// Add-on magnets (guestOrderId = an add-on order, more magnets for an existing
+// ticket) go through the same steps; completeGuestOrder joins them to the
+// root's number. Their alerts say "Guest add-on" and name the ticket; a paid
+// add-on whose ticket is gone is recorded for a refund ("addon-orphan"), and so
+// is one paid after it was cancelled and its photos deleted ("addon-cancelled").
+// Both are final states (never finished automatically), so a further payment
+// for them is recorded as well ("paid-twice") and the webhook answers 200.
 // Stripe re-delivers the event while we answer non-2xx, so a refund alert (or
 // refund record) that failed makes us answer 500. Re-running is idempotent:
 // alertedAt / refundAlertedAt / doneAlertedAt / refundRecordedAt on the
@@ -217,6 +225,19 @@ async function handleGuestExtras(payloadSession, env) {
   let n = Number(order?.extrasCount) || 0;
   if (!(n > 0) && toPence(order?.extraPrice) > 0) n = Math.round(amountPence / toPence(order.extraPrice));
   const what = n > 0 ? `${n} extra magnet${n === 1 ? "" : "s"}` : "extra magnets";
+  // Add-on magnets (more magnets for an existing ticket): same handling, own texts
+  const addon = isAddon(order);
+  const label = addon ? "Guest add-on" : "Guest extras";
+  let ticketNo = null;
+  if (addon) {
+    ticketNo = order.raffleNumber != null ? Number(order.raffleNumber) : null;
+    if (ticketNo == null) {
+      const root = UUID_RE.test(String(order.addonTo)) ? await loadOrder(env, String(order.addonTo)).catch(() => null) : null;
+      ticketNo = addonRootNumber(root, order);
+    }
+    if (ticketNo == null && order.addonNumber != null && Number.isSafeInteger(Number(order.addonNumber))) ticketNo = Number(order.addonNumber);
+  }
+  const ticketText = ticketNo != null ? `ticket #${ticketNo}` : "a ticket";
   const alert = (text) => sendTelegramText(text, env).catch(err => { console.error("Telegram alert failed:", err); return false; });
   const telegramReady = !!(env.TELEGRAM_BOT_TOKEN && String(env.TELEGRAM_CHAT_ID || "").split(",").some(s => s.trim()));
 
@@ -255,7 +276,9 @@ async function handleGuestExtras(payloadSession, env) {
 
   // ── 2. Paid alert (once per session; best-effort) ──
   if (!duplicate && !record.alertedAt) {
-    const sent = await alert(`💳 Guest extras paid - ${eventName}: ${what}, ${amountText} (order ${short})`);
+    const sent = await alert(addon
+      ? `💳 Guest add-on paid - ${eventName}: ${what} for ${ticketText}, ${amountText} (order ${short})`
+      : `💳 Guest extras paid - ${eventName}: ${what}, ${amountText} (order ${short})`);
     if (sent) {
       record.alertedAt = new Date().toISOString();
       await saveRecord();
@@ -275,37 +298,48 @@ async function handleGuestExtras(payloadSession, env) {
   let refund = null;   // { reason?, text } - money to give back / someone must check
   let success = false; // finished with the paid extras
   let retry = false;   // answer 500 so Stripe delivers again
+  const forTicket = addon ? ` for ${ticketText}` : "";
   if (duplicate) {
-    refund = { reason: "paid-twice", text: `⚠️ Guest extras paid TWICE - refund one payment - ${eventName}: ${amountText} (order ${short}, session ${session.id})` };
+    refund = { reason: "paid-twice", text: `⚠️ ${label} paid TWICE - refund one payment - ${eventName}: ${amountText}${forTicket} (order ${short}, session ${session.id})` };
   } else if (!done) {
-    refund = { text: `⚠️ Guest extras paid but the upload could not be finished automatically (error) - check order ${short} - ${eventName}: ${amountText}` };
+    refund = { text: `⚠️ ${label} paid but the upload could not be finished automatically (error) - check order ${short} - ${eventName}: ${amountText}${forTicket}` };
   } else if (done.status === 200 && done.order?.extrasPaid === true) {
     success = true;
   } else if (done.status === 200) {
-    refund = { reason: "paid-after-skip", text: `⚠️ Guest extras paid after the photos were sent without extras - refund needed - ${eventName}: ${amountText} (order ${short}, #${number})` };
+    refund = { reason: "paid-after-skip", text: `⚠️ ${label} paid after the photos were sent without extras - refund needed - ${eventName}: ${amountText} (order ${short}, #${number})` };
   } else if (done.status === 409 && done.body?.refunded) {
     // an admin already refunded this order: nothing more to do
   } else if (done.status === 409 && done.body?.full) {
     // completeGuestOrder saved fullAfterPayment + refundNeeded ("full")
     if (done.refundRecorded === false) retry = true;
     refund = { text: `⚠️ Guest extras paid but the event is FULL - refund needed - ${eventName}: ${amountText} (order ${short})` };
+  } else if (done.status === 409 && done.body?.addon && done.body?.refund) {
+    // completeGuestOrder saved refundNeeded ("addon-cancelled") on the add-on
+    if (done.refundRecorded === false) retry = true;
+    refund = { text: `⚠️ Guest add-on paid after it was cancelled (photos already deleted) - refund needed - ${eventName}: ${amountText}${forTicket} (order ${short})` };
+  } else if (done.status === 409 && done.body?.addon && done.body?.orphan) {
+    // completeGuestOrder saved refundNeeded ("addon-orphan") on the add-on
+    if (done.refundRecorded === false) retry = true;
+    refund = { text: `⚠️ Guest add-on paid but the ticket it was for can't be found - refund needed - ${eventName}: ${amountText}${forTicket} (order ${short})` };
   } else if (done.status === 404 || done.status === 403) {
-    refund = { text: `⚠️ Guest extras paid but the upload was not found - refund needed - ${eventName}: ${amountText} (order ${short})` };
+    refund = { text: `⚠️ ${label} paid but the upload was not found - refund needed - ${eventName}: ${amountText} (order ${short})` };
   } else {
     // e.g. the saved photo list isn't visible here yet: the guest's own page
     // finishes the order when they come back - flag it in case they don't.
     console.error("Stripe webhook: guest order not finished:", done.status, done.body);
-    refund = { text: `⚠️ Guest extras paid but the upload could not be finished automatically (${done.body?.error || done.status}) - check order ${short} - ${eventName}: ${amountText}` };
+    refund = { text: `⚠️ ${label} paid but the upload could not be finished automatically (${done.body?.error || done.status}) - check order ${short} - ${eventName}: ${amountText}${forTicket}` };
   }
 
   // Paid after the free-only finish / paid twice: record the refund on the
   // order. Only while nothing can race the write - the order is finished, or
-  // waiting for an admin (fullAfterPayment) - otherwise Stripe tries again later.
+  // waiting for an admin (fullAfterPayment), or an add-on in a final refund
+  // state (orphaned / paid after its cancel) - otherwise Stripe tries again later.
   if (refund?.reason && !record.refundRecordedAt) {
     try {
       const fresh = await loadOrder(env, orderId);
       // (an admin-refunded order can never finish either, so it's equally safe)
-      if (fresh && (fresh.raffleNumber != null || fresh.fullAfterPayment === true || fresh.extrasRefunded === true)) {
+      if (fresh && (fresh.raffleNumber != null || fresh.fullAfterPayment === true || fresh.extrasRefunded === true
+          || addonRefundFinal(fresh))) {
         const now = new Date().toISOString();
         if (addRefundNeeded(fresh, { amount: amountGbp ?? amountPence / 100, reason: refund.reason, sessionId: session.id, at: now })) {
           fresh.updatedAt = now;
@@ -336,7 +370,9 @@ async function handleGuestExtras(payloadSession, env) {
       retry = true;
     }
   } else if (success && !record.doneAlertedAt) {
-    if (await alert(`✅ Guest extras order ${short} got #${number} - ${eventName}`)) {
+    if (await alert(addon
+      ? `✅ Guest add-on ${short} joined ticket #${number} - ${eventName}`
+      : `✅ Guest extras order ${short} got #${number} - ${eventName}`)) {
       record.doneAlertedAt = new Date().toISOString();
       await saveRecord();
     }

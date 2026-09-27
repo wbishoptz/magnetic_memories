@@ -17,12 +17,35 @@
 //     409 { error, priceChanged: true, price }
 // The price is snapshotted on the order (what /api/guest-pay charges).
 // Errors: { error } with 400 / 403 / 409 / 503.
+//
+// Add-on magnets (more magnets for a ticket this guest already has):
+//   POST { t, addonTo: ROOT_ORDER_ID, count, expectedPrice, expectedExtras? }
+//     -> { orderId, freeCount: 0, extrasCount: count, extraPrice, extrasTotal,
+//          addonTo: ROOT_ORDER_ID, number: the root's number }
+// Every photo is paid. Never needs a free number (a "full" event still takes
+// add-ons). addonTo may be an add-on's id: it is resolved to its root.
+//   403 { reason: "invalid"|"closed" }   link not valid / uploads closed
+//   409 { extrasOff: true, reason: "extrasOff" }   extras not sold now
+//   400 / 403 / 404 / 409 { error }      not a finished guest ticket of this event
+//   409 { addonBusy: true, addon: true } another add-on of this ticket is at the
+//                                        payment step (its unexpired hold, see
+//                                        /api/guest-pay) - finish or cancel it first
+//   409 { addonLimit: true, remaining }  count over what is left for the ticket
+//                                        (root's paid extras + completed add-ons
+//                                        count against the event's maxExtras)
+//   409 { limitsChanged: true, ... }     expectedExtras !== count
+//   409 { priceChanged: true, price }    expectedPrice missing / not the price
 import { jsonResponse } from './_shared.js';
 import { hasDb, resolveGuestToken, maxPhotosFor, GUEST_MESSAGES } from './_tickets.js';
-import { extrasConfig, toPence, round2, formatGBP } from './_guest.js';
+import {
+  extrasConfig, toPence, round2, formatGBP, loadAddonRoot, addonAllowance, EXTRAS_OFF_MSG, ADDON_LIMIT_MSG,
+  otherLiveHold, addonBusyBody,
+} from './_guest.js';
 
 const STATUS_FOR_REASON = { invalid: 403, closed: 403, full: 409, 'not-setup': 503 };
 const LIMITS_CHANGED_MSG = 'The number of free photos for this event has changed.';
+const ADDON_LIMITS_CHANGED_MSG = 'The number of extra magnets you can add has changed.';
+const plural = (n, one, many) => (n === 1 ? one : many);
 
 // Optional non-negative integer (number or numeric string). -> int | null (not
 // sent) | NaN (sent but not a valid count)
@@ -41,6 +64,10 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') return jsonResponse({ error: 'Bad request.' }, 400);
+
+    if (body.addonTo !== undefined && body.addonTo !== null && body.addonTo !== '') {
+      return await startAddon(env, body);
+    }
 
     const state = await resolveGuestToken(env, body.t);
     if (!state.open) {
@@ -130,4 +157,111 @@ export async function onRequestPost({ request, env }) {
     console.error('guest-order error:', err);
     return jsonResponse({ error: 'Could not start your upload. Please try again.' }, 500);
   }
+}
+
+// ─── Add-on: more magnets for an existing ticket ──────────────────────────
+async function startAddon(env, body) {
+  const state = await resolveGuestToken(env, body.t, { allowFull: true });
+  if (!state.open) {
+    const reason = state.reason;
+    return jsonResponse({ error: GUEST_MESSAGES[reason] || GUEST_MESSAGES.closed, reason }, STATUS_FOR_REASON[reason] || 403);
+  }
+  const event = state.event;
+  if (!extrasConfig(event)) return jsonResponse({ error: EXTRAS_OFF_MSG, extrasOff: true, reason: 'extrasOff' }, 409);
+
+  const found = await loadAddonRoot(env, body.addonTo, event.id);
+  if (!found.ok) return jsonResponse(found.body, found.status);
+  const { root, number } = found;
+
+  // One live add-on per ticket: another one is being paid for right now
+  if (await otherLiveHold(env, root.orderId)) return jsonResponse(addonBusyBody(number), 409);
+
+  const allowance = await addonAllowance(env, root, event);
+  if (allowance.reason === 'closed') return jsonResponse({ error: GUEST_MESSAGES.closed, reason: 'closed' }, 403);
+  if (allowance.reason === 'extrasOff') return jsonResponse({ error: EXTRAS_OFF_MSG, extrasOff: true, reason: 'extrasOff' }, 409);
+  const remaining = allowance.remaining;
+  const price = allowance.price;
+  if (!(remaining > 0)) return jsonResponse({ error: ADDON_LIMIT_MSG, addonLimit: true, remaining: 0 }, 409);
+
+  const count = Number(body.count);
+  if (!Number.isInteger(count) || count < 1) {
+    return jsonResponse({ error: `Please add between 1 and ${remaining} ${plural(remaining, 'photo', 'photos')}.` }, 400);
+  }
+  if (count > remaining) {
+    return jsonResponse({
+      error: `You can add up to ${remaining} more ${plural(remaining, 'magnet', 'magnets')} to ticket #${number}.`,
+      addonLimit: true,
+      remaining,
+    }, 409);
+  }
+
+  const expectedExtras = parseExpectedExtras(body.expectedExtras);
+  if (Number.isNaN(expectedExtras)) return jsonResponse({ error: 'Bad request.' }, 400);
+  if (expectedExtras != null && expectedExtras !== count) {
+    return jsonResponse({
+      error: ADDON_LIMITS_CHANGED_MSG,
+      limitsChanged: true,
+      freePhotos: 0,
+      extras: extrasConfig(event),
+      remaining,
+    }, 409);
+  }
+
+  const expected = body.expectedPrice;
+  const expectedNum = typeof expected === 'number' ? expected : Number(String(expected ?? '').trim());
+  if (expected == null || expected === '' || typeof expected === 'boolean' || !Number.isFinite(expectedNum)
+      || toPence(expectedNum) !== toPence(price)) {
+    return jsonResponse({
+      error: `The price for extra magnets is now ${formatGBP(price)}.`,
+      priceChanged: true,
+      price,
+    }, 409);
+  }
+
+  const orderId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const order = {
+    orderId,
+    email: `guest-${event.id}-${orderId.slice(0, 8)}@event.local`,
+    phone: '00000000',
+    packSize: count,
+    packType: 'standard',
+    price: 0,
+    event: 'MANUAL',
+    eventId: event.id,
+    source: 'guest',
+    addonTo: root.orderId,
+    addonNumber: number,
+    raffleNumber: null,
+    productType: 'standard',
+    status: 'uploading',
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    images: [],
+    stripeSessionId: null,
+    recoverySent: false,
+    shippingMethod: 'COLLECT',
+    basketDraft: false,
+    // Every photo of an add-on is a paid extra (snapshot at order time)
+    freeCount: 0,
+    extrasCount: count,
+    extraPrice: price,
+    extrasTotal: round2((count * toPence(price)) / 100),
+    extrasPaid: false,
+    extrasSessionId: null,
+    extrasSkipped: false,
+    pendingKeys: null,
+  };
+
+  await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
+  return jsonResponse({
+    orderId,
+    freeCount: 0,
+    extrasCount: order.extrasCount,
+    extraPrice: order.extraPrice,
+    extrasTotal: order.extrasTotal,
+    addonTo: root.orderId,
+    number,
+  });
 }

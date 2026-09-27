@@ -3,6 +3,9 @@
 // Summaries carry the guest paid-extras fields. Money is always GBP:
 // extrasAmount (paid), extrasTotal (the order's snapshot), extraPrice (per
 // extra), refundNeeded { amount, reason, at } | null.
+// Add-on magnets: addonTo = the ticket's root order id (null for every other
+// order); addonNumber = the number of the ticket an add-on joins (also while it
+// is unfinished / cancelled). A finished add-on has raffleNumber = the root's.
 import { orderSessionIds, round2 } from './_guest.js';
 
 const gbp = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : round2(v));
@@ -68,6 +71,11 @@ export async function onRequest({ request, env }) {
             fullAfterPayment: o.fullAfterPayment === true || undefined,
             refundNeeded: refundSummary(o.refundNeeded),
             extrasRefunded: o.extrasRefunded === true,
+            // Add-on magnets (more magnets for an existing guest ticket)
+            addonTo: typeof o.addonTo === 'string' && o.addonTo ? o.addonTo : null,
+            addonNumber: typeof o.addonTo === 'string' && o.addonTo
+              ? (o.raffleNumber ?? o.addonNumber ?? null)
+              : undefined,
             bingoNumber: o.bingoNumber,
             stripeSessionId: o.stripeSessionId,
             price: o.price,

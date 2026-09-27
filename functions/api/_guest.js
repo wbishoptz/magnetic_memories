@@ -17,9 +17,29 @@
 //   fullAfterPayment: true       paid, but no number was left. The order is NOT
 //                                finished automatically until an admin resolves
 //                                it (/api/admin-guest-resolve)
-//   refundNeeded: { amount, reason: "full"|"paid-after-skip"|"paid-twice", at }
+//   refundNeeded: { amount, reason: "full"|"paid-after-skip"|"paid-twice"|"addon-orphan"|"addon-cancelled", at }
 //   extrasRefunded: true         the admin refunded the extras
-import { hasDb, allocateNext, maxPhotosFor, GUEST_MESSAGES } from './_tickets.js';
+//
+// Add-on magnets (more magnets bought later for an existing guest ticket): a
+// separate guest order with addonTo = the ticket's ROOT order id, freeCount 0
+// and every photo paid (extrasCount = photo count). It never holds a number of
+// its own: when paid it is completed with the ROOT's raffleNumber, recorded in
+// D1 ticket_addons, and never writes the event:ticket:{eventId}:{n} key (that
+// keeps pointing at the root). Extra fields:
+//   addonTo        root order id
+//   addonNumber    the root's number (snapshot when started; set again on completion)
+//   status         "uploading" -> "paid" (complete) | "cancelled" ("don't add them")
+//   cancelledAt, paidAfterCancel   history of a cancel that was later paid
+//   addonRefundState  FINAL states, never finished automatically (refundNeeded is set):
+//                  "cancelled-paid"  paid after it was cancelled and its photos deleted
+//                  "orphan"          paid, but the ticket it joins is gone
+// One live add-on per ticket: D1 addon_holds (see _tickets.js). /api/guest-pay
+// takes the ticket's hold before handing out a checkout url; completing or
+// cancelling the add-on releases it.
+import {
+  hasDb, allocateNext, maxPhotosFor, GUEST_MESSAGES, recordAddon, addonTally,
+  addonHold, releaseAddonHold, nowSeconds,
+} from './_tickets.js';
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const FULL_MSG = 'Sorry - all numbers for this event have been taken.';
@@ -29,7 +49,16 @@ export const NOT_PAID_MSG = "We haven't received your payment yet.";
 export const EXTRAS_OFF_MSG = 'Extra magnets are no longer available for this event.';
 export const STRIPE_DOWN_MSG = 'Payment service unavailable, please try again.';
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024; // same limit as /api/upload for guests
-export const REFUND_REASONS = ['full', 'paid-after-skip', 'paid-twice'];
+export const REFUND_REASONS = ['full', 'paid-after-skip', 'paid-twice', 'addon-orphan', 'addon-cancelled'];
+export const ADDON_LIMIT_MSG = "You've already added the most extra magnets allowed for this event.";
+export const ADDON_CANCELLED_MSG = 'You cancelled these extra magnets - nothing was charged. Please start again to add more.';
+export const ADDON_WAS_CANCELLED_MSG = 'These extra magnets were cancelled.';
+export const ADDON_CANCELLED_PAID_MSG = 'Your payment arrived after the extra magnets were cancelled - please show this screen to the Magnetic Memories team for a refund.';
+export const ADDON_ORPHAN_MSG = "Your payment went through, but we couldn't find your ticket. Please show this screen to the Magnetic Memories team.";
+export const ADDON_ROOT_GONE_MSG = "Extra magnets can't be added to this ticket any more. Please ask a member of the Magnetic Memories team.";
+export const addonBusyMsg = (number) => `Another purchase for ticket #${number} is still in progress - finish or cancel it first.`;
+// 409 body: another add-on of this ticket is at the payment step
+export const addonBusyBody = (number) => ({ error: addonBusyMsg(number), addonBusy: true, addon: true });
 
 // ─── Small helpers ─────────────────────────────────────────────────────────
 
@@ -79,6 +108,108 @@ export function extrasConfig(event) {
   const price = parseExtraPrice(event.extraPrice);
   if (price == null) return null;
   return { price, max: parseMaxExtras(event.maxExtras) ?? MAX_EXTRAS_DEFAULT };
+}
+
+// ─── Add-on magnets: the ticket they join and how many are left ────────────
+
+// Is this order an add-on (more magnets for an existing ticket)?
+export const isAddon = (order) => !!(order && typeof order.addonTo === 'string' && order.addonTo);
+
+// An add-on the guest chose not to add ("don't add them")
+export const isCancelledAddon = (order) => isAddon(order) && (order.status === 'cancelled' || order.extrasSkipped === true);
+
+// Paid add-on that can never be finished automatically (a refund is recorded on
+// it): paid after it was cancelled (photos gone), or its ticket is gone. Nothing
+// rewrites such an order except an admin.
+export const ADDON_FINAL_STATES = ['cancelled-paid', 'orphan'];
+export const addonRefundFinal = (order) => isAddon(order) && order.raffleNumber == null
+  && ADDON_FINAL_STATES.includes(order.addonRefundState);
+
+// Best-effort release of an add-on's payment hold (never throws).
+export async function releaseHoldQuietly(env, rootOrderId, addonOrderId) {
+  if (!hasDb(env) || !rootOrderId || !addonOrderId) return false;
+  try {
+    return await releaseAddonHold(env, rootOrderId, addonOrderId);
+  } catch (err) {
+    console.error('guest add-on: could not release the payment hold:', err);
+    return false;
+  }
+}
+
+// Is a hold left behind by an add-on that can no longer be paid for (finished,
+// refunded, final refund state, or gone)? Such a hold is released and ignored.
+async function staleHold(env, hold) {
+  const holder = UUID_RE.test(hold.addonOrderId) ? await loadOrder(env, hold.addonOrderId) : null;
+  return !holder || holder.raffleNumber != null || holder.extrasRefunded === true || addonRefundFinal(holder);
+}
+
+// The unexpired hold of a ticket held by ANOTHER add-on than exceptAddonId,
+// or null (none / expired / this add-on's own / stale - a stale one is released).
+export async function otherLiveHold(env, rootOrderId, exceptAddonId = null, now = nowSeconds()) {
+  const hold = await addonHold(env, rootOrderId);
+  if (!hold || !(hold.expiresAt > now) || hold.addonOrderId === exceptAddonId) return null;
+  if (await staleHold(env, hold)) {
+    await releaseHoldQuietly(env, rootOrderId, hold.addonOrderId);
+    return null;
+  }
+  return hold;
+}
+
+const addonFail = (status, error, extra = {}) => ({ ok: false, status, body: { error, ...extra } });
+
+// The ROOT ticket order a guest wants to add magnets to. An add-on's id is
+// resolved to its root. eventId: the event it must belong to.
+// -> { ok: true, root, number } | { ok: false, status, body }
+export async function loadAddonRoot(env, rootId, eventId) {
+  const id = String(rootId || '').trim();
+  if (!UUID_RE.test(id)) return addonFail(400, 'Missing or invalid ticket.');
+  let root = await loadOrder(env, id);
+  if (root && isAddon(root)) {
+    const up = String(root.addonTo).trim();
+    root = UUID_RE.test(up) ? await loadOrder(env, up) : null;
+  }
+  if (!root) return addonFail(404, "We couldn't find your ticket. Please ask a member of the Magnetic Memories team.");
+  if (root.source !== 'guest' || isAddon(root)) {
+    return addonFail(403, 'Extra magnets can only be added to a ticket from a guest upload.');
+  }
+  if (eventId != null && String(root.eventId) !== String(eventId)) {
+    return addonFail(403, "This ticket isn't from this event.");
+  }
+  const number = root.raffleNumber == null ? NaN : Number(root.raffleNumber);
+  if (!Number.isSafeInteger(number)) return addonFail(409, "Your first upload isn't finished yet.");
+  return { ok: true, root, number };
+}
+
+// Is this still the root an add-on was started for? (complete guest ticket of
+// the same event, not an add-on itself) -> its number, or null
+export function addonRootNumber(root, addon) {
+  if (!root || root.source !== 'guest' || isAddon(root) || root.raffleNumber == null) return null;
+  if (addon && String(root.eventId) !== String(addon.eventId)) return null;
+  const n = Number(root.raffleNumber);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+// Extras already bought for a ticket: the root's own paid extras + the photos of
+// every COMPLETED add-on (D1 ticket_addons). -> { bought, addons: { photos, amount, count } }
+export async function ticketExtrasBought(env, root) {
+  const own = root && root.extrasPaid === true ? Math.max(0, Math.floor(Number(root.extrasCount) || 0)) : 0;
+  const addons = await addonTally(env, root.orderId);
+  return { bought: own + addons.photos, addons };
+}
+
+// Can more magnets be added to this (complete, root) ticket right now?
+// Needs the event open for guests (active + guestUpload) and selling extras -
+// never a free number. remaining = max(0, maxExtras - bought).
+// -> { available, remaining, price, bought, reason: null|"closed"|"extrasOff"|"limit" }
+export async function addonAllowance(env, root, event) {
+  const { bought } = await ticketExtrasBought(env, root);
+  const extras = extrasConfig(event);
+  const remaining = extras ? Math.max(0, extras.max - bought) : 0;
+  let reason = null;
+  if (!(event && event.active && event.guestUpload)) reason = 'closed';
+  else if (!extras) reason = 'extrasOff';
+  else if (remaining <= 0) reason = 'limit';
+  return { available: reason === null, remaining, price: extras ? extras.price : null, bought, reason };
 }
 
 // ─── Event overlays ────────────────────────────────────────────────────────
@@ -418,6 +549,9 @@ export async function completeGuestOrder(env, orderId, { keys: clientKeys, skipE
   if (!order) return result(404, { error: 'Upload not found. Please start again.' });
   if (order.source !== 'guest') return result(403, { error: 'This is not a guest upload.' });
 
+  // More magnets for an existing ticket: joins the root's number (no allocation)
+  if (isAddon(order)) return completeAddonOrder(env, id, order, { clientKeys, skipExtras });
+
   // Already finished -> same answer again (order, incl. completedAt, untouched)
   if (order.raffleNumber != null) {
     // Free-only finish: the unpaid extras must not stay in R2. The first sweep
@@ -558,6 +692,218 @@ export async function completeGuestOrder(env, orderId, { keys: clientKeys, skipE
   const body = { number };
   if (pay && pay.paid && extrasCount > 0) body.paidExtras = extrasCount;
   return result(200, body, order);
+}
+
+// ─── Finish an add-on (more magnets for an existing ticket) ────────────────
+// Idempotent, like completeGuestOrder:
+//   complete already            -> 200 { number, addon, addonTo, paidExtras }
+//   skipExtras ("don't add them") -> paid: 409 { alreadyPaid }. Else the add-on is
+//     written as status "cancelled" (extrasSkipped) FIRST - from then on
+//     /api/guest-pay hands out no checkout for it - then the order is read again
+//     and EVERY checkout on it (incl. ones saved meanwhile) is expired.
+//     -> 200 { cancelled: true, addon, addonTo, number, mayStillPay }.
+//     mayStillPay: Stripe could not confirm that no checkout can still be paid
+//     (unreachable / a session could not be expired): the photos and the
+//     ticket's payment hold are KEPT, so a late payment can still complete the
+//     add-on; asking again retries the clean-up. Otherwise the photos are
+//     deleted and the hold released.
+//   not paid                    -> 402 { needsPayment } (+ cancelled when it was)
+//   paid                        -> the root (still a complete guest ticket of the
+//     same event) gives the number; D1 ticket_addons row, then ONE write of the
+//     completed add-on, then the orphan sweep and the hold release. No
+//     allocateNext, no event:ticket key. A payment that arrives after a cancel
+//     still completes it (the photos were kept) - whether or not its hold ran out.
+//   paid after a cancel deleted the photos -> 409 { addon, refund } +
+//     refundNeeded("addon-cancelled"), addonRefundState "cancelled-paid" (final)
+//   paid, root gone             -> 409 { addon, orphan } + refundNeeded("addon-orphan"),
+//     addonRefundState "orphan" (final)
+// Both final states answer the same again (refundRecorded: true) and are never
+// finished automatically.
+async function completeAddonOrder(env, id, order, { clientKeys, skipExtras }) {
+  const kvKey = `order:${id}`;
+  const prefix = `orders/${id}/`;
+  const rootId = String(order.addonTo).trim();
+  const tag = { addon: true, addonTo: rootId };
+  const extrasCount = Math.max(0, Math.floor(Number(order.extrasCount) || 0));
+  const doneBody = (o) => ({ number: Number(o.raffleNumber), ...tag, paidExtras: extrasCount });
+  const cancelledPaidBody = { error: ADDON_CANCELLED_PAID_MSG, addon: true, refund: true };
+  const orphanBody = { error: ADDON_ORPHAN_MSG, ...tag, orphan: true };
+  const releaseHold = () => releaseHoldQuietly(env, rootId, id);
+
+  if (order.raffleNumber != null) {
+    await releaseHold(); // (a release that failed at completion is retried)
+    return result(200, doneBody(order), order);
+  }
+  if (order.extrasRefunded === true) return result(409, { error: REFUNDED_MSG, refunded: true, ...tag }, order);
+  if (order.addonRefundState === 'cancelled-paid') {
+    await releaseHold();
+    return result(409, cancelledPaidBody, order, { refundRecorded: true });
+  }
+  if (order.addonRefundState === 'orphan') return result(409, orphanBody, order, { refundRecorded: true });
+  if (!(extrasCount > 0)) return result(400, { error: 'There are no magnets on this upload.', ...tag }, order);
+  const cancelled = isCancelledAddon(order);
+
+  // ── "Don't add them" ────────────────────────────────────────────
+  if (skipExtras) {
+    // Already paid (order / webhook record / any checkout)? Then it is not cancelled.
+    const before = await extrasPaymentStatus(env, order);
+    if (before.paid) {
+      return result(409, {
+        error: 'Your extra magnets are already paid for - adding them to your ticket.',
+        alreadyPaid: true, ...tag,
+      }, order);
+    }
+
+    // 1. Write "cancelled" first (on the latest record), then read it back: a
+    //    /api/guest-pay that saved a checkout at the same moment may have
+    //    overwritten it - write it again then (keeping that checkout's id).
+    let cur = (await loadOrder(env, id)) || order;
+    for (let attempt = 0; attempt < 3 && cur.raffleNumber == null; attempt++) {
+      const marked = cur.status === 'cancelled' && cur.extrasSkipped === true;
+      if (marked && attempt > 0) break;
+      if (!marked) {
+        const now = new Date().toISOString();
+        Object.assign(cur, { status: 'cancelled', extrasSkipped: true, cancelledAt: cur.cancelledAt || now, updatedAt: now });
+        await env.ORDERS_KV.put(kvKey, JSON.stringify(cur));
+      }
+      cur = (await loadOrder(env, id)) || cur;
+    }
+    if (cur.raffleNumber != null) return result(200, doneBody(cur), cur); // a payment completed it
+
+    // 2. Every checkout ever saved on it (incl. ones added meanwhile): expire the open ones
+    const { sessions, failed } = await retrieveOrderSessions(env, cur);
+    await expireOpenSessions(env, sessions);
+    const status = await extrasPaymentStatus(env, cur, { sessions });
+    if (status.paid) {
+      // Paid in the meantime: the payment wins (it completes with paidAfterCancel)
+      return result(409, {
+        error: 'Your extra magnets are already paid for - adding them to your ticket.',
+        alreadyPaid: true, ...tag,
+      }, cur);
+    }
+    // 3. Can any checkout made for this add-on still be paid?
+    const mayStillPay = !!(failed || [...sessions.values()].some(s => s && s.status === 'open'));
+
+    const root = UUID_RE.test(rootId) ? await loadOrder(env, rootId).catch(() => null) : null;
+    const rootNo = addonRootNumber(root, cur);
+    const saved = cur.addonNumber == null ? NaN : Number(cur.addonNumber);
+    const number = rootNo != null ? rootNo : (Number.isSafeInteger(saved) ? saved : null);
+
+    // 4. Only when nothing can still be paid: delete the photos, release the hold
+    if (!mayStillPay) {
+      const listed = [
+        ...(Array.isArray(cur.pendingKeys) ? cur.pendingKeys : []),
+        ...(Array.isArray(clientKeys) ? clientKeys : []),
+      ].filter(k => typeof k === 'string' && k.startsWith(prefix) && k.length <= 1024);
+      if (listed.length) await deleteKeys(env, [...new Set(listed)]);
+      await sweepOrphans(env, prefix, new Set());
+      await releaseHold();
+    }
+    return result(200, { cancelled: true, ...tag, number, mayStillPay }, cur);
+  }
+
+  // ── Payment ─────────────────────────────────────────────────────
+  const pay = await extrasPaymentStatus(env, order);
+  if (!pay.paid) {
+    return result(402, { error: NOT_PAID_MSG, needsPayment: true, ...tag, ...(cancelled ? { cancelled: true } : {}) }, order);
+  }
+
+  // Paid, but can't be finished: record the refund ONCE on the latest record and
+  // put the add-on in its final state. -> { done } when a completion landed meanwhile
+  const recordFinal = async (state, reason, what) => {
+    let refundRecorded = false;
+    try {
+      const fresh = (await loadOrder(env, id)) || order;
+      if (fresh.raffleNumber != null) return { done: fresh };
+      const now = new Date().toISOString();
+      Object.assign(fresh, paidFields(pay, fresh, now), { addonRefundState: state, updatedAt: now });
+      addRefundNeeded(fresh, { amount: fresh.extrasAmount, reason, sessionId: pay.sessionId || null, at: now });
+      await env.ORDERS_KV.put(kvKey, JSON.stringify(fresh));
+      refundRecorded = true;
+    } catch (err) {
+      console.error(`guest add-on: could not record the ${what}:`, err);
+    }
+    await releaseHold();
+    return { refundRecorded };
+  };
+
+  // ── The ticket it joins ─────────────────────────────────────────
+  const root = UUID_RE.test(rootId) ? await loadOrder(env, rootId) : null;
+  const number = addonRootNumber(root, order);
+  if (number == null) {
+    // Paid, but the ticket is gone / no longer this event's: never finished
+    // automatically - recorded for a refund (should never happen).
+    const r = await recordFinal('orphan', 'addon-orphan', 'orphaned payment');
+    if (r.done) return result(200, doneBody(r.done), r.done);
+    return result(409, orphanBody, order, { refundRecorded: r.refundRecorded });
+  }
+
+  // ── Photo list: the saved one (guest-pay) is the truth ──────────
+  const pending = Array.isArray(order.pendingKeys) && order.pendingKeys.length ? order.pendingKeys : null;
+  const keys = pending || clientKeys;
+  const check = await checkPhotoKeys(env, id, keys, { min: 1, max: extrasCount });
+  if (!check.ok) {
+    // Cancelled and its photos deleted, then paid anyway (a checkout that could
+    // not be seen / expired at the cancel): no upload can bring the photos back
+    // (/api/upload refuses a cancelled add-on) - the money goes back instead.
+    const latest = cancelled ? order : await loadOrder(env, id).catch(() => null);
+    if (latest && latest.raffleNumber != null) return result(200, doneBody(latest), latest);
+    if (cancelled || isCancelledAddon(latest)) {
+      const r = await recordFinal('cancelled-paid', 'addon-cancelled', 'payment after the cancel');
+      if (r.done) return result(200, doneBody(r.done), r.done);
+      return result(409, cancelledPaidBody, order, { refundRecorded: r.refundRecorded });
+    }
+    return result(check.status, { ...check.body, ...tag }, order);
+  }
+  const heads = check.heads;
+
+  // D1 first: a failure here leaves the add-on unfinished (retried), and a
+  // finished add-on is always counted towards the ticket's extras limit.
+  await recordAddon(env, {
+    addonOrderId: id,
+    rootOrderId: root.orderId,
+    eventId: order.eventId,
+    number,
+    photos: keys.length,
+    amount: pay.amount != null ? round2(pay.amount) : round2(order.extrasTotal || 0),
+    completedAt: new Date().toISOString(),
+  });
+
+  const fallbackUploadedAt = new Date().toISOString();
+  const previous = new Map((Array.isArray(order.images) ? order.images : [])
+    .filter(im => im && im.key)
+    .map(im => [im.key, im]));
+  order.images = keys.map((key, i) => {
+    const uploaded = heads[i] && heads[i].uploaded ? new Date(heads[i].uploaded) : null;
+    return {
+      key,
+      name: `Ticket-${number}-extra-${i + 1}.jpg`,
+      uploadedAt: previous.get(key)?.uploadedAt
+        || (uploaded && !Number.isNaN(uploaded.getTime()) ? uploaded.toISOString() : fallbackUploadedAt),
+    };
+  });
+  order.raffleNumber = number;
+  order.addonNumber = number;
+  order.status = 'paid';
+  order.packSize = keys.length;
+  if (cancelled) {
+    // "Don't add them" was chosen, but the payment arrived: they get the magnets
+    order.extrasSkipped = false;
+    order.paidAfterCancel = true;
+  }
+
+  // completedAt = when this completing write happens (the admin's capture order)
+  const completedAt = new Date().toISOString();
+  Object.assign(order, paidFields(pay, order, completedAt));
+  order.completedAt = completedAt;
+  order.updatedAt = completedAt;
+  await env.ORDERS_KV.put(kvKey, JSON.stringify(order));
+
+  // Counted in ticket_addons now: the next add-on of this ticket may be paid
+  await releaseHold();
+  await sweepOrphans(env, prefix, new Set(keys));
+  await expireOtherSessions(env, order, pay.sessionId);
+  return result(200, { number, addon: true, addonTo: root.orderId, paidExtras: extrasCount }, order);
 }
 
 // Expire every open session of the order except the one that paid.
