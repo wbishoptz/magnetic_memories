@@ -13,7 +13,7 @@
   <meta name="description" content="Premium photo frames with magnetic slots. Choose your style, size and colour." />
   <meta property="og:title" content="Magnetic Memories – Photo Frames" />
   <meta property="og:description" content="Premium photo frames with magnetic slots. Choose your style, size and colour." />
-  <meta property="og:image" content="https://magnetic-memories.pages.dev/sleek.jpeg" />
+  <meta property="og:image" content="https://magnetic-memories.pages.dev/bohemian.jpeg" />
   <meta property="og:type" content="website" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -160,16 +160,6 @@
           </div>
         </div>
 
-        <div onclick="selectStyle('rollercube')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
-          <div class="w-full aspect-square bg-muted overflow-hidden">
-            <img src="./rollercube.jpeg" alt="Rollercube" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-3 flex-1 flex flex-col">
-            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="box" class="w-4 h-4 text-primary"></i> Rollercube</h3>
-            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">3D rotating display.</p>
-          </div>
-        </div>
-
         <div onclick="selectStyle('flexi')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
           <div class="w-full aspect-square bg-muted overflow-hidden">
             <img src="./frame-flexi.png" alt="Heart Buddy" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -177,16 +167,6 @@
           <div class="p-3 flex-1 flex flex-col">
             <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="heart" class="w-4 h-4 text-primary"></i> Heart Buddy</h3>
             <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Interlocking photo frame.</p>
-          </div>
-        </div>
-
-        <div onclick="selectStyle('sleek')" class="cursor-pointer rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group flex flex-col h-full">
-          <div class="w-full aspect-square bg-muted overflow-hidden">
-            <img src="./sleek.jpeg" alt="Sleek" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-3 flex-1 flex flex-col">
-            <h3 class="font-bold text-sm sm:text-base flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
-            <p class="text-[10px] sm:text-xs text-muted-foreground leading-snug mt-1">Modern, minimalist look.</p>
           </div>
         </div>
 
@@ -409,15 +389,6 @@
         { id: 'b6', size: 6, framePrice: 12.95, fullPrice: 25.95, img: './bohemian-6.jpeg' },
         { id: 'b9', size: 9, framePrice: 15.95, fullPrice: 30.95, img: './bohemian-9.jpeg' },
       ],
-      sleek: [
-        { id: 's1', size: 1, framePrice: 5.95, fullPrice: 7.95, img: './sleek-1.jpeg' },
-        { id: 's2', size: 2, framePrice: 7.95, fullPrice: 12.95, img: './sleek-2.jpeg' },
-        { id: 's3', size: 3, framePrice: 8.95, fullPrice: 15.95, img: './sleek-3.jpeg' },
-        { id: 's4', size: 4, framePrice: 10.95, fullPrice: 17.95, img: './sleek-4.jpeg' },
-      ],
-      rollercube: [
-        { id: 'rc', size: 4, framePrice: 10.95, fullPrice: 17.95, img: './rollercube.jpeg' }
-      ],
       rattan: [
         { id: 'rat', size: 4, framePrice: 15.95, fullPrice: 20.95, img: './frame-rattan-4.jpg' }
       ],
@@ -580,7 +551,7 @@
     // Skips step 2 for single-size items
     window.selectStyle = (style) => {
       state.style = style;
-      if (style === 'rollercube' || style === 'rattan' || style === 'flexi' || style === 'message') {
+      if (style === 'rattan' || style === 'flexi' || style === 'message') {
         state.product = PRODUCTS[style][0]; 
         state.photos = [];
         if (style === 'flexi') state.withMagnets = true; // Force photo upload for flexi
@@ -822,11 +793,10 @@
       }
 
       let name = state.style === 'bohemian' ? "Bohemian Frame"
-               : state.style === 'sleek' ? "Sleek Frame"
                : state.style === 'rattan' ? "Rattan Frame"
                : state.style === 'flexi' ? "Heart Buddy"
                : state.style === 'message' ? "Message Frame"
-               : "Rollercube";
+               : "Frame";
 
       document.getElementById('summary-product').innerText = name;
 
@@ -847,7 +817,7 @@
       if (state.step === 2 && !state.product) return;
       
       if (state.step === 1) {
-          state.step = (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi' || state.style === 'message') ? 3 : 2;
+          state.step = (state.style === 'rattan' || state.style === 'flexi' || state.style === 'message') ? 3 : 2;
       }
       else if (state.step === 2) {
           state.step = 3;
@@ -875,7 +845,7 @@
 
     window.goBack = () => {
       if (state.step === 5 && !state.withMagnets) state.step = 3;
-      else if (state.step === 3 && (state.style === 'rollercube' || state.style === 'rattan' || state.style === 'flexi' || state.style === 'message')) state.step = 1;
+      else if (state.step === 3 && (state.style === 'rattan' || state.style === 'flexi' || state.style === 'message')) state.step = 1;
       else state.step--;
 
       if (state.step < 1) window.location.href = "/";

@@ -91,7 +91,7 @@
           </div>
           <div>
             <h3 class="font-serif text-xl font-semibold mb-1">Photo Frames</h3>
-            <p class="text-sm text-muted-foreground">Beautiful magnetic frames in Bohemian & Sleek styles</p>
+            <p class="text-sm text-muted-foreground">Beautiful Bohemian magnetic frames</p>
           </div>
         </button>
 
@@ -128,26 +128,6 @@
           <div class="p-4">
             <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="flower-2" class="w-4 h-4 text-primary"></i> Bohemian</h3>
             <p class="text-sm text-muted-foreground">Warm, artistic frames with a handcrafted feel.</p>
-          </div>
-        </div>
-
-        <div onclick="selectFrameStyle('sleek')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
-            <img src="./sleek.jpeg" alt="Sleek" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-primary"></i> Sleek</h3>
-            <p class="text-sm text-muted-foreground">Modern, minimalist frames for a clean look.</p>
-          </div>
-        </div>
-
-        <div onclick="selectFrameStyle('rollercube')" class="cursor-pointer relative w-full rounded-xl border-2 hover:border-primary/50 transition-all overflow-hidden bg-white group">
-          <div class="w-full aspect-[4/3] bg-muted overflow-hidden">
-            <img src="./rollercube.jpeg" alt="Rollercube" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          </div>
-          <div class="p-4">
-            <h3 class="font-semibold text-lg flex items-center gap-2"><i data-lucide="box" class="w-4 h-4 text-primary"></i> Rollercube</h3>
-            <p class="text-sm text-muted-foreground">Interactive 3D rotating display cube.</p>
           </div>
         </div>
       </div>
@@ -340,15 +320,6 @@
         { id: 'b4', size: 4, framePrice: 10.95, fullPrice: 17.95, img: './bohemian-4.jpeg' },
         { id: 'b6', size: 6, framePrice: 12.95, fullPrice: 25.95, img: './bohemian-6.jpeg' },
         { id: 'b9', size: 9, framePrice: 15.95, fullPrice: 30.95, img: './bohemian-9.jpeg' },
-      ],
-      sleek: [
-        { id: 's1', size: 1, framePrice: 5.95, fullPrice: 7.95, img: './sleek-1.jpeg' },
-        { id: 's2', size: 2, framePrice: 7.95, fullPrice: 12.95, img: './sleek-2.jpeg' },
-        { id: 's3', size: 3, framePrice: 8.95, fullPrice: 15.95, img: './sleek-3.jpeg' },
-        { id: 's4', size: 4, framePrice: 10.95, fullPrice: 17.95, img: './sleek-4.jpeg' },
-      ],
-      rollercube: [
-        { id: 'rc', size: 4, framePrice: 10.95, fullPrice: 17.95, img: './rollercube.jpeg' }
       ]
     };
 
@@ -445,13 +416,7 @@
 
     window.selectFrameStyle = (style) => {
       state.frameStyle = style;
-      if (style === 'rollercube') { 
-        state.frameProduct = FRAME_PRODUCTS.rollercube[0]; 
-        state.step = 'frame-custom'; 
-        state.withMagnets = false; 
-      } else { 
-        state.step = 'frame-size'; 
-      }
+      state.step = 'frame-size';
       render();
     };
 
@@ -667,7 +632,7 @@
     window.goBack = () => {
       if (state.step === 'packages' || state.step === 'frame-style') state.step = 'landing';
       else if (state.step === 'frame-size') state.step = 'frame-style';
-      else if (state.step === 'frame-custom') state.step = state.frameStyle === 'rollercube' ? 'frame-style' : 'frame-size';
+      else if (state.step === 'frame-custom') state.step = 'frame-size';
       else if (state.step === 'photos') state.step = state.line === 'magnets' ? 'packages' : 'frame-custom';
       else if (state.step === 'premade') state.step = 'photos';
       else if (state.step === 'checkout') {
