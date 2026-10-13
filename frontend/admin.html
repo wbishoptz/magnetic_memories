@@ -105,6 +105,7 @@
             <button class="nav-btn" id="nav-events">🎪 Events</button>
           </div>
           <button id="print-lab-btn" style="margin-left:14px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #1f2933; background:#0b1220; color:#5eead4; cursor:pointer;" title="Upload photos and download a 2.5×3.5 inch print sheet">🖼️ 2.5×3.5 Lab</button>
+          <button id="jigsaw-lab-btn" style="margin-left:8px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #1f2933; background:#0b1220; color:#fcd34d; cursor:pointer;" title="One photo across several magnets (e.g. 2×2) - download a print sheet">🧩 Jigsaw Lab</button>
         </div>
         <div class="input-inline" id="key-form"><input id="admin-key-input" type="password" placeholder="Admin key" autocomplete="off" /><button id="save-key-btn">Unlock</button></div>
         <div class="key-badge" id="key-badge" style="display: none">Admin</div>
@@ -182,6 +183,72 @@
       <div style="display:flex; gap:12px; margin-top:16px;">
         <button id="lab-crop-cancel" style="padding:12px 24px; border-radius:10px; background:#1f2933; color:#fff; border:none; font-weight:700; cursor:pointer;">Cancel</button>
         <button id="lab-crop-save" style="padding:12px 24px; border-radius:10px; background:#059669; color:#fff; border:none; font-weight:700; cursor:pointer;">✓ Save Crop</button>
+      </div>
+    </div>
+
+    <!-- 🧩 Jigsaw Lab modal -->
+    <div id="jig-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:#0b1220; border:1px solid #1f2933; border-radius:16px; width:100%; max-width:680px; max-height:92vh; overflow:auto; padding:22px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <h2 style="margin:0; font-size:18px;">🧩 Jigsaw Lab</h2>
+          <button id="jig-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
+        </div>
+        <p style="color:#9ca3af; font-size:13px; margin:0 0 14px;">One photo across several standard magnets (e.g. 2×2) for a bigger picture. Every piece prints at true size on the normal octagon tile, sliced by your magnets' spacing so lines meet across the gaps. Standalone — nothing is saved.</p>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">1 · Your magnets</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="font-size:12px; color:#9ca3af;">Magnet spacing (centre to centre)<br>
+              <input id="jig-pitch" type="number" min="40" max="70" step="0.1" style="width:110px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+            <label style="font-size:12px; color:#9ca3af;">Visible face<br>
+              <input id="jig-face" type="number" min="30" max="70" step="0.1" style="width:110px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+          </div>
+          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Spacing = push two finished magnets together and measure from the <b>left edge of one to the left edge of the other</b> (more accurate: line up 4 in a row, measure the whole row and divide by 4). It's the one number that must match real life — confirm it with the alignment test. Visible face = the flat front of one magnet; it only changes the preview and the red guides.</p>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+            <button id="jig-test" style="padding:9px 14px; border-radius:10px; background:#1f2933; border:1px solid #334155; color:#fcd34d; font-weight:700; cursor:pointer;">📏 Download alignment test</button>
+            <label style="font-size:12px; color:#9ca3af;">test steps
+              <select id="jig-step" style="padding:6px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;">
+                <option value="0.25">0.25 mm</option><option value="0.5">0.5 mm</option><option value="1">1 mm</option>
+              </select></label>
+          </div>
+          <label style="display:flex; gap:8px; align-items:center; font-size:12px; color:#d1d5db; margin-top:10px;"><input id="jig-confirmed" type="checkbox" /> I've printed the test and this spacing lines up</label>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">2 · Layout</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <select id="jig-grid" style="padding:9px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;"></select>
+            <label style="display:flex; gap:8px; align-items:center; font-size:12px; color:#d1d5db;"><input id="jig-branding" type="checkbox" /> Branding on the outside edges</label>
+          </div>
+          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Branding on: the outer edges look like a normal magnet (white with the usual text). Off: the photo wraps right round the outside too.</p>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">3 · Photo</div>
+          <div style="display:flex; gap:8px;">
+            <button id="jig-add" style="flex:1; padding:12px; border:2px dashed #334155; border-radius:12px; background:#0b1220; color:#5eead4; font-weight:700; cursor:pointer;">＋ Choose photo</button>
+            <button id="jig-recrop" style="display:none; padding:12px 16px; border-radius:12px; background:#1f2933; border:1px solid #334155; color:#fff; font-weight:700; cursor:pointer;">✂️ Re-crop</button>
+          </div>
+          <input id="jig-file" type="file" accept="image/*" style="display:none;" />
+          <div id="jig-preview-wrap" style="display:none; margin-top:12px;">
+            <div style="font-size:12px; color:#9ca3af; margin-bottom:6px;">How it will look (front view, gaps to scale):</div>
+            <canvas id="jig-preview" style="width:100%; height:auto; border-radius:10px; background:#e5e7eb; display:block;"></canvas>
+            <p id="jig-info" style="color:#9ca3af; font-size:12px; margin:8px 0 0;"></p>
+          </div>
+        </div>
+
+        <button id="jig-generate" style="width:100%; padding:13px; border-radius:12px; background:#059669; border:none; color:#fff; font-weight:700; cursor:pointer;">🖨️ Download Jigsaw Sheet</button>
+        <p id="jig-status" style="color:#9ca3af; font-size:12px; margin-top:10px;"></p>
+      </div>
+    </div>
+
+    <!-- Jigsaw crop modal -->
+    <div id="jig-crop-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9100; flex-direction:column; align-items:center; justify-content:center; padding:16px;">
+      <div style="width:100%; max-width:640px; max-height:70vh;"><img id="jig-crop-img" style="max-width:100%; display:block;" /></div>
+      <p style="color:#d1d5db; font-size:12px; margin:10px 0 0; text-align:center; max-width:640px;">The <span style="color:#fca5a5; font-weight:700;">red strips</span> fall into the gaps between magnets — keep faces and writing out of them.</p>
+      <div style="display:flex; gap:12px; margin-top:12px;">
+        <button id="jig-crop-cancel" style="padding:12px 24px; border-radius:10px; background:#1f2933; color:#fff; border:none; font-weight:700; cursor:pointer;">Cancel</button>
+        <button id="jig-crop-save" style="padding:12px 24px; border-radius:10px; background:#059669; color:#fff; border:none; font-weight:700; cursor:pointer;">✓ Use this crop</button>
       </div>
     </div>
 
@@ -3195,6 +3262,433 @@
           pdf.save(`big-magnets-${orientation}-print-sheet.pdf`);
           statusEl.textContent = `✅ Downloaded ${pages} sheet(s) · ${labImages.length} photo(s) · ${orientation}.`;
         };
+      })();
+
+      // ─── 🧩 Jigsaw Lab: one photo across several magnets (standalone, nothing saved) ───
+      // How the pieces line up: every piece is printed at TRUE SIZE on the normal 71.12mm
+      // octagon tile, and the photo is sliced so the centres of neighbouring pieces are
+      // exactly one PITCH apart - the centre-to-centre distance of two finished magnets
+      // pushed together. Anything crossing a seam then lands in the right place on both
+      // magnets whatever the edge shape: the seam just "uses up" a strip of the photo,
+      // like the bars of a window. Inner edges print the photo right across the wrap
+      // (continuing into the neighbour), so a slightly off cut never shows white between
+      // pieces. The pitch is the one number that must match real life: measure it, then
+      // confirm it with the alignment test sheet.
+      (function () {
+        const TILE_PX = 860;                 // tile raster: 860px over 71.12mm ≈ 307 dpi
+        const RES = TILE_PX / TILE;          // px per mm, exact - so tiles print at true size
+        const PREVIEW_RES = 4;               // px per mm for the on-screen preview
+        const MAX_SRC = 4096;                // longest side kept from the photo (canvas memory)
+        const LETTERS = 'ABCDEFGH';
+        const GRIDS = [[2, 1], [1, 2], [2, 2], [3, 2], [2, 3], [3, 3], [4, 3], [3, 4], [4, 4]]; // [wide, tall]
+        const STORE = 'mm_jigsaw_lab';
+
+        const cfg = { pitch: 52, face: 50, branding: true, cols: 2, rows: 2, confirmed: false, step: 0.5 };
+        try { Object.assign(cfg, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch {}
+        const saveCfg = () => { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch {} };
+
+        let src = null;     // the photo, normalised (EXIF orientation applied): { canvas, url, w, h }
+        let crop = null;    // { x, y, w, h } in source px; aspect always W:H
+        let cropper = null;
+
+        const $ = (id) => document.getElementById(id);
+        const modal = $('jig-modal'), cropModal = $('jig-crop-modal'), statusEl = $('jig-status');
+
+        // ── Geometry (all in mm) ──
+        // Picture = cols×rows pitch-squares; piece (r,c) is centred on ((c+.5)P, (r+.5)P).
+        // M = bleed kept around the picture so the outer tiles' wraps have photo to print.
+        function geo(cols = cfg.cols, rows = cfg.rows, pitch = cfg.pitch) {
+          const P = pitch, F = Math.min(cfg.face, P);
+          return { P, F, cols, rows, W: cols * P, H: rows * P, M: Math.max(1, (TILE - P) / 2 + 1) };
+        }
+
+        // ── Settings UI ──
+        const gridSel = $('jig-grid');
+        gridSel.innerHTML = GRIDS.map(([w, h]) => `<option value="${w}x${h}">${w} wide × ${h} tall · ${w * h} magnets</option>`).join('');
+        function syncInputs() {
+          $('jig-pitch').value = cfg.pitch;
+          $('jig-face').value = cfg.face;
+          $('jig-step').value = String(cfg.step);
+          $('jig-confirmed').checked = !!cfg.confirmed;
+          $('jig-branding').checked = !!cfg.branding;
+          gridSel.value = `${cfg.cols}x${cfg.rows}`;
+        }
+        function num(id, lo, hi) {
+          const v = Number($(id).value);
+          return Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v * 100) / 100 : null;
+        }
+        $('jig-pitch').onchange = () => {
+          const v = num('jig-pitch', 40, 70);
+          if (v == null) { statusEl.textContent = 'Spacing must be between 40 and 70 mm.'; syncInputs(); return; }
+          if (v !== cfg.pitch) { cfg.pitch = v; cfg.confirmed = false; }   // a new spacing needs testing again
+          if (cfg.face > cfg.pitch) cfg.face = cfg.pitch;
+          saveCfg(); syncInputs(); refresh();
+        };
+        $('jig-face').onchange = () => {
+          const v = num('jig-face', 30, 70);
+          if (v == null) { statusEl.textContent = 'Visible face must be between 30 and 70 mm.'; syncInputs(); return; }
+          cfg.face = Math.min(v, cfg.pitch); saveCfg(); syncInputs(); refresh();
+        };
+        $('jig-step').onchange = () => { cfg.step = Number($('jig-step').value) || 0.5; saveCfg(); };
+        $('jig-confirmed').onchange = () => { cfg.confirmed = $('jig-confirmed').checked; saveCfg(); refresh(); };
+        $('jig-branding').onchange = () => { cfg.branding = $('jig-branding').checked; saveCfg(); refresh(); };
+        gridSel.onchange = () => {
+          const [w, h] = gridSel.value.split('x').map(Number);
+          cfg.cols = w; cfg.rows = h; saveCfg();
+          if (src) crop = coverCrop(src.w, src.h, geo().W / geo().H, crop);   // new shape: keep the centre
+          refresh();
+        };
+
+        $('jigsaw-lab-btn').onclick = () => { syncInputs(); modal.style.display = 'flex'; refresh(); };
+        $('jig-close').onclick = () => { modal.style.display = 'none'; };
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+        // ── Photo in: normalise once (browser applies EXIF orientation; cap the size) ──
+        $('jig-add').onclick = () => $('jig-file').click();
+        $('jig-file').addEventListener('change', async (e) => {
+          const f = e.target.files && e.target.files[0];
+          e.target.value = '';
+          if (!f) return;
+          statusEl.textContent = 'Loading photo…';
+          const url = URL.createObjectURL(f);
+          try {
+            const img = await loadImg(url);
+            const s = Math.min(1, MAX_SRC / Math.max(img.naturalWidth, img.naturalHeight));
+            const cv = document.createElement('canvas');
+            cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
+            const ctx = cv.getContext('2d');
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, cv.width, cv.height);
+            const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.95));
+            if (src && src.url) URL.revokeObjectURL(src.url);
+            src = { canvas: cv, w: cv.width, h: cv.height, url: URL.createObjectURL(blob) };
+            crop = coverCrop(src.w, src.h, geo().W / geo().H, null);
+            statusEl.textContent = '';
+            refresh();
+            openCrop();
+          } catch (err) {
+            statusEl.textContent = "Couldn't open that photo — try a JPEG or PNG.";
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        });
+
+        // Largest centred (or around `prev`'s centre) rect of aspect `ar` inside the photo
+        function coverCrop(w, h, ar, prev) {
+          let cw = w, ch = w / ar;
+          if (ch > h) { ch = h; cw = h * ar; }
+          if (prev) { const s = Math.sqrt((prev.w * prev.h) / (cw * ch)); if (s < 1) { cw *= s; ch *= s; } }
+          const cx = prev ? prev.x + prev.w / 2 : w / 2, cy = prev ? prev.y + prev.h / 2 : h / 2;
+          const x = Math.min(Math.max(0, cx - cw / 2), w - cw), y = Math.min(Math.max(0, cy - ch / 2), h - ch);
+          return { x, y, w: cw, h: ch };
+        }
+
+        // ── Crop, with the seams shown ──
+        $('jig-recrop').onclick = () => openCrop();
+        function openCrop() {
+          if (!src) return;
+          const g = geo();
+          const imgEl = $('jig-crop-img');
+          imgEl.src = src.url;
+          cropModal.style.display = 'flex';
+          if (cropper) cropper.destroy();
+          cropper = new Cropper(imgEl, {
+            aspectRatio: g.W / g.H, viewMode: 1, autoCropArea: 1, dragMode: 'move',
+            background: false, checkOrientation: false, rotatable: false, scalable: false,
+            ready() {
+              if (crop) cropper.setData({ x: crop.x, y: crop.y, width: crop.w, height: crop.h });
+              addSeamGuides(cropper.cropBox, g);
+            }
+          });
+        }
+        // Red strips = what the gaps between magnets hide (pitch - face), incl. the outer rim
+        function addSeamGuides(box, g) {
+          if (!box) return;
+          const old = box.querySelector('.jig-guides'); if (old) old.remove();
+          const wrap = document.createElement('div');
+          wrap.className = 'jig-guides';
+          wrap.style.cssText = 'position:absolute; inset:0; pointer-events:none; z-index:5;';
+          const gap = g.P - g.F;
+          const strip = (css) => { const d = document.createElement('div'); d.style.cssText = 'position:absolute; background:rgba(239,68,68,0.38);' + css; wrap.appendChild(d); };
+          for (let c = 0; c <= g.cols; c++) {
+            const a = Math.max(0, c * g.P - gap / 2), b = Math.min(g.W, c * g.P + gap / 2);
+            if (b > a) strip(`top:0; bottom:0; left:${(a / g.W) * 100}%; width:${((b - a) / g.W) * 100}%;`);
+          }
+          for (let r = 0; r <= g.rows; r++) {
+            const a = Math.max(0, r * g.P - gap / 2), b = Math.min(g.H, r * g.P + gap / 2);
+            if (b > a) strip(`left:0; right:0; top:${(a / g.H) * 100}%; height:${((b - a) / g.H) * 100}%;`);
+          }
+          for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+            const t = document.createElement('div');
+            t.textContent = LETTERS[c] + (r + 1);
+            t.style.cssText = `position:absolute; left:${((c + 0.5) * g.P / g.W) * 100}%; top:${((r + 0.5) * g.P / g.H) * 100}%; transform:translate(-50%,-50%); color:rgba(255,255,255,0.75); font:700 13px system-ui; text-shadow:0 1px 3px #000;`;
+            wrap.appendChild(t);
+          }
+          box.appendChild(wrap);
+        }
+        function closeCrop() { if (cropper) { cropper.destroy(); cropper = null; } cropModal.style.display = 'none'; }
+        $('jig-crop-cancel').onclick = closeCrop;
+        $('jig-crop-save').onclick = () => {
+          if (cropper) {
+            const d = cropper.getData();   // all zeros if clicked before the cropper is ready
+            const g = geo();
+            if (d.width > 0 && d.height > 0) crop = { x: d.x, y: d.y, w: d.width, h: d.width * g.H / g.W };   // exact aspect
+          }
+          closeCrop(); refresh();
+        };
+
+        // ── Rendering ──
+        // Master = the picture (W×H mm) plus M mm all round at `res` px/mm. Beyond the crop
+        // the photo's real pixels are used where it has them; past the photo's own edges it
+        // is mirrored, so the outer wraps never print a white edge.
+        function buildMaster(g, res, paint) {
+          const cv = document.createElement('canvas');
+          cv.width = Math.ceil((g.W + 2 * g.M) * res); cv.height = Math.ceil((g.H + 2 * g.M) * res);
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          paint(ctx, res);
+          return cv;
+        }
+        const paintPhoto = (g) => (ctx, res) => {
+          const k = (g.W / crop.w) * res;                       // master px per source px
+          const ox = (g.M - crop.x * g.W / crop.w) * res, oy = (g.M - crop.y * g.W / crop.w) * res;
+          // mirrored copies around the photo first, the photo itself last (on top)
+          for (const [fx, fy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [0, 0]]) {
+            ctx.save();
+            ctx.setTransform(k, 0, 0, k, ox, oy);
+            if (fx === -1) ctx.scale(-1, 1);
+            if (fx === 1) { ctx.translate(2 * src.w, 0); ctx.scale(-1, 1); }
+            if (fy === -1) ctx.scale(1, -1);
+            if (fy === 1) { ctx.translate(0, 2 * src.h); ctx.scale(1, -1); }
+            ctx.drawImage(src.canvas, 0, 0);
+            ctx.restore();
+          }
+        };
+
+        // One 71.12mm tile per piece, cut from the master around the piece centre
+        function makeTiles(master, g, { branding, tag }) {
+          const tiles = [];
+          for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+            const cx = (c + 0.5) * g.P, cy = (r + 0.5) * g.P;
+            const cv = document.createElement('canvas'); cv.width = cv.height = TILE_PX;
+            const ctx = cv.getContext('2d');
+            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(master, (cx - TILE / 2 + g.M) * RES, (cy - TILE / 2 + g.M) * RES, TILE_PX, TILE_PX, 0, 0, TILE_PX, TILE_PX);
+            const outer = { top: r === 0, bottom: r === g.rows - 1, left: c === 0, right: c === g.cols - 1 };
+            if (branding) {
+              // Outer sides finish like a normal magnet: photo ends at the usual 52mm, white beyond
+              const b = PHOTO_OFF * RES;
+              ctx.fillStyle = '#fff';
+              if (outer.top) ctx.fillRect(0, 0, TILE_PX, b);
+              if (outer.bottom) ctx.fillRect(0, TILE_PX - b, TILE_PX, b);
+              if (outer.left) ctx.fillRect(0, 0, b, TILE_PX);
+              if (outer.right) ctx.fillRect(TILE_PX - b, 0, b, TILE_PX);
+            }
+            // corners outside the octagon are waste - white, so the chamfer cuts stand out
+            const k = CHAMFER * RES, N = TILE_PX;
+            ctx.fillStyle = '#fff';
+            for (const [ax, ay, bx, by, cx2, cy2] of [[0, 0, k, 0, 0, k], [N, 0, N - k, 0, N, k], [N, N, N - k, N, N, N - k], [0, N, k, N, 0, N - k]]) {
+              ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx2, cy2); ctx.closePath(); ctx.fill();
+            }
+            const name = LETTERS[c] + (r + 1);
+            tiles.push({ r, c, name, outer, tag: tag(name, r, c), data: cv.toDataURL('image/jpeg', 0.92) });
+          }
+          return tiles;
+        }
+
+        // Small white label (unicode-safe) for the bottom strip that folds round to the
+        // back - flipped like the shop's other fold labels so it reads upright there
+        function tagPng(text, wMm, hMm) {
+          const PX = 20;
+          const cv = document.createElement('canvas');
+          cv.width = Math.round(wMm * PX); cv.height = Math.round(hMm * PX);
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+          ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(Math.PI);
+          ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.font = `bold ${Math.round(cv.height * 0.66)}px Arial, Helvetica, sans-serif`;
+          ctx.fillText(text, 0, 1);
+          return cv.toDataURL('image/png');
+        }
+
+        function drawPiece(pdf, x, y, t, labels) {
+          pdf.addImage(t.data, 'JPEG', x, y, TILE, TILE);
+          // octagon cut outline - same shape as normal magnets, but the photo runs right up
+          // to it here, so a white underlay + darker line keeps it visible on any photo
+          const c = CHAMFER, T = TILE;
+          const pts = [[x + c, y], [x + T - c, y], [x + T, y + c], [x + T, y + T - c], [x + T - c, y + T], [x + c, y + T], [x, y + T - c], [x, y + c]];
+          for (const [col, w] of [[255, 0.5], [90, 0.18]]) {
+            pdf.setDrawColor(col); pdf.setLineWidth(w);
+            for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; pdf.line(a[0], a[1], b[0], b[1]); }
+          }
+          // branding only on the jigsaw's OUTER edges, exactly where a normal magnet has it
+          const pTop = y + PHOTO_OFF, pLeft = x + PHOTO_OFF, pRight = x + PHOTO_OFF + PHOTO;
+          if (labels) {
+            if (t.outer.top) pdf.addImage(labels.top, 'PNG', pLeft, pTop - LBL_GAP - LBL_BAND, PHOTO, LBL_BAND);
+            if (t.outer.left) pdf.addImage(labels.left, 'PNG', pLeft - LBL_GAP - LBL_BAND, pTop, LBL_BAND, PHOTO);
+            if (t.outer.right) pdf.addImage(labels.right, 'PNG', pRight + LBL_GAP, pTop, LBL_BAND, PHOTO);
+          }
+          // piece name on the outermost strip, which folds round to the back
+          if (t.tag) { const w = 34, h = 2.4; pdf.addImage(tagPng(t.tag, w, h), 'PNG', x + (T - w) / 2, y + T - h - 0.6, w, h); }
+        }
+
+        // The normal 3×3 sheet. Tiles with a `slot` go there (0-8), the rest fill in order.
+        function layoutSheet(pdf, tiles, labels, headerLines) {
+          const totalH = ROWS * TILE + (ROWS - 1) * ROW_GAP;
+          const top = (PAGE_H - totalH) / 2, rowPitch = TILE + ROW_GAP;
+          const pages = Math.max(1, Math.ceil(tiles.length / PER_PAGE));
+          for (let p = 0; p < pages; p++) {
+            if (p > 0) pdf.addPage();
+            const pageTiles = tiles.filter(t => t.slot == null).slice(p * PER_PAGE, (p + 1) * PER_PAGE)
+              .concat(p === 0 ? tiles.filter(t => t.slot != null) : []);
+            pageTiles.forEach((t, k) => {
+              const slot = t.slot != null ? t.slot : k;
+              drawPiece(pdf, LEFT + (slot % COLS) * TILE, top + Math.floor(slot / COLS) * rowPitch, t, labels);
+            });
+            // header (plain ASCII - the PDF's built-in font). Kept SIDE mm in from the paper
+            // edge (printers can't print the outer few mm) and shrunk to fit if long.
+            pdf.setTextColor(40);
+            headerLines.forEach((line, i) => fitText(pdf, line + (pages > 1 && i === 0 ? `   (page ${p + 1} of ${pages})` : ''), SIDE, 5.5 + i * 4, 9));
+            // 50mm scale bar: checks the printer printed at 100%
+            const y = PAGE_H - 9;
+            pdf.setDrawColor(0); pdf.setLineWidth(0.4);
+            pdf.line(SIDE, y, SIDE + 50, y);
+            for (let i = 0; i <= 5; i++) pdf.line(SIDE + i * 10, y - (i % 5 === 0 ? 2.2 : 1.2), SIDE + i * 10, y);
+            fitText(pdf, '<- this bar must measure exactly 50 mm. If not, print at 100% / "Actual size" (not "Fit to page").', SIDE + 53, y + 0.8, 7.5);
+          }
+        }
+        const SIDE = 10;   // mm: safe left margin for the sheet's text and scale bar
+        function fitText(pdf, text, x, y, size) {
+          const maxW = PAGE_W - SIDE - x;
+          pdf.setFontSize(size);
+          while (size > 5 && pdf.getTextWidth(text) > maxW) { size -= 0.5; pdf.setFontSize(size); }
+          pdf.text(text, x, y);
+        }
+
+        // ── The jigsaw sheet ──
+        $('jig-generate').onclick = async () => {
+          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
+          if (!src || !crop) { statusEl.textContent = 'Choose a photo first.'; return; }
+          const btn = $('jig-generate'); btn.disabled = true;
+          statusEl.textContent = 'Building…';
+          await new Promise(r => setTimeout(r, 30));
+          try {
+            const g = geo();
+            const master = buildMaster(g, RES, paintPhoto(g));
+            const size = `${g.cols}x${g.rows}`;
+            const tiles = makeTiles(master, g, { branding: cfg.branding, tag: (name) => `${name}  ·  ${g.cols}×${g.rows} jigsaw  ·  bottom edge` });
+            // fits on one sheet? then lay the pieces out in picture order
+            if (g.cols <= COLS && g.rows <= ROWS) tiles.forEach(t => { t.slot = t.r * COLS + t.c; });
+            const map = Array.from({ length: g.rows }, (_, r) => Array.from({ length: g.cols }, (_, c) => LETTERS[c] + (r + 1)).join(' ')).join('  /  ');
+            const pdf = newLetterPdf();
+            layoutSheet(pdf, tiles, cfg.branding ? makeBorderLabels() : null, [
+              `JIGSAW ${size} - spacing ${g.P.toFixed(2)} mm - on the fridge about ${Math.round(g.W)} x ${Math.round(g.H)} mm` + (cfg.confirmed ? '' : '   - SPACING NOT TESTED YET'),
+              `Assemble (front view): ${map}`,
+              `Letters = columns left to right, numbers = rows top to bottom. Each piece's name is on its bottom-edge strip (folds to the back).`,
+            ]);
+            const d = new Date(), pad = (n) => String(n).padStart(2, '0');
+            pdf.save(`jigsaw-${size}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.pdf`);
+            const pages = Math.ceil(tiles.length / PER_PAGE);
+            statusEl.textContent = `✅ Downloaded ${pages} sheet${pages === 1 ? '' : 's'} · ${tiles.length} pieces.` + (cfg.confirmed ? '' : ' (Spacing not confirmed yet — print the alignment test first for best results.)');
+          } catch (err) {
+            statusEl.textContent = 'Could not build the sheet: ' + err.message;
+          } finally {
+            btn.disabled = false;
+          }
+        };
+
+        // ── The alignment test sheet: 3 pairs at slightly different spacings ──
+        $('jig-test').onclick = () => {
+          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
+          const step = Number(cfg.step) || 0.5;
+          const values = [cfg.pitch - step, cfg.pitch, cfg.pitch + step].map(v => Math.round(v * 100) / 100);
+          const tiles = [];
+          values.forEach((v, i) => {
+            const g = geo(2, 1, v);
+            const master = buildMaster(g, RES, paintTestPattern(g, v));
+            makeTiles(master, g, { branding: false, tag: (name, r, c) => `TEST ${v.toFixed(2)} mm  ·  ${c === 0 ? 'LEFT' : 'RIGHT'}  ·  bottom edge` })
+              .forEach(t => { t.slot = i * COLS + t.c; tiles.push(t); });
+          });
+          const pdf = newLetterPdf();
+          layoutSheet(pdf, tiles, null, [
+            `ALIGNMENT TEST - spacings ${values.map(v => v.toFixed(2)).join(' / ')} mm (written on each magnet)`,
+            `Make all 3 pairs. Push each LEFT + RIGHT together with the red line level (the red line only checks they're level).`,
+            `Judge the slanted black lines and the blue X: the pair where they run dead straight across the join is your spacing. Best at an end? Test again around it.`,
+          ]);
+          pdf.save(`jigsaw-alignment-test-${values[1].toFixed(2)}mm.pdf`);
+          statusEl.textContent = `✅ Alignment test downloaded (${values.map(v => v.toFixed(2)).join(', ')} mm). Make the 3 pairs and pick the one that lines up.`;
+        };
+
+        // A spacing error shifts the RIGHT piece sideways, so only lines that cross the join
+        // steeply show it: thin lines at ±60° (a 0.5mm error jogs them ~0.45mm, easy to see
+        // along a 50mm join) plus a bold blue X through the middle of the join. The red
+        // horizontal line can't show spacing - it's only there to get the pair level.
+        const paintTestPattern = (g, v) => (ctx, res) => {
+          ctx.setTransform(res, 0, 0, res, g.M * res, g.M * res);    // mm, origin = picture top-left
+          ctx.fillStyle = '#f8fafc'; ctx.fillRect(-g.M, -g.M, g.W + 2 * g.M, g.H + 2 * g.M);
+          ctx.lineCap = 'butt';
+          const sx = g.W / 2, sy = g.H / 2;                          // middle of the join
+          const run = Math.tan(Math.PI / 6);                         // dx per dy at 60° from horizontal
+          const ext = g.H / 2 + g.M + 1;                             // half-height to draw, incl. wrap
+          const slant = (x0, dir) => { ctx.beginPath(); ctx.moveTo(x0 - dir * run * ext, sy - ext); ctx.lineTo(x0 + dir * run * ext, sy + ext); ctx.stroke(); };
+          // thin ±60° lattice, phased so a line from each family passes through the join's centre
+          ctx.strokeStyle = '#111827'; ctx.lineWidth = 0.35;
+          for (let x0 = sx - 7 * Math.ceil((sx + g.M + 40) / 7); x0 < g.W + g.M + 40; x0 += 7) { slant(x0, 1); slant(x0, -1); }
+          // horizontal level line
+          ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.moveTo(-g.M, sy); ctx.lineTo(g.W + g.M, sy); ctx.stroke();
+          // bold blue X centred on the join
+          ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 0.9;
+          const xr = 18;                                             // arm half-height (mm)
+          for (const dir of [1, -1]) { ctx.beginPath(); ctx.moveTo(sx - dir * run * xr, sy - xr); ctx.lineTo(sx + dir * run * xr, sy + xr); ctx.stroke(); }
+          // the spacing, written on each face (inside the visible area)
+          ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+          ctx.font = 'bold 5px Arial, Helvetica, sans-serif';
+          const label = v.toFixed(2), lw = ctx.measureText(label).width;
+          for (const lx of [g.P / 2 - g.F / 2 + 3, g.W - (g.P / 2 - g.F / 2) - 3 - lw]) {
+            ctx.fillStyle = '#fff'; ctx.fillRect(lx - 1, 4, lw + 2, 6.5);
+            ctx.fillStyle = '#065f46'; ctx.fillText(label, lx, 5);
+          }
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        };
+
+        // ── On-screen preview: just the faces, with the gaps to scale ──
+        function refresh() {
+          const has = !!(src && crop);
+          $('jig-preview-wrap').style.display = has ? 'block' : 'none';
+          $('jig-recrop').style.display = has ? '' : 'none';
+          $('jig-add').textContent = has ? '＋ Change photo' : '＋ Choose photo';
+          if (!has) return;
+          const g = geo();
+          const master = buildMaster(g, PREVIEW_RES, paintPhoto(g));
+          const pad = 6, s = PREVIEW_RES;                      // preview px per mm
+          const cv = $('jig-preview');
+          cv.width = Math.round((g.W + 2 * pad) * s); cv.height = Math.round((g.H + 2 * pad) * s);
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, cv.width, cv.height);
+          const rad = 2 * s;
+          for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+            const fx = (c + 0.5) * g.P - g.F / 2, fy = (r + 0.5) * g.P - g.F / 2;   // face, picture mm
+            const dx = (fx + pad) * s, dy = (fy + pad) * s, dw = g.F * s;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(dx, dy, dw, dw, rad); else ctx.rect(dx, dy, dw, dw);
+            ctx.fillStyle = '#fff'; ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.clip();
+            ctx.drawImage(master, (fx + g.M) * PREVIEW_RES, (fy + g.M) * PREVIEW_RES, g.F * PREVIEW_RES, g.F * PREVIEW_RES, dx, dy, dw, dw);
+            ctx.restore();
+          }
+          const dpi = Math.round((crop.w / g.W) * 25.4);
+          const sheets = Math.ceil((g.cols * g.rows) / PER_PAGE);
+          $('jig-info').innerHTML = `On the fridge: about <b>${Math.round(g.W)} × ${Math.round(g.H)} mm</b> · ${g.cols * g.rows} magnets · ${sheets} sheet${sheets === 1 ? '' : 's'} · photo detail ≈ ${dpi} dpi` +
+            (dpi < 150 ? ` <span style="color:#fbbf24;">— a bit low, it may print soft. Use a bigger photo or a smaller layout.</span>` : '') +
+            (cfg.confirmed ? '' : `<br><span style="color:#fbbf24;">⚠️ Spacing not confirmed yet — print the alignment test first.</span>`);
+        }
+
+        syncInputs();
       })();
     </script>
   </body>
