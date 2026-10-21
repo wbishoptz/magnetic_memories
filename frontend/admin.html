@@ -106,6 +106,7 @@
           </div>
           <button id="print-lab-btn" style="margin-left:14px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #1f2933; background:#0b1220; color:#5eead4; cursor:pointer;" title="Upload photos and download a 2.5×3.5 inch print sheet">🖼️ 2.5×3.5 Lab</button>
           <button id="jigsaw-lab-btn" style="margin-left:8px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #1f2933; background:#0b1220; color:#fcd34d; cursor:pointer;" title="One photo across several magnets (e.g. 2×2) - download a print sheet">🧩 Jigsaw Lab</button>
+          <button id="round-lab-btn" style="margin-left:8px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid #1f2933; background:#0b1220; color:#93c5fd; cursor:pointer;" title="58mm round badges (openers, mirrors, round magnets) - find the print fit and print photos">⭕ 58mm Lab</button>
         </div>
         <div class="input-inline" id="key-form"><input id="admin-key-input" type="password" placeholder="Admin key" autocomplete="off" /><button id="save-key-btn">Unlock</button></div>
         <div class="key-badge" id="key-badge" style="display: none">Admin</div>
@@ -153,7 +154,7 @@
     <div id="lab-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9000; align-items:center; justify-content:center; padding:20px;">
       <div style="background:#0b1220; border:1px solid #1f2933; border-radius:16px; width:100%; max-width:640px; max-height:90vh; overflow:auto; padding:22px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <h2 style="margin:0; font-size:18px;">🖼️ 2.5 × 3.5″ Print Lab</h2>
+          <h2 style="margin:0; font-size:18px; color:#fff;">🖼️ 2.5 × 3.5″ Print Lab</h2>
           <button id="lab-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
         </div>
         <p style="color:#9ca3af; font-size:13px; margin:0 0 14px;">Upload photos, crop each one, then download a print sheet. Each magnet has an 11×8.5cm mylar cut box with branding around a 2.5×3.5″ photo. Standalone — nothing is saved.</p>
@@ -190,13 +191,27 @@
     <div id="jig-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9000; align-items:center; justify-content:center; padding:20px;">
       <div style="background:#0b1220; border:1px solid #1f2933; border-radius:16px; width:100%; max-width:680px; max-height:92vh; overflow:auto; padding:22px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <h2 style="margin:0; font-size:18px;">🧩 Jigsaw Lab</h2>
+          <h2 style="margin:0; font-size:18px; color:#fff;">🧩 Jigsaw Lab</h2>
           <button id="jig-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
         </div>
         <p style="color:#9ca3af; font-size:13px; margin:0 0 14px;">One photo across several standard magnets (e.g. 2×2) for a bigger picture. Every piece prints at true size on the normal octagon tile, sliced by your magnets' spacing so lines meet across the gaps. Standalone — nothing is saved.</p>
+        <div style="display:flex; gap:8px; margin:0 0 12px;">
+          <button class="jig-shape" data-jshape="square" style="flex:1; padding:10px; border-radius:10px; border:1px solid #1f2933; background:#0b1220; color:#9ca3af; font-weight:700; cursor:pointer;">▢ Square magnets</button>
+          <button class="jig-shape" data-jshape="round" style="flex:1; padding:10px; border-radius:10px; border:1px solid #1f2933; background:#0b1220; color:#9ca3af; font-weight:700; cursor:pointer;">◯ Round 58mm badges</button>
+        </div>
 
         <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
           <div style="font-weight:700; margin-bottom:8px;">1 · Your magnets</div>
+          <div id="jig-rd-1" style="display:none;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; font-size:12px; color:#9ca3af;">
+              <div>Front size (from the ⭕ 58mm Lab)<br><b id="jig-rd-front" style="display:inline-block; margin-top:6px; font-size:15px; color:#fff;">58</b> mm</div>
+              <label>+ fine-tune<br>
+                <input id="jig-rd-off" type="number" min="-3" max="3" step="0.1" style="width:90px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+              <div>= spacing<br><b id="jig-rd-pitch" style="display:inline-block; margin-top:6px; font-size:15px; color:#fcd34d;">58.00</b> mm</div>
+            </div>
+            <p id="jig-rd-note" style="color:#6b7280; font-size:11px; margin:8px 0 0;">Round badges only touch at one point, so the right spacing is simply your badges' Front size: what's printed at the edge of one badge then carries on at the edge of the next. Find the Front size with the fit test in the ⭕ 58mm Lab first; only fine-tune if the alignment test says so.</p>
+          </div>
+          <div id="jig-sq-1">
           <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
             <label style="font-size:12px; color:#9ca3af;">Magnet spacing (centre to centre)<br>
               <input id="jig-pitch" type="number" min="40" max="70" step="0.1" style="width:110px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
@@ -204,6 +219,7 @@
               <input id="jig-face" type="number" min="30" max="70" step="0.1" style="width:110px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
           </div>
           <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Spacing = push two finished magnets together and measure from the <b>left edge of one to the left edge of the other</b> (more accurate: line up 4 in a row, measure the whole row and divide by 4). It's the one number that must match real life — confirm it with the alignment test. Visible face = the flat front of one magnet; it only changes the preview and the red guides.</p>
+          </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
             <button id="jig-test" style="padding:9px 14px; border-radius:10px; background:#1f2933; border:1px solid #334155; color:#fcd34d; font-weight:700; cursor:pointer;">📏 Download alignment test</button>
             <label style="font-size:12px; color:#9ca3af;">test steps
@@ -218,9 +234,9 @@
           <div style="font-weight:700; margin-bottom:8px;">2 · Layout</div>
           <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
             <select id="jig-grid" style="padding:9px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;"></select>
-            <label style="display:flex; gap:8px; align-items:center; font-size:12px; color:#d1d5db;"><input id="jig-branding" type="checkbox" /> Branding on the outside edges</label>
+            <label id="jig-brand-wrap" style="display:flex; gap:8px; align-items:center; font-size:12px; color:#d1d5db;"><input id="jig-branding" type="checkbox" /> Branding on the outside edges</label>
           </div>
-          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Branding on: the outer edges look like a normal magnet (white with the usual text). Off: the photo wraps right round the outside too.</p>
+          <p id="jig-layout-help" style="color:#6b7280; font-size:11px; margin:8px 0 0;">Branding on: the outer edges look like a normal magnet (white with the usual text). Off: the photo wraps right round the outside too.</p>
         </div>
 
         <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
@@ -245,10 +261,94 @@
     <!-- Jigsaw crop modal -->
     <div id="jig-crop-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9100; flex-direction:column; align-items:center; justify-content:center; padding:16px;">
       <div style="width:100%; max-width:640px; max-height:70vh;"><img id="jig-crop-img" style="max-width:100%; display:block;" /></div>
-      <p style="color:#d1d5db; font-size:12px; margin:10px 0 0; text-align:center; max-width:640px;">The <span style="color:#fca5a5; font-weight:700;">red strips</span> fall into the gaps between magnets — keep faces and writing out of them.</p>
+      <p style="color:#d1d5db; font-size:12px; margin:10px 0 0; text-align:center; max-width:640px;">The <span style="color:#fca5a5; font-weight:700;">red areas</span> fall into the gaps between magnets — keep faces and writing out of them.</p>
       <div style="display:flex; gap:12px; margin-top:12px;">
         <button id="jig-crop-cancel" style="padding:12px 24px; border-radius:10px; background:#1f2933; color:#fff; border:none; font-weight:700; cursor:pointer;">Cancel</button>
         <button id="jig-crop-save" style="padding:12px 24px; border-radius:10px; background:#059669; color:#fff; border:none; font-weight:700; cursor:pointer;">✓ Use this crop</button>
+      </div>
+    </div>
+
+    <!-- ⭕ 58mm Round Lab modal -->
+    <div id="rl-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9000; align-items:center; justify-content:center; padding:20px;">
+      <div style="background:#0b1220; border:1px solid #1f2933; border-radius:16px; width:100%; max-width:720px; max-height:92vh; overflow:auto; padding:22px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <h2 style="margin:0; font-size:18px; color:#fff;">⭕ 58mm Round Lab</h2>
+          <button id="rl-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
+        </div>
+        <p style="color:#9ca3af; font-size:13px; margin:0 0 6px;">Find the perfect print fit for 58mm round badges (bottle openers, mirror keyrings, round magnets). Your cutter cuts a paper disc (normally 70mm); about 58mm of it shows on the front, the next few mm wrap round the side and the rest tucks in behind. The fit test measures exactly where those fall on <i>your</i> machine.</p>
+        <p style="color:#fbbf24; font-size:12px; margin:0 0 14px;">Standalone — nothing is saved to orders. Customer orders still print with the old 58mm template until this fit is switched on for orders.</p>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">1 · Machine &amp; paper</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="font-size:12px; color:#9ca3af;">Cut circle (paper disc)<br>
+              <input id="rl-cut" type="number" min="60" max="72" step="0.1" style="width:100px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+            <label style="font-size:12px; color:#9ca3af;">Paper in your printer<br>
+              <select id="rl-paper" style="margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;"><option value="a4">A4</option><option value="letter">US Letter</option></select></label>
+          </div>
+          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Cut circle: measure one of your cut paper discs edge to edge (normally 70). Paper: pick what's actually in the printer and always print at <b>100% / "Actual size"</b>, never "Fit to page" (that shrinks everything by ~3%). Every sheet has a 50mm bar to check.</p>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">2 · Fit test</div>
+          <button id="rl-test" style="padding:10px 14px; border-radius:10px; background:#1f2933; border:1px solid #334155; color:#93c5fd; font-weight:700; cursor:pointer;">📏 Download fit test sheet</button>
+          <ol style="color:#9ca3af; font-size:12px; margin:10px 0 0; padding-left:18px; line-height:1.55;">
+            <li>Print it at 100% on the paper you use for orders, and check the 50mm bar really is 50mm.</li>
+            <li>Cut out and press <b>all of them</b>, with the backs you normally use.</li>
+            <li><b>Rulers (R1, R2…)</b>: coloured rings, 2mm apart. <b>Blue discs</b> with a big number: blue printed out to that size, white beyond it.</li>
+            <li>Fill in step 3. If you've added a photo in step 5, one disc on the sheet is that photo at your current Front size.</li>
+          </ol>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:4px;">3 · What you see (after pressing)</div>
+          <div id="rl-readings"></div>
+          <div id="rl-result" style="margin-top:12px; padding:12px; border-radius:10px; background:#0f172a; border:1px solid #1f2933; font-size:12px; color:#d1d5db;"></div>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:8px;">4 · Your fit</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <label style="font-size:12px; color:#9ca3af;">Front (shows on the front)<br>
+              <input id="rl-front" type="number" min="44" max="66" step="0.5" style="width:100px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+            <label style="font-size:12px; color:#9ca3af;">Side goes under at<br>
+              <input id="rl-crease" type="number" min="50" max="74" step="0.5" style="width:100px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+            <label style="font-size:12px; color:#9ca3af;">Edge style<br>
+              <select id="rl-edge" style="margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;"><option value="wrap">Photo all the way round</option><option value="white">White edge + branding</option></select></label>
+            <label id="rl-photodia-wrap" style="font-size:12px; color:#9ca3af;">White edge starts at<br>
+              <input id="rl-photodia" type="number" min="44" max="74" step="0.5" style="width:100px; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#fff;" /> mm</label>
+          </div>
+          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Photo all the way round (recommended): the photo runs right out to the cut, so a slightly off-centre punch never shows white. White edge: the photo stops a little past the front and the side shows MAGNETIC MEMORIES / MADE IN GIBRALTAR, like the square magnets.</p>
+          <label style="display:flex; gap:8px; align-items:center; font-size:12px; color:#d1d5db; margin-top:10px;"><input id="rl-confirmed" type="checkbox" /> These settings are tested</label>
+        </div>
+
+        <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-weight:700;">5 · Photos</div>
+            <button id="rl-clear" style="background:none; border:none; color:#9ca3af; font-size:12px; cursor:pointer;">Clear all</button>
+          </div>
+          <button id="rl-add" style="width:100%; padding:12px; border:2px dashed #334155; border-radius:12px; background:#0b1220; color:#5eead4; font-weight:700; cursor:pointer;">＋ Add photos</button>
+          <input id="rl-files" type="file" accept="image/*" multiple style="display:none;" />
+          <div id="rl-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:10px; margin-top:12px;"></div>
+          <p style="color:#6b7280; font-size:11px; margin:8px 0 0;">Tap a photo to crop it. The circle is the front of the badge; everything out to the dashed ring is printed too (it wraps round the edge).</p>
+        </div>
+
+        <button id="rl-generate" style="width:100%; padding:13px; border-radius:12px; background:#059669; border:none; color:#fff; font-weight:700; cursor:pointer;">🖨️ Download 58mm sheet</button>
+        <p id="rl-status" style="color:#9ca3af; font-size:12px; margin-top:10px;"></p>
+      </div>
+    </div>
+
+    <!-- 58mm Round Lab crop modal (round crop view scoped to this modal only) -->
+    <style>
+      #rl-crop-modal .cropper-view-box, #rl-crop-modal .cropper-face { border-radius: 50%; }
+      #rl-crop-modal .cropper-view-box { outline: 0; box-shadow: 0 0 0 2px rgba(51,153,255,0.9); }
+    </style>
+    <div id="rl-crop-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9100; flex-direction:column; align-items:center; justify-content:center; padding:16px;">
+      <div style="width:100%; max-width:640px; max-height:70vh;"><img id="rl-crop-img" style="max-width:100%; display:block;" /></div>
+      <p style="color:#d1d5db; font-size:12px; margin:10px 0 0; text-align:center; max-width:640px;">Inside the circle = the front of the badge. <span style="color:#fff;">Dotted ring</span>: keep faces and writing inside it. <span style="color:#fcd34d;">Dashed ring</span>: where the cutter cuts — the part between wraps round the edge.</p>
+      <div style="display:flex; gap:12px; margin-top:12px;">
+        <button id="rl-crop-cancel" style="padding:12px 24px; border-radius:10px; background:#1f2933; color:#fff; border:none; font-weight:700; cursor:pointer;">Cancel</button>
+        <button id="rl-crop-save" style="padding:12px 24px; border-radius:10px; background:#059669; color:#fff; border:none; font-weight:700; cursor:pointer;">✓ Use this crop</button>
       </div>
     </div>
 
@@ -3095,6 +3195,253 @@
         document.body.appendChild(a); a.click();
       }
 
+      // ─── ⭕ 58mm round badges: shared settings + disc drawing (Round Lab + round Jigsaw) ───
+      // A 58mm badge is pressed from a paper disc (normally 70mm): FRONT mm of the print shows
+      // on the front, the next few mm wrap round the side wall, and from CREASE outwards it
+      // tucks in behind. The Round Lab's fit test measures FRONT and CREASE on the real machine.
+      // Discs are drawn in mm with the origin at the disc centre, then baked to one JPEG each.
+      const R58 = (() => {
+        const STORE = 'mm_round58';
+        const cfg = { cut: 70, front: 58, photoDia: 60.5, crease: 65, edge: 'wrap', paper: 'a4', confirmed: false, testFront: null, readings: {} };
+        try {
+          const s = JSON.parse(localStorage.getItem(STORE) || '{}') || {};
+          const ok = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+          if (ok(s.cut, 60, 72)) cfg.cut = s.cut;
+          if (ok(s.front, 44, 66)) cfg.front = s.front;
+          const bad = (s.cut !== undefined && !ok(s.cut, 60, 72)) || (s.front !== undefined && !ok(s.front, 44, 66));
+          if (ok(s.photoDia, 44, 74)) cfg.photoDia = s.photoDia;
+          if (ok(s.crease, 50, 74)) cfg.crease = s.crease;
+          if (s.edge === 'wrap' || s.edge === 'white') cfg.edge = s.edge;
+          if (s.paper === 'a4' || s.paper === 'letter') cfg.paper = s.paper;
+          cfg.confirmed = s.confirmed === true && !bad;   // a value we had to reset is no longer "tested"
+          if (ok(s.testFront, 44, 66)) cfg.testFront = s.testFront;
+          if (s.readings && typeof s.readings === 'object') {
+            for (const k of ['top', 'right', 'bottom', 'left', 'side']) if (ok(s.readings[k], 40, 80)) cfg.readings[k] = s.readings[k];
+            if (ok(s.readings.white, 0, 80)) cfg.readings.white = s.readings.white;   // 0 = none passed
+          }
+        } catch {}
+        const listeners = [];
+        const save = () => { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch {} };
+        const changed = () => { save(); for (const f of listeners) { try { f(); } catch (e) { console.error(e); } } };
+        const num = (v) => String(Math.round(v * 10) / 10);   // 58, 58.5
+
+        // Ruler colour bands, every 2mm of diameter (1mm of radius); neighbours always contrast
+        const BAND_COLOURS = [['#7c3aed', 'purple'], ['#facc15', 'yellow'], ['#2563eb', 'blue'], ['#f97316', 'orange'], ['#16a34a', 'green'],
+          ['#dc2626', 'red'], ['#111827', 'black'], ['#14b8a6', 'teal'], ['#92400e', 'brown'], ['#ec4899', 'pink'], ['#06b6d4', 'cyan']];
+        function bands(cut = cfg.cut) {
+          const out = [];
+          for (let d = 52, i = 0; d < cut + 2; d += 2, i++) {
+            const [colour, name] = BAND_COLOURS[i % BAND_COLOURS.length];
+            out.push({ from: d, to: d + 2, colour, name });
+          }
+          return out;
+        }
+
+        // Sheet: staggered columns (like the badge makers' own sheets) - 9 discs a page on A4
+        // or Letter with every disc well inside the printable area. Middle column at the top.
+        function layout(paper = cfg.paper, cut = cfg.cut) {
+          const page = paper === 'letter' ? { format: 'letter', W: 215.9, H: 279.4 } : { format: 'a4', W: 210, H: 297 };
+          const P = cut + 2;                         // neighbouring discs 2mm apart
+          const dx = P * Math.sqrt(3) / 2;           // column spacing
+          const top = Math.max(17, (page.H - (cut + 2.5 * P)) / 2);
+          const mid = page.W / 2, pos = [];
+          for (let k = 0; k < 3; k++) {
+            pos.push({ x: mid, y: top + cut / 2 + k * P });
+            pos.push({ x: mid - dx, y: top + cut / 2 + (k + 0.5) * P });
+            pos.push({ x: mid + dx, y: top + cut / 2 + (k + 0.5) * P });
+          }
+          // 50mm bar under the middle column, between the bottom side discs (or below them)
+          const fits = dx - 25 - cut / 2 >= 1.5;
+          return { ...page, cut, pos, perPage: 9, barX: mid, barY: fits ? top + cut + 2 * P + 6 : top + cut + 2.5 * P + 6 };
+        }
+        function newPdf(paper = cfg.paper) {
+          const { jsPDF } = window.jspdf;
+          return new jsPDF({ unit: 'mm', format: paper === 'letter' ? 'letter' : 'a4' });
+        }
+        function fitText(pdf, text, x, y, size, maxW, opts) {
+          pdf.setFontSize(size);
+          while (size > 5 && pdf.getTextWidth(text) > maxW) { size -= 0.5; pdf.setFontSize(size); }
+          pdf.text(text, x, y, opts);
+        }
+        // Header (plain ASCII - the PDF's built-in font) + the 50mm scale bar, all ≥10mm in
+        function furniture(pdf, lay, lines, pageNo, pages) {
+          pdf.setTextColor(40);
+          lines.forEach((line, i) => fitText(pdf, line + (pages > 1 && i === 0 ? `   (page ${pageNo} of ${pages})` : ''), 10, 8 + i * 4, 9, lay.W - 20));
+          const x0 = lay.barX - 25, y = lay.barY;
+          pdf.setDrawColor(0); pdf.setLineWidth(0.4);
+          pdf.line(x0, y, x0 + 50, y);
+          for (let i = 0; i <= 5; i++) pdf.line(x0 + i * 10, y - (i % 5 === 0 ? 2.2 : 1.2), x0 + i * 10, y);
+          fitText(pdf, 'this bar must measure exactly 50 mm', lay.barX, y + 3.6, 7, 48, { align: 'center' });
+          fitText(pdf, `print at 100% / Actual size on ${lay.format === 'letter' ? 'US Letter' : 'A4'}`, lay.barX, y + 6.6, 6.5, 48, { align: 'center' });
+        }
+        // Cut guide: white underlay + thin dark line, so it shows on any photo
+        function drawCut(pdf, cx, cy, cut = cfg.cut) {
+          pdf.setDrawColor(255); pdf.setLineWidth(0.5); pdf.circle(cx, cy, cut / 2, 'S');
+          pdf.setDrawColor(70); pdf.setLineWidth(0.18); pdf.circle(cx, cy, cut / 2, 'S');
+        }
+        // discs = [{ data, mm }], 9 a page in reading order
+        function placeDiscs(pdf, lay, discs, headerLines) {
+          const pages = Math.max(1, Math.ceil(discs.length / lay.perPage));
+          for (let p = 0; p < pages; p++) {
+            if (p > 0) pdf.addPage();
+            discs.slice(p * lay.perPage, (p + 1) * lay.perPage).forEach((d, i) => {
+              const { x, y } = lay.pos[i];
+              // clip to the disc: the image is square and its white corners would cover the
+              // neighbouring discs in the staggered layout
+              pdf.saveGraphicsState();
+              pdf.circle(x, y, d.mm / 2, null); pdf.clip(); pdf.discardPath();
+              pdf.addImage(d.data, 'JPEG', x - d.mm / 2, y - d.mm / 2, d.mm, d.mm);
+              pdf.restoreGraphicsState();
+              drawCut(pdf, x, y, lay.cut);
+            });
+            furniture(pdf, lay, headerLines, p + 1, pages);
+          }
+          return pages;
+        }
+
+        // ── Canvas helpers (ctx in mm, origin at the disc centre; k = px per mm) ──
+        function flatText(ctx, k, text, x, y, size, colour = '#111', weight = 'bold') {
+          ctx.save(); ctx.translate(x, y); ctx.scale(1 / k, 1 / k);
+          ctx.font = `${weight} ${size * k}px Arial, Helvetica, sans-serif`;
+          ctx.fillStyle = colour; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(text, 0, 0); ctx.restore();
+        }
+        // Text along a circle of radius r: 'top' = centred at 12 o'clock, reads clockwise with the
+        // letters' tops outward; 'bottom' = centred at 6 o'clock, reads left to right, tops inward
+        function arcText(ctx, k, text, r, where, size, colour = '#111', spacing = 0.12) {
+          const font = `bold ${size * k}px Arial, Helvetica, sans-serif`;
+          const chars = [...text];
+          ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = font;
+          const ws = chars.map(ch => ctx.measureText(ch).width / k);
+          ctx.restore();
+          const gap = spacing * size, total = ws.reduce((a, b) => a + b, 0) + gap * (chars.length - 1);
+          const top = where === 'top', dir = top ? 1 : -1;
+          let a = (top ? -Math.PI / 2 : Math.PI / 2) - dir * total / r / 2;
+          ctx.save(); ctx.fillStyle = colour; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          chars.forEach((ch, i) => {
+            const mid = a + dir * ws[i] / 2 / r;
+            ctx.save();
+            ctx.translate(r * Math.cos(mid), r * Math.sin(mid));
+            ctx.rotate(top ? mid + Math.PI / 2 : mid - Math.PI / 2);
+            ctx.scale(1 / k, 1 / k); ctx.font = font;
+            ctx.fillText(ch, 0, 0);
+            ctx.restore();
+            a += dir * (ws[i] + gap) / r;
+          });
+          ctx.restore();
+        }
+        // Small ID on the tucked rim (6 o'clock) - read it on the cut disc, before pressing. It
+        // (and its white backing) must sit wholly past the crease, or it would show on the side
+        // wall, and inside the cut with room for an off-centre punch. A narrow tucked rim
+        // shrinks it; no room at all leaves it off (null).
+        function tagFit(cut = cfg.cut, crease = cfg.crease) {
+          const inner = crease / 2 + 0.3, outer = cut / 2 - 0.45;
+          const size = Math.min(1.3, outer - inner - 0.3);
+          return size < 0.8 ? null : { size, r: inner + (size + 0.3) / 2 };
+        }
+        function rimTag(ctx, k, text, { size, r }) {
+          ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `bold ${size * k}px Arial, Helvetica, sans-serif`;
+          const w = ctx.measureText(text).width / k + 0.12 * size * ([...text].length - 1);
+          ctx.restore();
+          const span = (w + 0.8) / r;
+          ctx.save(); ctx.lineCap = 'butt'; ctx.strokeStyle = '#fff'; ctx.lineWidth = size + 0.3;
+          ctx.beginPath(); ctx.arc(0, 0, r, Math.PI / 2 - span / 2, Math.PI / 2 + span / 2); ctx.stroke();
+          ctx.restore();
+          arcText(ctx, k, text, r, 'bottom', size, '#111');
+        }
+        // One disc as a JPEG: white, clipped to the cut + 1mm bleed (an off-centre punch never
+        // leaves white), `paint(ctx, k)` draws in mm. Returns { data, mm, tagSkipped } to place
+        // at mm×mm.
+        function renderDisc(paint, { res = 12.1, cut = cfg.cut, crease = cfg.crease, tag = null } = {}) {
+          const D = cut + 2, px = Math.round(D * res), k = px / D;
+          const cv = document.createElement('canvas'); cv.width = cv.height = px;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          ctx.save();
+          ctx.beginPath(); ctx.arc(px / 2, px / 2, px / 2, 0, Math.PI * 2); ctx.clip();
+          ctx.setTransform(k, 0, 0, k, px / 2, px / 2);
+          paint(ctx, k);
+          ctx.restore();
+          const fit = tag ? tagFit(cut, crease) : null;
+          if (fit) { ctx.setTransform(k, 0, 0, k, px / 2, px / 2); rimTag(ctx, k, tag, fit); }
+          const data = cv.toDataURL('image/jpeg', 0.92);
+          cv.width = cv.height = 0;
+          return { data, mm: D, tagSkipped: !!tag && !fit };
+        }
+
+        // Photo: `crop` (a square in the photo's px) = the FRONT circle. Beyond it the photo's
+        // real pixels are used; past the photo's own edges it is mirrored, so never white.
+        const MIRRORS = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [0, 0]];
+        function paintPhoto(ctx, img, crop, front, w, h) {
+          const s = front / crop.w;                                   // mm per photo px
+          const ox = -(crop.x + crop.w / 2) * s, oy = -(crop.y + crop.h / 2) * s;
+          for (const [fx, fy] of MIRRORS) {
+            ctx.save();
+            ctx.transform(s, 0, 0, s, ox, oy);
+            if (fx === -1) ctx.scale(-1, 1);
+            if (fx === 1) { ctx.translate(2 * w, 0); ctx.scale(-1, 1); }
+            if (fy === -1) ctx.scale(1, -1);
+            if (fy === 1) { ctx.translate(0, 2 * h); ctx.scale(1, -1); }
+            ctx.drawImage(img, 0, 0, w, h);
+            ctx.restore();
+          }
+        }
+        // Branding on the side wall, between the end of the photo and where it tucks under
+        function brandingArcs(ctx, k, photoDia, crease = cfg.crease) {
+          const inner = photoDia / 2 + 0.3, outer = Math.min(crease / 2 - 0.1, inner + 2.6);
+          if (outer - inner < 1.1) return false;
+          const size = Math.min(1.9, outer - inner - 0.35), r = (inner + outer) / 2;
+          arcText(ctx, k, 'MAGNETIC MEMORIES', r, 'top', size, '#1f1f1f', 0.2);
+          arcText(ctx, k, 'MADE IN GIBRALTAR', r, 'bottom', size, '#1f1f1f', 0.2);
+          return true;
+        }
+        function paintPhotoDisc(ctx, k, img, crop, w, h, { edge = cfg.edge, front = cfg.front, photoDia = cfg.photoDia, crease = cfg.crease } = {}) {
+          if (edge === 'white') { ctx.save(); ctx.beginPath(); ctx.arc(0, 0, photoDia / 2, 0, Math.PI * 2); ctx.clip(); }
+          paintPhoto(ctx, img, crop, front, w, h);
+          if (edge === 'white') { ctx.restore(); brandingArcs(ctx, k, photoDia, crease); }
+        }
+
+        // Fit-test ruler: a coloured band every 2mm of diameter, the lines numbered on the four
+        // diagonals (alternating, so each spoke's numbers are 2mm apart and big enough to read) -
+        // top, right, bottom and left, where the edge is read, stay pure colour
+        function paintRuler(ctx, k, name, cut = cfg.cut) {
+          const bs = bands(cut);
+          for (let i = bs.length - 1; i >= 0; i--) { ctx.fillStyle = bs[i].colour; ctx.beginPath(); ctx.arc(0, 0, bs[i].to / 2, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, bs[0].from / 2, 0, Math.PI * 2); ctx.fill();
+          for (let d = bs[0].from; d <= cut - 1.9; d += 2) {
+            const even = Math.round((d - bs[0].from) / 2) % 2 === 0;
+            for (const a of even ? [-Math.PI / 4, 3 * Math.PI / 4] : [Math.PI / 4, -3 * Math.PI / 4]) {
+              ctx.save(); ctx.translate(Math.cos(a) * d / 2, Math.sin(a) * d / 2);
+              let rot = a + Math.PI / 2; if (Math.cos(rot) < -0.01) rot += Math.PI;
+              ctx.rotate(rot);
+              ctx.fillStyle = '#fff'; ctx.fillRect(-1.75, -0.9, 3.5, 1.8);
+              ctx.strokeStyle = '#111'; ctx.lineWidth = 0.08; ctx.strokeRect(-1.75, -0.9, 3.5, 1.8);
+              flatText(ctx, k, String(d), 0, 0.05, 1.5);
+              ctx.restore();
+            }
+          }
+          ctx.strokeStyle = '#111'; ctx.lineWidth = 0.15;
+          ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke();
+          flatText(ctx, k, '▲ TOP', 0, -21, 2.4);
+          flatText(ctx, k, name, 0, -12, 7);
+          flatText(ctx, k, 'Which colour is right at the', 0, 8, 2, '#333', '600');
+          flatText(ctx, k, 'front edge? Check the top, right,', 0, 10.8, 2, '#333', '600');
+          flatText(ctx, k, 'bottom and left.', 0, 13.6, 2, '#333', '600');
+        }
+        // Fit-test "white edge" disc: blue out to `dia`, white beyond - pass if no white shows
+        function paintWhiteTest(ctx, k, dia) {
+          ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.arc(0, 0, dia / 2, 0, Math.PI * 2); ctx.fill();
+          flatText(ctx, k, '▲ TOP', 0, -20, 2.4, '#fff');
+          flatText(ctx, k, num(dia), 0, -2, 14, '#fff');
+          flatText(ctx, k, 'blue ends at this size (mm)', 0, 9, 2.1, '#dbeafe', '600');
+          flatText(ctx, k, 'Any white on the front edge?', 0, 12.2, 2.1, '#dbeafe', '600');
+        }
+
+        return { cfg, save, changed, onChange: (f) => listeners.push(f), num, bands, layout, newPdf, fitText, furniture, drawCut, placeDiscs,
+          flatText, arcText, renderDisc, paintPhoto, paintPhotoDisc, paintRuler, paintWhiteTest };
+      })();
+
       // ─── 2.5×3.5″ Print Lab (standalone, all client-side — no orders/storage) ───
       (function () {
         const IN = 25.4;
@@ -3283,9 +3630,22 @@
         const GRIDS = [[2, 1], [1, 2], [2, 2], [3, 2], [2, 3], [3, 3], [4, 3], [3, 4], [4, 4]]; // [wide, tall]
         const STORE = 'mm_jigsaw_lab';
 
-        const cfg = { pitch: 52, face: 50, branding: true, cols: 2, rows: 2, confirmed: false, step: 0.5 };
+        // Round 58mm pieces: square grid or honeycomb (rows alternate n / n-1, offset half a badge)
+        const RGRIDS = [['hex:2-3-2', 'Honeycomb 2-3-2 · 7 badges'], ['hex:3-2-3', 'Honeycomb 3-2-3 · 8 badges'], ['hex:3-4-3', 'Honeycomb 3-4-3 · 10 badges'],
+          ['hex:4-3-4', 'Honeycomb 4-3-4 · 11 badges'], ['grid:2x1', '2 wide × 1 tall · 2 badges'], ['grid:2x2', '2 wide × 2 tall · 4 badges'],
+          ['grid:3x2', '3 wide × 2 tall · 6 badges'], ['grid:3x3', '3 wide × 3 tall · 9 badges']];
+
+        // square: pitch/face/confirmed/cols/rows/branding; round: rOff/rArr/rConfirmed(For)
+        const cfg = { pitch: 52, face: 50, branding: true, cols: 2, rows: 2, confirmed: false, step: 0.5, shape: 'square', rOff: 0, rArr: 'hex:2-3-2', rConfirmed: false, rConfirmedFor: null };
         try { Object.assign(cfg, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch {}
+        if (!GRIDS.some(([w, h]) => w === cfg.cols && h === cfg.rows)) { cfg.cols = 2; cfg.rows = 2; }
+        if (cfg.shape !== 'round') cfg.shape = 'square';
+        if (!(typeof cfg.rOff === 'number' && Math.abs(cfg.rOff) <= 3)) cfg.rOff = 0;
+        if (!RGRIDS.some(([v]) => v === cfg.rArr)) cfg.rArr = 'hex:2-3-2';
         const saveCfg = () => { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch {} };
+        const isRound = () => cfg.shape === 'round';
+        const roundPitch = () => Math.round((R58.cfg.front + cfg.rOff) * 100) / 100;
+        const confirmedNow = () => isRound() ? (cfg.rConfirmed && cfg.rConfirmedFor === roundPitch()) : !!cfg.confirmed;
 
         let src = null;     // the photo, normalised (EXIF orientation applied): { canvas, url, w, h }
         let crop = null;    // { x, y, w, h } in source px; aspect always W:H
@@ -3301,17 +3661,57 @@
           const P = pitch, F = Math.min(cfg.face, P);
           return { P, F, cols, rows, W: cols * P, H: rows * P, M: Math.max(1, (TILE - P) / 2 + 1) };
         }
+        // Round badges: same idea, the tile is the cut paper disc (+1mm bleed). They touch at
+        // one point, so the print spacing is the Front size (+ optional fine-tune). Never
+        // clamp F to P - Front is a print size and can be a touch bigger than the spacing.
+        function geoRound(arr = cfg.rArr, pitch = roundPitch()) {
+          const P = pitch, F = R58.cfg.front, tileMm = R58.cfg.cut + 2, pieces = [];
+          const [kind, spec] = arr.split(':');
+          let W, H;
+          if (kind === 'hex') {
+            const counts = spec.split('-').map(Number), n = Math.max(...counts), rowH = P * Math.sqrt(3) / 2;
+            W = n * P; H = P + (counts.length - 1) * rowH;
+            counts.forEach((k, r) => { for (let c = 0; c < k; c++) pieces.push({ r, c, name: LETTERS[c] + (r + 1), cx: (n - k) * P / 2 + (c + 0.5) * P, cy: P / 2 + r * rowH }); });
+          } else {
+            const [cols, rows] = spec.split('x').map(Number);
+            W = cols * P; H = rows * P;
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) pieces.push({ r, c, name: LETTERS[c] + (r + 1), cx: (c + 0.5) * P, cy: (r + 0.5) * P });
+          }
+          return { round: true, arr, P, F, W, H, pieces, tileMm, M: Math.max(1, (tileMm - P) / 2 + 1) };
+        }
+        const cur = () => isRound() ? geoRound() : geo();
 
         // ── Settings UI ──
         const gridSel = $('jig-grid');
-        gridSel.innerHTML = GRIDS.map(([w, h]) => `<option value="${w}x${h}">${w} wide × ${h} tall · ${w * h} magnets</option>`).join('');
+        function fillGrids() {
+          gridSel.innerHTML = isRound()
+            ? RGRIDS.map(([v, label]) => `<option value="${v}">${label}</option>`).join('')
+            : GRIDS.map(([w, h]) => `<option value="${w}x${h}">${w} wide × ${h} tall · ${w * h} magnets</option>`).join('');
+          gridSel.value = isRound() ? cfg.rArr : `${cfg.cols}x${cfg.rows}`;
+        }
         function syncInputs() {
+          const round = isRound();
+          document.querySelectorAll('.jig-shape').forEach(b => {
+            const on = b.dataset.jshape === cfg.shape;
+            b.style.borderColor = on ? '#fcd34d' : '#1f2933';
+            b.style.background = on ? 'rgba(252,211,77,0.12)' : '#0b1220';
+            b.style.color = on ? '#fff' : '#9ca3af';
+          });
+          $('jig-sq-1').style.display = round ? 'none' : '';
+          $('jig-rd-1').style.display = round ? '' : 'none';
+          $('jig-brand-wrap').style.display = round ? 'none' : 'flex';
+          $('jig-layout-help').textContent = round
+            ? 'Honeycomb packs round badges closest, so more of the photo shows. Every badge shows the photo right round its edge.'
+            : 'Branding on: the outer edges look like a normal magnet (white with the usual text). Off: the photo wraps right round the outside too.';
+          $('jig-rd-front').textContent = R58.num(R58.cfg.front) + (R58.cfg.confirmed ? '' : ' (not tested)');
+          $('jig-rd-off').value = cfg.rOff;
+          $('jig-rd-pitch').textContent = roundPitch().toFixed(2);
           $('jig-pitch').value = cfg.pitch;
           $('jig-face').value = cfg.face;
           $('jig-step').value = String(cfg.step);
-          $('jig-confirmed').checked = !!cfg.confirmed;
+          $('jig-confirmed').checked = confirmedNow();
           $('jig-branding').checked = !!cfg.branding;
-          gridSel.value = `${cfg.cols}x${cfg.rows}`;
+          fillGrids();
         }
         function num(id, lo, hi) {
           const v = Number($(id).value);
@@ -3330,14 +3730,31 @@
           cfg.face = Math.min(v, cfg.pitch); saveCfg(); syncInputs(); refresh();
         };
         $('jig-step').onchange = () => { cfg.step = Number($('jig-step').value) || 0.5; saveCfg(); };
-        $('jig-confirmed').onchange = () => { cfg.confirmed = $('jig-confirmed').checked; saveCfg(); refresh(); };
-        $('jig-branding').onchange = () => { cfg.branding = $('jig-branding').checked; saveCfg(); refresh(); };
-        gridSel.onchange = () => {
-          const [w, h] = gridSel.value.split('x').map(Number);
-          cfg.cols = w; cfg.rows = h; saveCfg();
-          if (src) crop = coverCrop(src.w, src.h, geo().W / geo().H, crop);   // new shape: keep the centre
-          refresh();
+        $('jig-confirmed').onchange = () => {
+          if (isRound()) { cfg.rConfirmed = $('jig-confirmed').checked; cfg.rConfirmedFor = roundPitch(); }
+          else cfg.confirmed = $('jig-confirmed').checked;
+          saveCfg(); refresh();
         };
+        $('jig-branding').onchange = () => { cfg.branding = $('jig-branding').checked; saveCfg(); refresh(); };
+        $('jig-rd-off').onchange = () => {
+          const v = num('jig-rd-off', -3, 3);
+          if (v == null) { statusEl.textContent = 'Fine-tune must be between -3 and 3 mm.'; syncInputs(); return; }
+          cfg.rOff = v; saveCfg(); syncInputs(); refresh();
+        };
+        // a new picture shape: re-fit the crop around the same centre
+        const reshape = () => { if (src) { const g = cur(); crop = coverCrop(src.w, src.h, g.W / g.H, crop); } };
+        gridSel.onchange = () => {
+          if (isRound()) cfg.rArr = gridSel.value;
+          else { const [w, h] = gridSel.value.split('x').map(Number); cfg.cols = w; cfg.rows = h; }
+          saveCfg(); reshape(); refresh();
+        };
+        document.querySelectorAll('.jig-shape').forEach(b => b.onclick = () => {
+          if (cfg.shape === b.dataset.jshape) return;
+          cfg.shape = b.dataset.jshape === 'round' ? 'round' : 'square';
+          saveCfg(); reshape(); syncInputs(); refresh();
+        });
+        // the Round Lab's Front size drives round pieces - follow it live
+        R58.onChange(() => { if (isRound()) { reshape(); syncInputs(); refresh(); } });
 
         $('jigsaw-lab-btn').onclick = () => { syncInputs(); modal.style.display = 'flex'; refresh(); };
         $('jig-close').onclick = () => { modal.style.display = 'none'; };
@@ -3362,7 +3779,7 @@
             const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.95));
             if (src && src.url) URL.revokeObjectURL(src.url);
             src = { canvas: cv, w: cv.width, h: cv.height, url: URL.createObjectURL(blob) };
-            crop = coverCrop(src.w, src.h, geo().W / geo().H, null);
+            { const g = cur(); crop = coverCrop(src.w, src.h, g.W / g.H, null); }
             statusEl.textContent = '';
             refresh();
             openCrop();
@@ -3387,7 +3804,7 @@
         $('jig-recrop').onclick = () => openCrop();
         function openCrop() {
           if (!src) return;
-          const g = geo();
+          const g = cur();
           const imgEl = $('jig-crop-img');
           imgEl.src = src.url;
           cropModal.style.display = 'flex';
@@ -3397,7 +3814,7 @@
             background: false, checkOrientation: false, rotatable: false, scalable: false,
             ready() {
               if (crop) cropper.setData({ x: crop.x, y: crop.y, width: crop.w, height: crop.h });
-              addSeamGuides(cropper.cropBox, g);
+              (g.round ? addRoundGuides : addSeamGuides)(cropper.cropBox, g);
             }
           });
         }
@@ -3426,12 +3843,28 @@
           }
           box.appendChild(wrap);
         }
+        // Round: red everywhere except each badge's front circle; dotted = keep faces inside
+        function addRoundGuides(box, g) {
+          if (!box) return;
+          const old = box.querySelector('.jig-guides'); if (old) old.remove();
+          const wrap = document.createElement('div');
+          wrap.className = 'jig-guides';
+          wrap.style.cssText = 'position:absolute; inset:0; pointer-events:none; z-index:5;';
+          const id = 'jigmask' + Math.random().toString(36).slice(2);
+          const holes = g.pieces.map(p => `<circle cx="${p.cx}" cy="${p.cy}" r="${g.F / 2}" fill="#000"/>`).join('');
+          const marks = g.pieces.map(p => `<circle cx="${p.cx}" cy="${p.cy}" r="${Math.max(1, g.F / 2 - 2)}" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="0.35" stroke-dasharray="1.2 1"/>`
+            + `<text x="${p.cx}" y="${p.cy}" text-anchor="middle" dominant-baseline="central" font-size="5" font-weight="700" font-family="system-ui, sans-serif" fill="rgba(255,255,255,0.8)" stroke="rgba(0,0,0,0.45)" stroke-width="0.35" paint-order="stroke">${p.name}</text>`).join('');
+          wrap.innerHTML = `<svg viewBox="0 0 ${g.W} ${g.H}" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">`
+            + `<defs><mask id="${id}"><rect width="${g.W}" height="${g.H}" fill="#fff"/>${holes}</mask></defs>`
+            + `<rect width="${g.W}" height="${g.H}" fill="rgba(239,68,68,0.38)" mask="url(#${id})"/>${marks}</svg>`;
+          box.appendChild(wrap);
+        }
         function closeCrop() { if (cropper) { cropper.destroy(); cropper = null; } cropModal.style.display = 'none'; }
         $('jig-crop-cancel').onclick = closeCrop;
         $('jig-crop-save').onclick = () => {
           if (cropper) {
             const d = cropper.getData();   // all zeros if clicked before the cropper is ready
-            const g = geo();
+            const g = cur();
             if (d.width > 0 && d.height > 0) crop = { x: d.x, y: d.y, w: d.width, h: d.width * g.H / g.W };   // exact aspect
           }
           closeCrop(); refresh();
@@ -3468,6 +3901,14 @@
 
         // One 71.12mm tile per piece, cut from the master around the piece centre
         function makeTiles(master, g, { branding, tag }) {
+          if (g.round) {
+            // round: each piece is the cut paper disc around its centre, name on the tucked rim
+            return g.pieces.map(p => ({ ...p, ...R58.renderDisc((ctx) => {
+              ctx.save(); ctx.scale(1 / RES, 1 / RES);
+              ctx.drawImage(master, -(p.cx + g.M) * RES, -(p.cy + g.M) * RES);
+              ctx.restore();
+            }, { res: RES, tag: tag(p.name, p.r, p.c) }) }));
+          }
           const tiles = [];
           for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
             const cx = (c + 0.5) * g.P, cy = (r + 0.5) * g.P;
@@ -3566,6 +4007,21 @@
           pdf.text(text, x, y);
         }
 
+        // Round: a small labelled map in the sheet's empty top-left corner (names vanish once pressed)
+        function drawRoundMap(pdf, lay, g) {
+          const x0 = 10, x1 = lay.W / 2 - lay.cut / 2 - 4, y0 = 18.5, y1 = lay.pos[1].y - lay.cut / 2 - 3;
+          pdf.setTextColor(40);
+          R58.fitText(pdf, 'MAP (front view) - turn each badge until the picture lines up', x0, y0 + 2.5, 6.5, x1 - x0);
+          const top = y0 + 4.5, s = Math.min((x1 - x0) / g.W, (y1 - top) / g.H), rr = (g.F / 2) * s;
+          pdf.setDrawColor(120); pdf.setLineWidth(0.2);
+          pdf.setFontSize(Math.max(5, Math.min(8, rr * 1.4)));
+          for (const p of g.pieces) {
+            const cx = x0 + p.cx * s, cy = top + p.cy * s;
+            pdf.circle(cx, cy, rr, 'S');
+            pdf.text(p.name, cx, cy, { align: 'center', baseline: 'middle' });
+          }
+        }
+
         // ── The jigsaw sheet ──
         $('jig-generate').onclick = async () => {
           if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
@@ -3574,8 +4030,29 @@
           statusEl.textContent = 'Building…';
           await new Promise(r => setTimeout(r, 30));
           try {
-            const g = geo();
+            const g = cur();
             const master = buildMaster(g, RES, paintPhoto(g));
+            if (g.round) {
+              const label = g.arr.split(':')[1];
+              const tiles = makeTiles(master, g, { tag: (name) => `${name} · ${label} jigsaw` });
+              const rowsN = Math.max(...g.pieces.map(p => p.r)) + 1;
+              const map = Array.from({ length: rowsN }, (_, r) => g.pieces.filter(p => p.r === r).map(p => p.name).join(' ')).join('  /  ');
+              const noTags = tiles.some(t => t.tagSkipped);
+              const pdf = R58.newPdf(), lay = R58.layout();
+              const pages = R58.placeDiscs(pdf, lay, tiles, [
+                `ROUND JIGSAW ${label} - spacing ${g.P.toFixed(2)} mm (front ${R58.num(g.F)} mm) - on the fridge about ${Math.round(g.W)} x ${Math.round(g.H)} mm` + (confirmedNow() ? '' : '   - SPACING NOT TESTED YET'),
+                `Assemble (front view): ${map}` + (g.arr.startsWith('hex') ? '   (honeycomb: short rows sit half a badge in)' : ''),
+                noTags ? `No room for names on the tucked rims - before cutting, pencil each name on the back. The sheet holds ${g.pieces.map(p => p.name).join(', ')} in that order (middle, left, right, then down).`
+                  : `Names are on the tucked rims and vanish when pressed: press one at a time and lay it straight on the map (top left), or pencil the name on the back.`,
+              ]);
+              pdf.setPage(1);
+              drawRoundMap(pdf, lay, g);
+              const d = new Date(), pad = (n) => String(n).padStart(2, '0');
+              pdf.save(`round-jigsaw-${label}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.pdf`);
+              statusEl.textContent = `✅ Downloaded ${pages} sheet${pages === 1 ? '' : 's'} · ${tiles.length} badges.` + (confirmedNow() ? '' : ' (Spacing not confirmed yet — print the alignment test first for best results.)')
+                + (noTags ? ' No names on the rims — the tucked edge is too narrow; see the sheet header.' : '');
+              return;
+            }
             const size = `${g.cols}x${g.rows}`;
             const tiles = makeTiles(master, g, { branding: cfg.branding, tag: (name) => `${name}  ·  ${g.cols}×${g.rows} jigsaw  ·  bottom edge` });
             // fits on one sheet? then lay the pieces out in picture order
@@ -3602,6 +4079,25 @@
         $('jig-test').onclick = () => {
           if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
           const step = Number(cfg.step) || 0.5;
+          if (isRound()) {
+            const p0 = roundPitch();
+            const values = [p0 - step, p0, p0 + step].map(v => Math.round(v * 100) / 100);
+            const tiles = [];
+            values.forEach(v => {
+              const g = geoRound('grid:2x1', v);
+              const master = buildMaster(g, RES, paintTestPattern(g, v));
+              tiles.push(...makeTiles(master, g, { tag: (name, r, c) => `TEST ${v.toFixed(2)} · ${c === 0 ? 'LEFT' : 'RIGHT'}` }));
+            });
+            const pdf = R58.newPdf();
+            R58.placeDiscs(pdf, R58.layout(), tiles, [
+              `ROUND ALIGNMENT TEST - spacings ${values.map(v => v.toFixed(2)).join(' / ')} mm (written on each badge) - front ${R58.num(R58.cfg.front)} mm`,
+              `Make all 3 pairs. Touch each LEFT + RIGHT together, TOP marks up and the red line level across both.`,
+              `Judge the blue X right where they touch: the pair where it runs dead straight across is your spacing. Best at an end? Test again around it.`,
+            ]);
+            pdf.save(`round-alignment-test-${values[1].toFixed(2)}mm.pdf`);
+            statusEl.textContent = `✅ Round alignment test downloaded (${values.map(v => v.toFixed(2)).join(', ')} mm). Make the 3 pairs and pick the one that lines up.`;
+            return;
+          }
           const values = [cfg.pitch - step, cfg.pitch, cfg.pitch + step].map(v => Math.round(v * 100) / 100);
           const tiles = [];
           values.forEach((v, i) => {
@@ -3646,9 +4142,25 @@
           ctx.textBaseline = 'top'; ctx.textAlign = 'left';
           ctx.font = 'bold 5px Arial, Helvetica, sans-serif';
           const label = v.toFixed(2), lw = ctx.measureText(label).width;
-          for (const lx of [g.P / 2 - g.F / 2 + 3, g.W - (g.P / 2 - g.F / 2) - 3 - lw]) {
-            ctx.fillStyle = '#fff'; ctx.fillRect(lx - 1, 4, lw + 2, 6.5);
-            ctx.fillStyle = '#065f46'; ctx.fillText(label, lx, 5);
+          if (g.round) {
+            // round: in the middle of each front, with LEFT/RIGHT and a TOP mark (badges can turn)
+            ['LEFT', 'RIGHT'].forEach((side, i) => {
+              const cx = (i + 0.5) * g.P, cy = g.H / 2;
+              const box = (text, y, size, colour) => {
+                ctx.font = `bold ${size}px Arial, Helvetica, sans-serif`;
+                const w = ctx.measureText(text).width;
+                ctx.fillStyle = '#fff'; ctx.fillRect(cx - w / 2 - 1, y - 1, w + 2, size * 1.3);
+                ctx.fillStyle = colour; ctx.fillText(text, cx - w / 2, y);
+              };
+              box(label, cy - 16, 5, '#065f46');
+              box(side, cy + 9, 3.2, '#111827');
+              box('▲ TOP', cy - g.F / 2 + 3, 2.6, '#111827');
+            });
+          } else {
+            for (const lx of [g.P / 2 - g.F / 2 + 3, g.W - (g.P / 2 - g.F / 2) - 3 - lw]) {
+              ctx.fillStyle = '#fff'; ctx.fillRect(lx - 1, 4, lw + 2, 6.5);
+              ctx.fillStyle = '#065f46'; ctx.fillText(label, lx, 5);
+            }
           }
           ctx.setTransform(1, 0, 0, 1, 0, 0);
         };
@@ -3660,7 +4172,7 @@
           $('jig-recrop').style.display = has ? '' : 'none';
           $('jig-add').textContent = has ? '＋ Change photo' : '＋ Choose photo';
           if (!has) return;
-          const g = geo();
+          const g = cur();
           const master = buildMaster(g, PREVIEW_RES, paintPhoto(g));
           const pad = 6, s = PREVIEW_RES;                      // preview px per mm
           const cv = $('jig-preview');
@@ -3668,7 +4180,23 @@
           const ctx = cv.getContext('2d');
           ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, cv.width, cv.height);
           const rad = 2 * s;
-          for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+          if (g.round) for (const p of g.pieces) {
+            const rr = (g.F / 2) * s, dx = (p.cx + pad) * s, dy = (p.cy + pad) * s;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+            ctx.beginPath(); ctx.arc(dx, dy, rr, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff'; ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.clip();
+            ctx.drawImage(master, (p.cx - g.F / 2 + g.M) * PREVIEW_RES, (p.cy - g.F / 2 + g.M) * PREVIEW_RES, g.F * PREVIEW_RES, g.F * PREVIEW_RES, dx - rr, dy - rr, 2 * rr, 2 * rr);
+            ctx.restore();
+            ctx.save();
+            ctx.font = `700 ${Math.round(5 * s)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.strokeText(p.name, dx, dy); ctx.fillText(p.name, dx, dy);
+            ctx.restore();
+          }
+          else for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
             const fx = (c + 0.5) * g.P - g.F / 2, fy = (r + 0.5) * g.P - g.F / 2;   // face, picture mm
             const dx = (fx + pad) * s, dy = (fy + pad) * s, dw = g.F * s;
             ctx.save();
@@ -3682,11 +4210,304 @@
             ctx.restore();
           }
           const dpi = Math.round((crop.w / g.W) * 25.4);
-          const sheets = Math.ceil((g.cols * g.rows) / PER_PAGE);
-          $('jig-info').innerHTML = `On the fridge: about <b>${Math.round(g.W)} × ${Math.round(g.H)} mm</b> · ${g.cols * g.rows} magnets · ${sheets} sheet${sheets === 1 ? '' : 's'} · photo detail ≈ ${dpi} dpi` +
+          const n = g.round ? g.pieces.length : g.cols * g.rows;
+          const sheets = Math.ceil(n / PER_PAGE);
+          $('jig-info').innerHTML = `On the fridge: about <b>${Math.round(g.W)} × ${Math.round(g.H)} mm</b> · ${n} ${g.round ? 'badges' : 'magnets'} · ${sheets} sheet${sheets === 1 ? '' : 's'} · photo detail ≈ ${dpi} dpi` +
             (dpi < 150 ? ` <span style="color:#fbbf24;">— a bit low, it may print soft. Use a bigger photo or a smaller layout.</span>` : '') +
-            (cfg.confirmed ? '' : `<br><span style="color:#fbbf24;">⚠️ Spacing not confirmed yet — print the alignment test first.</span>`);
+            (g.round && !R58.cfg.confirmed ? `<br><span style="color:#fbbf24;">⚠️ Front size not tested yet — run the fit test in the ⭕ 58mm Lab first.</span>` : '') +
+            (confirmedNow() ? '' : `<br><span style="color:#fbbf24;">⚠️ Spacing not confirmed yet — print the alignment test first.</span>`);
         }
+
+        syncInputs();
+      })();
+
+      // ─── ⭕ 58mm Round Lab: fit test → what you see → your fit → photo sheets (nothing saved) ───
+      (function () {
+        const $ = (id) => document.getElementById(id);
+        const C = R58.cfg, num = R58.num;
+        const modal = $('rl-modal'), cropModal = $('rl-crop-modal'), statusEl = $('rl-status');
+        const MAX_SRC = 2400;                // longest side kept per photo (plenty for a 70mm disc)
+        const PHOTO_RES = 12.1;              // px per mm for photo discs (~307 dpi)
+        const EDGES = [['top', 'Top'], ['right', 'Right'], ['bottom', 'Bottom'], ['left', 'Left']];
+        let photos = [];                     // [{ url, w, h, crop, thumb }] - crop: a square in photo px = the FRONT circle
+        let cropper = null, cropIdx = null, busy = false;
+        // settings frozen for one build, so a change mid-build can't mix sizes on one sheet
+        const snapshot = () => ({ cut: C.cut, front: C.front, photoDia: C.photoDia, crease: C.crease, edge: C.edge, paper: C.paper, confirmed: C.confirmed });
+
+        $('round-lab-btn').onclick = () => { syncInputs(); renderPhotos(); modal.style.display = 'flex'; };
+        $('rl-close').onclick = () => { modal.style.display = 'none'; };
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+        // ── Settings ──
+        function syncInputs() {
+          $('rl-cut').value = C.cut; $('rl-paper').value = C.paper;
+          $('rl-front').value = C.front; $('rl-crease').value = C.crease; $('rl-photodia').value = C.photoDia;
+          $('rl-edge').value = C.edge; $('rl-confirmed').checked = C.confirmed;
+          $('rl-photodia-wrap').style.display = C.edge === 'white' ? '' : 'none';
+          renderReadings(); renderResult();
+        }
+        function numIn(id, lo, hi) { const v = Number($(id).value); return Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v * 10) / 10 : null; }
+        function bindNum(id, key, lo, hi, label, untest) {
+          $(id).onchange = () => {
+            const v = numIn(id, lo, hi);
+            if (v == null) { statusEl.textContent = `${label} must be between ${lo} and ${hi} mm.`; syncInputs(); return; }
+            if (C[key] !== v) { C[key] = v; if (untest) C.confirmed = false; }   // a new cut/front needs testing again
+            statusEl.textContent = ''; R58.changed(); syncInputs();
+          };
+        }
+        bindNum('rl-cut', 'cut', 60, 72, 'Cut circle', true);
+        bindNum('rl-front', 'front', 44, 66, 'Front', true);
+        bindNum('rl-crease', 'crease', 50, 74, 'Side', false);
+        bindNum('rl-photodia', 'photoDia', 44, 74, 'White edge', false);
+        $('rl-paper').onchange = () => { C.paper = $('rl-paper').value === 'letter' ? 'letter' : 'a4'; R58.changed(); };
+        $('rl-edge').onchange = () => { C.edge = $('rl-edge').value === 'white' ? 'white' : 'wrap'; R58.changed(); syncInputs(); renderPhotos(); };
+        $('rl-confirmed').onchange = () => { C.confirmed = $('rl-confirmed').checked; R58.changed(); };
+
+        // ── What you see: a colour chip per edge (a band, or the thin bar = exactly on the line) ──
+        const bandOf = (v) => R58.bands().find(b => v > b.from && v < b.to);
+        function describe(v) {
+          if (v == null) return '<span style="color:#6b7280;">not set</span>';
+          const b = bandOf(v);
+          return b ? `${b.name} · ${b.from}–${b.to} mm` : `on the ${v} mm line`;
+        }
+        const pick = (on) => on ? 'border:2px solid #fff; box-shadow:0 0 0 2px #059669;' : 'border:2px solid #475569;';   // border: black chips show
+        function chips(key) {
+          const bs = R58.bands().filter(b => b.from < C.cut), v = C.readings[key];
+          return bs.map((b, i) => {
+            const mid = (b.from + b.to) / 2;
+            const line = i === 0 ? '' : `<button data-rk="${key}" data-rv="${b.from}" title="exactly on the line between ${bs[i - 1].name} and ${b.name} (${b.from} mm)" style="width:9px; height:26px; padding:0; border-radius:3px; cursor:pointer; background:${v === b.from ? '#fff' : '#475569'}; ${pick(v === b.from)}"></button>`;
+            return line + `<button data-rk="${key}" data-rv="${mid}" title="${b.name} (${b.from}–${b.to} mm)" style="width:26px; height:26px; padding:0; border-radius:6px; cursor:pointer; background:${b.colour}; ${pick(v === mid)}"></button>`;
+          }).join('');
+        }
+        const whiteValues = () => { const f = C.testFront ?? C.front; return [-2, -1, 0, 1, 2, 3].map(d => f + d); };
+        function renderReadings() {
+          const row = (key, label) => `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;">
+              <div style="width:92px; font-size:12px; color:#d1d5db;">${label}</div>
+              <div style="display:flex; gap:3px; align-items:center; flex-wrap:wrap;">${chips(key)}</div>
+              <div style="font-size:11px; color:#9ca3af;">${describe(C.readings[key])}</div></div>`;
+          const wv = C.readings.white;
+          const wchips = whiteValues().map(d => `<button data-rk="white" data-rv="${d}" style="min-width:44px; padding:6px 8px; border-radius:8px; cursor:pointer; font-weight:700; background:#1e3a8a; color:#fff; ${pick(wv === d)}">${num(d)}</button>`).join('')
+            + `<button data-rk="white" data-rv="0" style="padding:6px 10px; border-radius:8px; cursor:pointer; background:#1f2933; color:#d1d5db; ${pick(wv === 0)}">they all showed white</button>`;
+          $('rl-readings').innerHTML =
+            `<div style="font-size:12px; color:#9ca3af; margin-top:4px;">Ruler <b>R1</b> (or R2 if it looks more even): look straight at the front — which colour is <b>right at the edge</b>? Tap it for each side; tap the thin bar if the edge is exactly on the line between two colours.</div>`
+            + EDGES.map(([k, l]) => row(k, l)).join('')
+            + `<div style="font-size:12px; color:#9ca3af; margin-top:12px;">Now look at the ruler <b>from the side</b>: the last colour you can see before the paper goes under the back.</div>`
+            + row('side', 'From the side')
+            + `<div style="font-size:12px; color:#9ca3af; margin-top:12px;">Blue discs: the <b>smallest number with no white showing</b> anywhere round the front edge${C.testFront != null && C.testFront !== C.front ? ` (your test was printed at Front ${num(C.testFront)})` : ''}.</div>`
+            + `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">${wchips}</div>`
+            + `<button id="rl-reset-readings" style="margin-top:10px; background:none; border:none; color:#6b7280; font-size:11px; cursor:pointer; padding:0;">clear readings</button>`;
+          $('rl-readings').querySelectorAll('[data-rk]').forEach(b => b.onclick = () => {
+            const k = b.dataset.rk, v = Number(b.dataset.rv);
+            if (C.readings[k] === v) delete C.readings[k]; else C.readings[k] = v;
+            R58.save(); renderReadings(); renderResult();
+          });
+          $('rl-reset-readings').onclick = () => { C.readings = {}; R58.save(); renderReadings(); renderResult(); };
+        }
+
+        // Front = average of the four edges (opposite sides cancel an off-centre press);
+        // off-centre = half the difference between opposite sides
+        function compute() {
+          const r = C.readings;
+          if (!EDGES.every(([k]) => r[k] != null)) return null;
+          const front = (r.top + r.bottom + r.left + r.right) / 4;
+          const off = Math.hypot((r.top - r.bottom) / 4, (r.right - r.left) / 4);
+          let photoDia = Math.max(front + 1.5, front + 2 * off + 0.5);
+          if (r.white > 0) photoDia = Math.max(photoDia, r.white);
+          if (r.white === 0) photoDia = Math.max(photoDia, Math.max(...whiteValues()) + 1);
+          return { front: Math.round(front * 2) / 2, off, crease: r.side ?? null, photoDia: Math.ceil(photoDia * 2) / 2 };
+        }
+        function renderResult() {
+          const res = compute(), el = $('rl-result');
+          if (!res) { el.innerHTML = 'Pick a colour for all four edges to work out your Front size.'; return; }
+          const offOk = res.off <= 1, notes = [];
+          if (res.crease != null && res.crease <= res.front + 1) notes.push('The side reading is very close to the front one — look at it from the side again.');
+          if (C.readings.white > 0 && C.readings.white < res.front) notes.push("A blue disc smaller than the front showed no white — re-check the ruler readings.");
+          if (C.readings.white === 0) notes.push('All the blue discs showed white — the white-edge start below is a guess; test again after saving.');
+          el.innerHTML = `<div style="font-size:13px; color:#fff;">Front = <b>${num(res.front)} mm</b> <span style="color:#9ca3af;">(average of your 4 edges)</span></div>`
+            + `<div style="margin-top:4px; color:${offOk ? '#6ee7b7' : '#fbbf24'};">${offOk ? '✓' : '⚠️'} That ruler was ${res.off < 0.3 ? 'nicely centred' : `pressed about ${res.off.toFixed(1)} mm off-centre`}${offOk ? '.' : " — that's the punch, not the template. Punch more carefully (or read R2) for the most accurate Front."}</div>`
+            + (res.crease != null ? `<div style="margin-top:4px;">Side goes under the back at about <b>${num(res.crease)} mm</b>.</div>` : '')
+            + `<div style="margin-top:4px;">White-edge style: white starts at <b>${num(res.photoDia)} mm</b>${C.readings.white == null ? ' (estimated — tap a blue disc above to be sure)' : ''}.</div>`
+            + notes.map(n => `<div style="margin-top:4px; color:#fbbf24;">⚠️ ${n}</div>`).join('');
+          // same limits as the inputs: a result outside them means a misread, not a real fit
+          const bad = res.front < 44 || res.front > 66 || res.photoDia > 74 || (res.crease != null && (res.crease < 50 || res.crease > 74));
+          if (bad) { el.innerHTML += `<div style="margin-top:8px; color:#fca5a5;">These readings don't make sense for a 58mm badge — check them again on the pressed ruler.</div>`; return; }
+          el.innerHTML += `<button id="rl-apply" style="margin-top:10px; padding:9px 14px; border-radius:10px; background:#059669; border:none; color:#fff; font-weight:700; cursor:pointer;">✓ Use these settings</button>`;
+          $('rl-apply').onclick = () => {
+            C.front = res.front; C.photoDia = res.photoDia; if (res.crease != null) C.crease = res.crease;
+            C.confirmed = true; R58.changed(); syncInputs();
+            statusEl.textContent = `✅ Saved — Front ${num(C.front)} mm. Print a few photos below to see them.`;
+          };
+        }
+
+        // ── Fit test sheet: 2 rulers, 6 blue "white edge" discs, + your photo (or a 3rd ruler) ──
+        $('rl-test').onclick = async () => {
+          if (busy) return;
+          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
+          const btn = $('rl-test'); busy = true; btn.disabled = true;
+          statusEl.textContent = 'Building the fit test…';
+          await new Promise(r => setTimeout(r, 30));
+          try {
+            const S = snapshot(), f = S.front, whites = [-2, -1, 0, 1, 2, 3].map(d => f + d), p = photos[0];
+            const img = p ? await loadImg(p.url) : null;
+            const ruler = (name) => R58.renderDisc((ctx, k) => R58.paintRuler(ctx, k, name, S.cut), { res: 20, cut: S.cut });
+            const blue = (d) => R58.renderDisc((ctx, k) => R58.paintWhiteTest(ctx, k, d), { res: 14, cut: S.cut, crease: S.crease, tag: `BLUE ${num(d)}` });
+            const discs = [ruler('R1'), blue(whites[0]), blue(whites[1]), ruler('R2'), blue(whites[2]), blue(whites[3]),
+              img ? R58.renderDisc((ctx, k) => R58.paintPhotoDisc(ctx, k, img, p.crop, p.w, p.h, { ...S, edge: 'wrap' }), { res: PHOTO_RES, cut: S.cut, crease: S.crease, tag: `PHOTO · front ${num(f)}` }) : ruler('R3'),
+              blue(whites[4]), blue(whites[5])];
+            const pdf = R58.newPdf(S.paper);
+            R58.placeDiscs(pdf, R58.layout(S.paper, S.cut), discs, [
+              `58MM FIT TEST - cut ${num(S.cut)} mm - rulers R1-R${img ? 2 : 3} + blue discs ${num(whites[0])} to ${num(whites[5])} mm` + (img ? ` + your photo at front ${num(f)} mm` : ''),
+              `Print at 100% on your order paper, cut out and press them all, then fill in "What you see" in the 58mm Lab.`,
+            ]);
+            pdf.save(`58mm-fit-test-front-${num(f)}.pdf`);
+            if (C.testFront !== f) delete C.readings.white;   // the blue numbers changed: that reading was for the old ones
+            C.testFront = f; R58.save(); renderReadings(); renderResult();
+            statusEl.textContent = '✅ Fit test downloaded — print at 100%, cut and press all 9, then fill in step 3.';
+          } catch (err) {
+            statusEl.textContent = 'Could not build the fit test: ' + err.message;
+          } finally {
+            busy = false; btn.disabled = false;
+          }
+        };
+
+        // ── Photos: normalised once to a blob (browser applies EXIF orientation; capped size) ──
+        $('rl-add').onclick = () => $('rl-files').click();
+        $('rl-clear').onclick = () => { if (busy) return; photos.forEach(p => URL.revokeObjectURL(p.url)); photos = []; renderPhotos(); statusEl.textContent = ''; };
+        $('rl-files').addEventListener('change', async (e) => {
+          const files = Array.from(e.target.files || []);
+          e.target.value = '';
+          if (!files.length) return;
+          statusEl.textContent = 'Loading photos…';
+          let failed = 0;
+          for (const f of files) {
+            const url = URL.createObjectURL(f);
+            try {
+              const img = await loadImg(url);
+              const s = Math.min(1, MAX_SRC / Math.max(img.naturalWidth, img.naturalHeight));
+              const cv = document.createElement('canvas');
+              cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
+              const ctx = cv.getContext('2d');
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(img, 0, 0, cv.width, cv.height);
+              const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93));
+              const w = cv.width, h = cv.height;
+              cv.width = cv.height = 0;
+              if (!blob || !w || !h) throw new Error('decode');
+              // default crop: a square photo (e.g. a customer's 800×800 round crop) is used whole -
+              // its circle is the front, as they framed it; otherwise centred and small enough that
+              // the whole cut disc is real photo
+              const side = Math.abs(w - h) <= 0.01 * Math.max(w, h) ? Math.min(w, h) : Math.min(w, h) * C.front / (C.cut + 2);
+              const p = { url: URL.createObjectURL(blob), w, h, crop: { x: (w - side) / 2, y: (h - side) / 2, w: side, h: side } };
+              p.thumb = await thumb(p);
+              photos.push(p);
+            } catch { failed++; }
+            finally { URL.revokeObjectURL(url); }
+          }
+          statusEl.textContent = failed ? `${failed} photo${failed === 1 ? '' : 's'} couldn't be opened — try a JPEG or PNG.` : '';
+          renderPhotos();
+        });
+        async function thumb(p) {
+          const img = await loadImg(p.url), S = 160;
+          const cv = document.createElement('canvas'); cv.width = cv.height = S;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, S, S);
+          ctx.drawImage(img, p.crop.x, p.crop.y, p.crop.w, p.crop.h, 0, 0, S, S);
+          const data = cv.toDataURL('image/jpeg', 0.8);
+          cv.width = cv.height = 0;
+          return data;
+        }
+        function renderPhotos() {
+          const grid = $('rl-grid');
+          grid.innerHTML = photos.map((p, i) => `<div data-crop="${i}" style="position:relative; aspect-ratio:1; cursor:pointer;">
+              <img src="${p.thumb}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; border:2px solid #1f2933; box-sizing:border-box; ${C.edge === 'white' ? 'box-shadow:0 0 0 4px #fff;' : ''}">
+              <span style="position:absolute; left:0; bottom:0; background:#0b1220; color:#fff; font-size:10px; font-weight:700; border-radius:6px; padding:1px 5px;">${i + 1}</span>
+              <button data-del="${i}" style="position:absolute; top:0; right:0; background:#e84545; color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; line-height:1;">✕</button>
+            </div>`).join('');
+          grid.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => {
+            e.stopPropagation();
+            if (busy) return;   // its photo may still be in the sheet being built
+            const [gone] = photos.splice(Number(b.dataset.del), 1);
+            if (gone) URL.revokeObjectURL(gone.url);
+            renderPhotos();
+          });
+          grid.querySelectorAll('[data-crop]').forEach(d => d.onclick = () => openCrop(Number(d.dataset.crop)));
+        }
+
+        // ── Crop: a round view (CSS scoped to this modal), dotted safe ring, dashed cut ring ──
+        function openCrop(i) {
+          const p = photos[i]; if (!p) return;
+          cropIdx = i;
+          const imgEl = $('rl-crop-img');
+          imgEl.src = p.url;
+          cropModal.style.display = 'flex';
+          if (cropper) cropper.destroy();
+          cropper = new Cropper(imgEl, {
+            aspectRatio: 1, viewMode: 1, autoCropArea: 0.8, dragMode: 'move', guides: false,
+            background: false, checkOrientation: false, rotatable: false, scalable: false,
+            ready() {
+              cropper.setData({ x: p.crop.x, y: p.crop.y, width: p.crop.w, height: p.crop.h });
+              addRings(cropper.cropBox);
+            }
+          });
+        }
+        function addRings(box) {
+          if (!box) return;
+          const old = box.querySelector('.rl-rings'); if (old) old.remove();
+          const wrap = document.createElement('div');
+          wrap.className = 'rl-rings';
+          wrap.style.cssText = 'position:absolute; inset:0; pointer-events:none; z-index:5;';
+          const ring = (scale, css) => {
+            const d = document.createElement('div'), off = (1 - scale) / 2 * 100;
+            d.style.cssText = `position:absolute; left:${off}%; top:${off}%; width:${scale * 100}%; height:${scale * 100}%; border-radius:50%; box-sizing:border-box; ${css}`;
+            wrap.appendChild(d);
+          };
+          ring(C.cut / C.front, 'border:2px dashed rgba(252,211,77,0.95);');
+          ring((C.front - 4) / C.front, 'border:1.5px dotted rgba(255,255,255,0.9);');
+          box.appendChild(wrap);
+        }
+        function closeCrop() { if (cropper) { cropper.destroy(); cropper = null; } cropModal.style.display = 'none'; cropIdx = null; }
+        $('rl-crop-cancel').onclick = closeCrop;
+        $('rl-crop-save').onclick = async () => {
+          const p = photos[cropIdx];
+          const d = cropper ? cropper.getData() : null;   // all zeros if clicked before the cropper is ready
+          closeCrop();
+          if (p && d && d.width > 0 && d.height > 0) {
+            p.crop = { x: d.x, y: d.y, w: d.width, h: d.width };
+            try { p.thumb = await thumb(p); } catch {}
+          }
+          renderPhotos();
+        };
+
+        // ── The 58mm sheet: your photos with your fit, 9 a page, numbers on the tucked rim ──
+        $('rl-generate').onclick = async () => {
+          if (busy) return;
+          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
+          if (!photos.length) { statusEl.textContent = 'Add some photos first (step 5).'; return; }
+          const btn = $('rl-generate'); busy = true; btn.disabled = true;
+          try {
+            const S = snapshot(), list = photos.slice(), discs = [];
+            for (let i = 0; i < list.length; i++) {
+              statusEl.textContent = `Building ${i + 1}/${list.length}…`;
+              await new Promise(r => setTimeout(r, 0));
+              const p = list[i], img = await loadImg(p.url);
+              discs.push(R58.renderDisc((ctx, k) => R58.paintPhotoDisc(ctx, k, img, p.crop, p.w, p.h, S), { res: PHOTO_RES, cut: S.cut, crease: S.crease, tag: String(i + 1) }));
+            }
+            const noTags = discs.some(d => d.tagSkipped);
+            const pdf = R58.newPdf(S.paper);
+            const pages = R58.placeDiscs(pdf, R58.layout(S.paper, S.cut), discs, [
+              `58MM BADGES - front ${num(S.front)} mm - cut ${num(S.cut)} mm - ` + (S.edge === 'white' ? `white edge from ${num(S.photoDia)} mm + branding` : 'photo all the way round') + (S.confirmed ? '' : '   - FIT NOT TESTED YET'),
+              noTags ? 'The tucked rim is too narrow for numbers (side goes under at ' + num(S.crease) + ' mm), so the discs are in the same order as in the 58mm Lab.'
+                : `Each disc's number is printed on its tucked rim - read it before pressing.`,
+            ]);
+            pdf.save(`58mm-badges-${list.length}.pdf`);
+            statusEl.textContent = `✅ Downloaded ${pages} sheet${pages === 1 ? '' : 's'} · ${list.length} badge${list.length === 1 ? '' : 's'}.` + (S.confirmed ? '' : ' (Fit not tested yet — run the fit test first for the best result.)')
+              + (noTags ? ' No numbers on the rims — not enough tucked edge.' : '');
+          } catch (err) {
+            statusEl.textContent = 'Could not build the sheet: ' + err.message;
+          } finally {
+            busy = false; btn.disabled = false;
+          }
+        };
 
         syncInputs();
       })();
