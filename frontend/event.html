@@ -129,6 +129,32 @@
       return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+    // ── Staff key ─────────────────────────────────────────────────
+    // Saving a ticket (a paid-in-person order) needs the staff key: the admin key this phone
+    // already saved in admin.html, or one entered here once (or opened as /event.html?key=…).
+    const STAFF_KEY_LS = 'mm_staff_key';
+    let staffKeyRejected = false; // the server refused the saved key - ask for it again
+    function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+    function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+    (function keyFromUrl() {
+      const url = new URL(location.href);
+      const k = (url.searchParams.get('key') || '').trim();
+      if (!k) return;
+      lsSet(STAFF_KEY_LS, k);
+      url.searchParams.delete('key'); // don't leave it in the address bar / history
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    })();
+    function getStaffKey() {
+      let k = staffKeyRejected ? '' : (lsGet(STAFF_KEY_LS) || lsGet('mm_admin_key'));
+      if (!k) {
+        k = (prompt(staffKeyRejected
+          ? 'That staff key was not accepted - enter it again:'
+          : 'Enter the staff key (only needed once on this phone):') || '').trim();
+        if (k) { lsSet(STAFF_KEY_LS, k); staffKeyRejected = false; }
+      }
+      return k;
+    }
+
     const eventSelect = document.getElementById('event-select');
     const raffleSelect = document.getElementById('raffle');
     const eventHelp = document.getElementById('event-help');
@@ -738,6 +764,10 @@
       if (!currentEvent) return alert('Select an event first.');
       if (!raffle) return alert('Pick a raffle ticket number.');
       if (selectedFiles.length === 0) return alert('Select at least 1 photo.');
+      // A new ticket needs the staff key (a retry only re-uploads photos to the saved ticket)
+      const resumable = !!(activeUpload && activeUpload.eventId === currentEvent.id && activeUpload.raffle === raffle && activeUpload.count === selectedFiles.length);
+      const staffKey = resumable ? '' : getStaffKey();
+      if (!resumable && !staffKey) return alert('The staff key is needed to save tickets.');
 
       // This ticket's photos, fixed for the whole upload: the composites, packSize, resume
       // and the upload loop all use this snapshot (adding / removing is blocked meanwhile).
@@ -804,7 +834,7 @@
           btn.innerHTML = 'Creating Order...';
           const res = await fetch('/api/order', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${staffKey}` },
             body: JSON.stringify({
               event: 'MANUAL',
               eventId: currentEvent.id,
@@ -815,6 +845,15 @@
               status: 'paid'
             })
           });
+          if (res.status === 401) {
+            // Wrong / old staff key: nothing was saved and the number is still free
+            staffKeyRejected = true;
+            lsSet(STAFF_KEY_LS, '');
+            status.innerHTML = '<span class="text-amber-400">⚠️ The staff key was not accepted - tap Confirm &amp; Upload to enter it again.</span>';
+            btn.disabled = false;
+            btn.innerHTML = 'Confirm & Upload';
+            return;
+          }
           if (res.status === 409) {
             const d = await res.json().catch(() => ({}));
             alert(d.error || 'That number was just taken. Refreshing list.');

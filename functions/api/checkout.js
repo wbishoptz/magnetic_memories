@@ -172,6 +172,11 @@ export async function onRequestPost({ request, env }) {
 
     const cancelUrl = `https://magnetic-memories.pages.dev/return.html?status=cancel&orderId=${encodeURIComponent(orderId)}`;
 
+    // Delivery: what the saved order says (order.js stores it); the request's country is only
+    // a fallback for an order saved without one - a tampered request can't drop the charge.
+    const shippingMethod = kvOrder?.shippingMethod || body?.country || "GI_COLLECT";
+    const shipCost = isVoucherPurchase ? 0 : (shippingMethod === "GB" ? 5 : shippingMethod === "GI_DELIVER" ? 3 : 0);
+
     // --- Voucher discount ---
     let discountAmount = 0;
     let finalPrice = price;
@@ -198,8 +203,9 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this)
-    if (voucherCode && discountAmount > 0 && finalPrice === 0 && voucherData) {
+    // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this).
+    // Not when there's delivery to pay: that still goes through Stripe (as in basket checkout).
+    if (voucherCode && discountAmount > 0 && finalPrice === 0 && shipCost === 0 && voucherData) {
       const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
       const newBalance = currentBalance - discountAmount;
       voucherData.balance = newBalance;
@@ -244,7 +250,7 @@ export async function onRequestPost({ request, env }) {
     params.append("line_items[0][price_data][unit_amount]", String(Math.round(finalPrice * 100)));
 
     if (!isVoucherPurchase) {
-      const targetCountry = body?.country || kvOrder?.shippingMethod || "GI_COLLECT";
+      const targetCountry = shippingMethod;
       if (targetCountry === "GB") {
         params.append("shipping_address_collection[allowed_countries][0]", "GB");
         params.append("shipping_options[0][shipping_rate_data][type]", "fixed_amount");
@@ -282,6 +288,8 @@ export async function onRequestPost({ request, env }) {
     }
 
     kvOrder.stripeSessionId = session.id;
+    // Keep the delivery that was charged on the order (only missing on old/hand-made orders)
+    if (!isVoucherPurchase && !kvOrder.shippingMethod) kvOrder.shippingMethod = shippingMethod;
     if (voucherCode && discountAmount > 0) kvOrder.usedVoucher = voucherCode;
     await env.ORDERS_KV.put(kvKey, JSON.stringify(kvOrder));
 

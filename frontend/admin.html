@@ -712,7 +712,7 @@
         </div>`;
 
         if (events.length === 0) {
-          html += `<div class="empty-state">No events yet. Create one, set its ticket range, then open <code>/event.html</code> at the stall.</div>`;
+          html += `<div class="empty-state">No events yet. Create one, set its ticket range, then open <code>/event.html</code> at the stall (it asks once per phone for the staff key: the admin key, or STAFF_KEY if set).</div>`;
         } else {
           html += '<div class="table-wrapper"><table><thead><tr><th>Event</th><th>Range</th><th>Uploads</th><th>Status</th></tr></thead><tbody>';
           for (const e of events) {

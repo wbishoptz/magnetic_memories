@@ -92,6 +92,43 @@ export const VOUCHERS = {
   "voucher_30": { price: 30, label: "£30 Gift Voucher" }
 };
 
+// Price of a stored shop order, worked out again from the price lists above (same rules as
+// order.js), or null if it isn't something the basket can sell. Basket checkout uses this
+// instead of the stored price, which a stale or hand-made draft (e.g. /api/save-cart) could
+// leave at £0. Staff MANUAL tickets are paid in person, and gift vouchers are only issued
+// by the single-item checkout, so neither can be bought here.
+export function shopPrice(order) {
+  if (!order || order.event === 'MANUAL') return null;
+  const packSize = order.packSize;
+  if (typeof packSize === 'string' && packSize.startsWith('voucher_')) return null;
+  const n = Number(packSize);
+  const framePrice = () => {
+    const p = FRAME_PRICES[order.frameStyle]?.[order.frameSize];
+    return p ? (order.includeMagnets ? p.full : p.frame) : null;
+  };
+  let price = null;
+  if (order.event === 'MOTHERS_DAY') {
+    price = order.productType === 'frames' ? framePrice() : MOTHERS_PACKAGES[order.mothersPackage];
+  } else if (order.event === 'FRAMES') {
+    price = order.productType === 'flexi' ? FLEXI_PRICE : framePrice();
+  } else if (order.event === 'VALENTINES') {
+    price = order.productType === 'flexi' ? FLEXI_PRICE : (VALENTINES_PACKS.includes(n) ? VALENTINES_PRICES[n] : null);
+  } else if (order.event === 'BINGO') {
+    price = BINGO_PACKS.includes(n) ? BINGO_PRICES[n] : null;
+  } else if (order.productType === 'keyring') {
+    price = keyringPrice(n);
+  } else if (order.productType === 'bundle') {
+    price = BUNDLE_PRICE;
+  } else if (order.productType === 'large_magnet') {
+    price = LARGE_MAGNET_PACKS.includes(n) ? LARGE_MAGNET_PRICES[n] : null;
+  } else if (order.productType === 'ornament') {
+    price = ORNAMENT_PACKS.includes(n) ? ORNAMENT_PRICES[n] : null;
+  } else {
+    price = STANDARD_PACKS.includes(n) ? STANDARD_PRICES[n] : null;
+  }
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
 // ─── Utilities ─────────────────────────────────────────────────────────────
 
 export function jsonResponse(body, status = 200) {
@@ -99,6 +136,36 @@ export function jsonResponse(body, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Staff access for the event page (event.html): "Authorization: Bearer <key>" with the admin
+// key, or STAFF_KEY when that's set (a key helpers can use that opens nothing else).
+export function isStaffRequest(request, env) {
+  const auth = request.headers.get("Authorization") || "";
+  const key = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  return !!key && ((!!env.ADMIN_KEY && key === env.ADMIN_KEY) || (!!env.STAFF_KEY && key === env.STAFF_KEY));
+}
+
+// Makes sure an earlier Stripe Checkout session can't be paid any more (its order is changing,
+// or being checked out again). Returns 'expired' (can't be paid), 'complete' (it has already
+// been paid) or null (Stripe couldn't say - the caller should refuse and let them retry).
+export async function expireCheckoutSession(env, sessionId) {
+  const url = `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`;
+  const headers = { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` };
+  try {
+    const res = await fetch(`${url}/expire`, { method: "POST", headers });
+    if (res.ok) return "expired";
+    // Only open sessions can be expired: find out whether it's already expired or paid
+    const check = await fetch(url, { headers });
+    if (check.status === 404) return "expired"; // unknown to Stripe, so nothing can pay it
+    if (check.ok) {
+      const s = await check.json();
+      if (s.status === "expired" || s.status === "complete") return s.status;
+    }
+  } catch (err) {
+    console.error("Stripe session expire failed:", err);
+  }
+  return null;
 }
 
 export function esc(str) {

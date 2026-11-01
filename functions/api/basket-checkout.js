@@ -2,7 +2,7 @@
 // Creates one Stripe checkout session for multiple draft orders (basket).
 // Body: { orderIds, email, phone, shippingMethod, socialPermission, voucherCode? }
 
-import { jsonResponse, VOUCHERS, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail, ORNAMENT_PRICES } from './_shared.js';
+import { jsonResponse, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail, shopPrice, expireCheckoutSession } from './_shared.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -38,12 +38,15 @@ export async function onRequestPost({ request, env }) {
       // Reject if already paid (e.g. browser back button edge case)
       if (['paid', 'printing', 'shipped', 'completed'].includes(order.status)) continue;
 
-      // Ornaments: always charge the real pack price, never just what's stored
-      if (order.productType === 'ornament') {
-        const p = ORNAMENT_PRICES[Number(order.packSize)];
-        if (!p) return jsonResponse({ error: 'Invalid ornament order.' }, 400);
-        order.price = p;
+      // Always charge the real price from the price list, never just what's stored
+      const p = shopPrice(order);
+      if (p == null) {
+        const isVoucher = typeof order.packSize === 'string' && order.packSize.startsWith('voucher_');
+        return jsonResponse({ error: isVoucher
+          ? "Gift vouchers can't be bought in the basket - please remove it and buy it on its own."
+          : "One of the basket items can't be bought here - please remove it." }, 400);
       }
+      order.price = p;
 
       order.email = email;
       order.phone = phone;
@@ -53,13 +56,25 @@ export async function onRequestPost({ request, env }) {
       order.basketDraft = false; // now a real order
       order.updatedAt = new Date().toISOString();
 
-      await env.ORDERS_KV.put(`order:${orderId}`, JSON.stringify(order));
-      orders.push(order);
-      itemsTotal += Number(order.price) || 0;
+      orders.push(order); // saved below, once any earlier checkout of these items is closed
+      itemsTotal += p;
     }
 
     if (orders.length === 0) {
       return jsonResponse({ error: 'All basket items are already paid.' }, 400);
+    }
+
+    // Checked out before (e.g. back from Stripe, then the delivery changed): that session
+    // charges the old basket, so expire it before these orders change - it must never be
+    // paid now. A session that was already paid means the basket is paid.
+    for (const sid of new Set(orders.map(o => o.stripeSessionId).filter(Boolean))) {
+      const result = await expireCheckoutSession(env, sid);
+      if (result === 'complete') return jsonResponse({ error: 'This basket has already been paid.' }, 409);
+      if (!result) return jsonResponse({ error: 'Basket checkout failed - please try again.' }, 503);
+    }
+    for (const order of orders) {
+      order.stripeSessionId = null;
+      await env.ORDERS_KV.put(`order:${order.orderId}`, JSON.stringify(order));
     }
 
     // Voucher / promo discount
@@ -195,9 +210,12 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ error: 'Failed to create checkout.' }, 500);
     }
 
-    // Save session ID on first order for dedup protection
-    orders[0].stripeSessionId = session.id;
-    await env.ORDERS_KV.put(`order:${orders[0].orderId}`, JSON.stringify(orders[0]));
+    // Save the session ID on every item (not just the first): if any item is changed later,
+    // order.js expires this session so it can't be paid for the old basket.
+    for (const order of orders) {
+      order.stripeSessionId = session.id;
+      await env.ORDERS_KV.put(`order:${order.orderId}`, JSON.stringify(order));
+    }
 
     return jsonResponse({ checkoutUrl: session.url });
   } catch (err) {

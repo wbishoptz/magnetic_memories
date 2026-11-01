@@ -6,6 +6,7 @@ import {
   keyringPrice, BUNDLE_PRICE,
   LARGE_MAGNET_PACKS, LARGE_MAGNET_PRICES,
   ORNAMENT_DESIGNS, ORNAMENT_PACKS, ORNAMENT_PRICES,
+  isStaffRequest, expireCheckoutSession,
   jsonResponse
 } from './_shared.js';
 import { hasDb, ensureReady, claimNumber, releaseNumber, isConstraintError } from './_tickets.js';
@@ -31,6 +32,12 @@ export async function onRequestPost({ request, env }) {
     const raffleNumber = body?.raffleNumber || null;
     const eventId = body?.eventId || null;
     const manualStatus = body?.status || "draft";
+
+    // MANUAL tickets come from the staff event page (event.html): paid in person, so they're
+    // £0 here and saved as already paid. Only staff (admin key / STAFF_KEY) may create them.
+    if (eventTag === 'MANUAL' && !isStaffRequest(request, env)) {
+      return jsonResponse({ error: "Staff key required." }, 401);
+    }
 
     // Event ticket: block duplicate raffle numbers within the same event
     const isNewEventTicket = eventTag === 'MANUAL' && eventId && raffleNumber != null && !body?.orderId;
@@ -170,6 +177,10 @@ export async function onRequestPost({ request, env }) {
       // ... and ornament orders are never edited after creation (the page never resends an
       // id) - otherwise a checked-out or paid order could be resized under its Stripe session.
       if (productType === 'ornament' || existingOrder.productType === 'ornament') return jsonResponse({ error: "Not allowed." }, 403);
+      // ... and a paid order is never changed here (only drafts / unpaid checkouts are).
+      if (['paid', 'printing', 'shipped', 'completed', 'complete'].includes(existingOrder.status)) {
+        return jsonResponse({ error: "This order has already been paid." }, 409);
+      }
     }
     // Updating an existing event order: its ticket (event + number) is fixed -
     // body.raffleNumber / body.eventId are ignored and the ticket key isn't rewritten.
@@ -183,17 +194,37 @@ export async function onRequestPost({ request, env }) {
     }
 
     let finalStatus = existingOrder.status || "checkout_created";
-    if (manualStatus === 'paid' && productType !== 'ornament') {   // ornaments are only paid via Stripe
+    // status:'paid' only counts for staff MANUAL tickets (checked above); everything else is
+    // only ever marked paid by Stripe (webhook) or a gift voucher at checkout.
+    if (manualStatus === 'paid' && eventTag === 'MANUAL') {
       finalStatus = 'paid';
     } else if (finalStatus === 'draft' || finalStatus === 'abandoned') {
       finalStatus = 'checkout_created';
+    }
+
+    const shippingMethod = body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null);
+    const finalPackSize = packSize || existingOrder.packSize;
+
+    // Already sent to Stripe (single checkout or basket): that session charges the old price
+    // and delivery, so if what's being bought or the delivery changes it must never be paid
+    // again - expire it first (checkout then opens a new one). An unchanged resend (e.g. the
+    // magnets page paying again for the same order) keeps the session as it is.
+    let stripeSessionId = existingOrder.stripeSessionId || null;
+    if (stripeSessionId && (Number(existingOrder.price) !== price
+        || String(existingOrder.packSize) !== String(finalPackSize)
+        || (existingOrder.productType || 'standard') !== productType
+        || (existingOrder.shippingMethod || null) !== shippingMethod)) {
+      const expired = await expireCheckoutSession(env, stripeSessionId);
+      if (expired === 'complete') return jsonResponse({ error: "This order has already been paid." }, 409);
+      if (!expired) return jsonResponse({ error: "Couldn't update the order just now - please try again." }, 503);
+      stripeSessionId = null;
     }
 
     const order = {
       orderId,
       email: email || existingOrder.email,
       phone: phone || existingOrder.phone,
-      packSize: packSize || existingOrder.packSize,
+      packSize: finalPackSize,
       packType: packType || existingOrder.packType,
       price,
       event: eventTag || existingOrder.event,
@@ -224,10 +255,10 @@ export async function onRequestPost({ request, env }) {
       createdAt: existingOrder.createdAt || now,
       updatedAt: now,
       images: existingOrder.images || [],
-      stripeSessionId: existingOrder.stripeSessionId || null,
+      stripeSessionId,
       recoverySent: existingOrder.recoverySent || false,
 
-      shippingMethod: body?.shippingMethod || existingOrder.shippingMethod || (eventTag === 'MANUAL' ? 'COLLECT' : null),
+      shippingMethod,
       socialPermission: socialPerm,
       bingoNumber: existingOrder.bingoNumber,
       basketDraft: isBasketDraft || existingOrder.basketDraft || false,
