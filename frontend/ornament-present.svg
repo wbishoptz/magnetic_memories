@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250" width="200" height="250">
+  <!-- Magnetic Memories colour-in ornament: present. The grey square is the 50x50 photo magnet. -->
+  <circle fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="9" r="6"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 46 C80 18 50 22 58 42 C64 56 86 54 100 46 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 46 C120 18 150 22 142 42 C136 56 114 54 100 46 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M93 50 L78 74 L88 72 L97 56 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M107 50 L122 74 L112 72 L103 56 Z"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="28" y="98" width="144" height="138" rx="8"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="20" y="72" width="160" height="32" rx="7"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="90" y="72" width="20" height="164"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="28" y="156" width="144" height="20"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="47" r="9"/>
+  <rect fill="#eef2f7" stroke="#1f2937" stroke-width="3.2" x="62" y="128" width="76" height="76" rx="10"/>
+</svg>

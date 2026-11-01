@@ -212,6 +212,7 @@
             
             // Capture Event for Restart Button
             if (order.event) currentEventTag = order.event;
+            if (order.productType === 'ornament') currentEventTag = 'ORNAMENT';
 
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
@@ -251,7 +252,10 @@
             statusPill.className = "status-pill " + status;
             statusTextEl.textContent = formatStatus(status);
             statusDescription.textContent = statusMessage(status);
-            packMeta.textContent = order.packSize ? `${order.packSize} magnets` : "—";
+            packMeta.textContent = !order.packSize ? "—"
+              : order.productType === 'ornament'
+                ? `${order.packSize} Christmas ornament${Number(order.packSize) === 1 ? '' : 's'}`
+                : `${order.packSize} magnets`;
             priceMeta.textContent = (typeof order.price === "number") ? "£" + order.price.toFixed(2) : "—";
             createdMeta.textContent = order.createdAt || "—";
             updateProgress(status);
@@ -305,6 +309,7 @@
             if (currentEventTag === 'FRAMES') window.location.href = "/frames";
             else if (currentEventTag === 'VALENTINES') window.location.href = "/valentines";
             else if (currentEventTag === 'BINGO') window.location.href = "/bingo";
+            else if (currentEventTag === 'ORNAMENT') window.location.href = "/christmas-ornaments";
             else window.location.href = "/magnets";
         }
       }

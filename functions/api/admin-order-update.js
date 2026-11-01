@@ -11,6 +11,8 @@
 //   2) Optionally email the customer for printing/shipped/complete
 //   3) Return { success: true, order } as JSON
 
+import { ornamentDesignsText } from './_shared.js';
+
 const CUSTOMER_STATUS_MESSAGES = {
   printing: {
     subject: "Your Magnetic Memories order is being prepared 🖨️",
@@ -163,6 +165,10 @@ function buildCustomerEmailHtml(order, status, messageDef) {
   const prettyStatus =
     status.charAt(0).toUpperCase() + status.slice(1);
 
+  // Ornament orders: count is numeric and design names come from the fixed whitelist
+  const ornamentDesigns = order.productType === 'ornament' ? ornamentDesignsText(order.ornamentDesigns) : "";
+  const ornamentLine = `${Number(order.packSize) || 1}× Christmas Colour-In Ornament${ornamentDesigns ? ` (${ornamentDesigns})` : ""}`;
+
   return `
   <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #111;">
     <h2>Magnetic Memories – Order update</h2>
@@ -174,6 +180,8 @@ function buildCustomerEmailHtml(order, status, messageDef) {
     ${
       order.productType === 'keyring' 
       ? `<p><strong>Product:</strong> Double-Sided Keyring</p>` 
+      : order.productType === 'ornament'
+      ? `<p><strong>Product:</strong> ${ornamentLine}</p>`
       : (order.packSize ? `<p><strong>Pack:</strong> ${order.packSize} items</p>` : "")
     }
     <p style="margin-top: 24px; font-size: 13px; color: #555;">

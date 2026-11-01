@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250" width="200" height="250">
+  <!-- Magnetic Memories colour-in ornament: snowman. The grey square is the 50x50 photo magnet. -->
+  <circle fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="7" r="6"/>
+  <path fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M40 150 L14 124 M22 132 L10 134 M26 136 L22 120"/>
+  <path fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M160 150 L186 124 M178 132 L190 134 M174 136 L178 120"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="178" r="66"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="84" r="33"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="76" y="14" width="48" height="34" rx="5"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="76" y="36" width="48" height="9"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="60" y="46" width="80" height="11" rx="5.5"/>
+  <circle fill="#1f2937" cx="89" cy="78" r="3.6"/><circle fill="#1f2937" cx="111" cy="78" r="3.6"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 85 L126 90 L100 95 Z"/>
+  <circle fill="#1f2937" cx="87" cy="100" r="2.1"/><circle fill="#1f2937" cx="93.5" cy="104" r="2.1"/><circle fill="#1f2937" cx="100" cy="105.5" r="2.1"/><circle fill="#1f2937" cx="106.5" cy="104" r="2.1"/><circle fill="#1f2937" cx="113" cy="100" r="2.1"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M66 112 Q100 128 134 112 L136 124 Q100 140 64 124 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M114 126 L126 140 L116 146 L106 130 Z"/>
+  <rect fill="#eef2f7" stroke="#1f2937" stroke-width="3.2" x="62" y="146" width="76" height="76" rx="10"/>
+</svg>

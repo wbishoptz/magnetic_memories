@@ -4,6 +4,7 @@ import {
   VALENTINES_PACKS, VALENTINES_PRICES,
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES, VOUCHERS,
   keyringPrice, BUNDLE_PRICE, LARGE_MAGNET_PRICES, promoPercent,
+  ORNAMENT_PRICES, ornamentDesignsText,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -78,6 +79,14 @@ export async function onRequestPost({ request, env }) {
       price = BUNDLE_PRICE;
       productName = "Any 2 Bundle (Bottle Opener / Mirror Keyring)";
       productDesc = "Two personalised 58mm pieces — mix & match";
+    } else if (productType === 'ornament') {
+      const size = Number(packSizeRaw);
+      price = ORNAMENT_PRICES[size];
+      // Never send a £0 / missing price to Stripe (or open a session for a missing order)
+      if (!kvOrder || !price) return jsonResponse({ error: "Invalid ornament order." }, 400);
+      const designs = ornamentDesignsText(kvOrder.ornamentDesigns);
+      productName = size === 1 ? 'Christmas Colour-In Ornament' : `${size} Christmas Colour-In Ornaments`;
+      productDesc = 'Kids colour it in · your photo magnet in the middle' + (designs ? ' — ' + designs : '');
     } else if (productType === 'large_magnet') {
       const size = Number(packSizeRaw);
       price = LARGE_MAGNET_PRICES[size] || 0;

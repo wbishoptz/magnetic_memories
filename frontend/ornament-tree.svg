@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250" width="200" height="250">
+  <!-- Magnetic Memories colour-in ornament: tree. The grey square is the 50x50 photo magnet. -->
+  <circle fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="9" r="6"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M85 208 h30 v24 a5 5 0 0 1 -5 5 h-20 a5 5 0 0 1 -5 -5 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 102 L12 214 Q56 201 100 214 Q144 201 188 214 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 64 L32 150 Q66 139 100 150 Q134 139 168 150 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 38 L56 92 Q78 83 100 92 Q122 83 144 92 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 13 L104.4 24.6 L116.6 25.2 L107.1 33 L110.3 44.8 L100 38 L89.7 44.8 L92.9 33 L83.4 25.2 L95.6 24.6 Z"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="80" cy="80" r="5"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="121" cy="77" r="5"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="47" cy="138" r="6"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="153" cy="136" r="6"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="29" cy="202" r="6.5"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="171" cy="202" r="6.5"/>
+  <rect fill="#eef2f7" stroke="#1f2937" stroke-width="3.2" x="62" y="124" width="76" height="76" rx="10"/>
+</svg>

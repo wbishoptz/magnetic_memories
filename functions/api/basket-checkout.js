@@ -2,7 +2,7 @@
 // Creates one Stripe checkout session for multiple draft orders (basket).
 // Body: { orderIds, email, phone, shippingMethod, socialPermission, voucherCode? }
 
-import { jsonResponse, VOUCHERS, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail } from './_shared.js';
+import { jsonResponse, VOUCHERS, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail, ORNAMENT_PRICES } from './_shared.js';
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -37,6 +37,13 @@ export async function onRequestPost({ request, env }) {
 
       // Reject if already paid (e.g. browser back button edge case)
       if (['paid', 'printing', 'shipped', 'completed'].includes(order.status)) continue;
+
+      // Ornaments: always charge the real pack price, never just what's stored
+      if (order.productType === 'ornament') {
+        const p = ORNAMENT_PRICES[Number(order.packSize)];
+        if (!p) return jsonResponse({ error: 'Invalid ornament order.' }, 400);
+        order.price = p;
+      }
 
       order.email = email;
       order.phone = phone;
@@ -136,6 +143,7 @@ export async function onRequestPost({ request, env }) {
         : Math.max(0, base - (i === 0 ? discountAmount : 0));
       let name = '';
       if (order.productType === 'keyring') name = 'Double-Sided Photo Keyring';
+      else if (order.productType === 'ornament') name = Number(order.packSize) === 1 ? 'Christmas Colour-In Ornament' : `${order.packSize} Christmas Colour-In Ornaments`;
       else if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
         const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
         name = `${style} Frame (${order.frameSize || '?'} slots)`;

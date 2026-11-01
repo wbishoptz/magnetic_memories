@@ -5,6 +5,7 @@ import {
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES,
   keyringPrice, BUNDLE_PRICE,
   LARGE_MAGNET_PACKS, LARGE_MAGNET_PRICES,
+  ORNAMENT_DESIGNS, ORNAMENT_PACKS, ORNAMENT_PRICES,
   jsonResponse
 } from './_shared.js';
 import { hasDb, ensureReady, claimNumber, releaseNumber, isConstraintError } from './_tickets.js';
@@ -93,9 +94,13 @@ export async function onRequestPost({ request, env }) {
 
     // Voucher orders: keep packSizeRaw as a string, don't convert to Number
     const isVoucher = typeof packSizeRaw === 'string' && packSizeRaw.startsWith("voucher_");
+    // Ornaments are only ever a plain shop order: an event tag or voucher pack would skip
+    // their price check below (those branches come first)
+    if (productType === 'ornament' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
     const packSize = isVoucher ? packSizeRaw : Number(packSizeRaw);
 
     let price = 0;
+    let ornamentDesigns = null; // validated copy, ornament orders only
 
     if (eventTag === 'MANUAL') {
       price = 0;
@@ -136,6 +141,16 @@ export async function onRequestPost({ request, env }) {
     } else if (productType === 'large_magnet') {
       if (!LARGE_MAGNET_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
       price = LARGE_MAGNET_PRICES[packSize];
+    } else if (productType === 'ornament') {
+      if (!ORNAMENT_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
+      // One design per ornament (repeats allowed), whitelisted keys only
+      const designs = body?.ornamentDesigns;
+      if (!Array.isArray(designs) || designs.length !== packSize
+          || !designs.every(d => typeof d === 'string' && Object.hasOwn(ORNAMENT_DESIGNS, d))) {
+        return jsonResponse({ error: "Invalid ornament designs." }, 400);
+      }
+      ornamentDesigns = [...designs];
+      price = ORNAMENT_PRICES[packSize];
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
@@ -152,6 +167,9 @@ export async function onRequestPost({ request, env }) {
       else if (eventTag === 'MANUAL') return jsonResponse({ error: "Order not found." }, 404);
       // ... and guest self-uploads are only ever changed by upload/finalize/admin.
       if (existingOrder.source === 'guest') return jsonResponse({ error: "Not allowed." }, 403);
+      // ... and ornament orders are never edited after creation (the page never resends an
+      // id) - otherwise a checked-out or paid order could be resized under its Stripe session.
+      if (productType === 'ornament' || existingOrder.productType === 'ornament') return jsonResponse({ error: "Not allowed." }, 403);
     }
     // Updating an existing event order: its ticket (event + number) is fixed -
     // body.raffleNumber / body.eventId are ignored and the ticket key isn't rewritten.
@@ -165,7 +183,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     let finalStatus = existingOrder.status || "checkout_created";
-    if (manualStatus === 'paid') {
+    if (manualStatus === 'paid' && productType !== 'ornament') {   // ornaments are only paid via Stripe
       finalStatus = 'paid';
     } else if (finalStatus === 'draft' || finalStatus === 'abandoned') {
       finalStatus = 'checkout_created';
@@ -198,6 +216,7 @@ export async function onRequestPost({ request, env }) {
       bandColor: bandColor || existingOrder.bandColor || null,
       bandColors: body?.bandColors || existingOrder.bandColors || null,
       bundleItems: body?.bundleItems || existingOrder.bundleItems || null,
+      ornamentDesigns: ornamentDesigns || existingOrder.ornamentDesigns || null,
       magnetOrientations: body?.magnetOrientations || existingOrder.magnetOrientations || null,
 
       status: finalStatus,
@@ -299,6 +318,7 @@ export async function onRequestGet({ request, env }) {
       packType: o.packType,
       frameStyle: o.frameStyle,
       frameSize: o.frameSize,
+      ornamentDesigns: o.ornamentDesigns || undefined,
       event: o.event,
       bingoNumber: o.bingoNumber,
       createdAt: o.createdAt,

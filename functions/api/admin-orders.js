@@ -53,6 +53,7 @@ export async function onRequest({ request, env }) {
             productType: o.productType,
             frameStyle: o.frameStyle,
             frameSize: o.frameSize,
+            ornamentDesigns: o.ornamentDesigns || undefined,
             mothersPackage: o.mothersPackage,
             event: o.event,
             eventId: o.eventId,

@@ -24,6 +24,22 @@ export const keyringPrice = (qty) => KEYRING_PRICES[Number(qty) === 2 ? 2 : 1];
 // Bottle-opener / mirror-keyring bundle: any 2 for £7.95
 export const BUNDLE_PRICE = 7.95;
 
+// Christmas colour-in ornaments (50x50 magnet in the middle): 1 / 2 / set of 4, any mix of designs
+export const ORNAMENT_DESIGNS = { santa: 'Santa', tree: 'Christmas Tree', present: 'Wrapped Present', snowman: 'Snowman' };
+export const ORNAMENT_PACKS = [1, 2, 4];
+export const ORNAMENT_PRICES = { 1: 9.95, 2: 17.95, 4: 29.95 };
+
+// ['santa','snowman','santa'] -> "2× Santa, Snowman" (first-seen order; unknown keys skipped)
+export function ornamentDesignsText(designs) {
+  if (!Array.isArray(designs)) return "";
+  const counts = new Map();
+  for (const d of designs) {
+    if (typeof d !== 'string' || !Object.hasOwn(ORNAMENT_DESIGNS, d)) continue;
+    counts.set(d, (counts.get(d) || 0) + 1);
+  }
+  return [...counts].map(([d, n]) => (n > 1 ? `${n}× ` : '') + ORNAMENT_DESIGNS[d]).join(', ');
+}
+
 export const MOTHERS_PACKAGES = {
   "Box 1": 13.45,
   "Box 2": 25.95,
@@ -140,6 +156,11 @@ function buildTotalText(order) {
 function buildProductLabel(order) {
   if (order.productType === 'large_magnet') return `🧲 ${order.packSize} Large Magnets (65×90mm)`;
   if (order.productType === 'keyring') return '🔑 Double-Sided Keyring';
+  if (order.productType === 'ornament') {
+    const n = Number(order.packSize);
+    const designs = ornamentDesignsText(order.ornamentDesigns);
+    return `🎄 ${esc(String(order.packSize))} Christmas Colour-In Ornament${n === 1 ? '' : 's'}${designs ? ` — ${esc(designs)}` : ''}`;
+  }
   if (order.generatedVoucher) return `🎁 Voucher Purchase (£${order.voucherValue})`;
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
@@ -240,6 +261,7 @@ export async function sendAdminEmail(order, env) {
 
   let title = `New Order ${order.orderId}`;
   if (order.productType === 'keyring') title = `🔑 KEYRING ORDER`;
+  else if (order.productType === 'ornament') title = `🎄 ORNAMENT ORDER`;
   else if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   else if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
   else if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
@@ -308,6 +330,7 @@ export async function sendPaidTelegram(order, env) {
 
   let header = "💳 <b>New paid order</b>";
   if (order.productType === 'keyring') header = `🔑 <b>KEYRING ORDER</b>`;
+  else if (order.productType === 'ornament') header = `🎄 <b>ORNAMENT ORDER</b>`;
   else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
   else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
@@ -315,6 +338,10 @@ export async function sendPaidTelegram(order, env) {
 
   let packLine = `Pack: ${esc(String(order.packSize))} items`;
   if (order.productType === 'keyring') packLine = `Product: 🔑 Double-Sided Keyring`;
+  if (order.productType === 'ornament') {
+    const designs = ornamentDesignsText(order.ornamentDesigns);
+    packLine = `Product: 🎄 ${esc(String(order.packSize))}× Colour-In Ornament${designs ? ` — ${esc(designs)}` : ''}`;
+  }
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
     packLine = `Product: 🖼️ ${esc(style)} Frame (${esc(String(order.frameSize || '?'))} slots)`;

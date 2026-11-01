@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250" width="200" height="250">
+  <!-- Magnetic Memories colour-in ornament: santa. The grey square is the 50x50 photo magnet. -->
+  <circle fill="none" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="7" r="6"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M28 246 C26 180 44 134 100 130 C156 134 174 180 172 246 Z"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="27" y="232" width="146" height="14" rx="4"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="30" y="210" width="140" height="14"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="89" y="206" width="22" height="22" rx="3"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M58 64 C58 36 80 14 104 14 C126 14 142 28 150 46 C155 56 158 64 160 74 L146 64 Z"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="161" cy="78" r="9"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="66" y="72" width="68" height="40" rx="18"/>
+  <rect fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" x="52" y="58" width="96" height="18" rx="9"/>
+  <circle fill="#1f2937" cx="88" cy="88" r="3.4"/><circle fill="#1f2937" cx="112" cy="88" r="3.4"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M62 100 C58 128 78 152 100 154 C122 152 142 128 138 100 C126 110 112 106 100 112 C88 106 74 110 62 100 Z"/>
+  <path fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" d="M100 106 C92 97 78 99 78 107 C86 112 95 110 100 106 C105 110 114 112 122 107 C122 99 108 97 100 106 Z"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="100" cy="99" r="5"/>
+  <rect fill="#eef2f7" stroke="#1f2937" stroke-width="3.2" x="62" y="134" width="76" height="76" rx="10"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="60" cy="176" r="11"/>
+  <circle fill="#ffffff" stroke="#1f2937" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" cx="140" cy="176" r="11"/>
+</svg>

@@ -276,7 +276,7 @@
           <button id="rl-close" style="background:none; border:none; color:#9ca3af; font-size:22px; cursor:pointer; line-height:1;">✕</button>
         </div>
         <p style="color:#9ca3af; font-size:13px; margin:0 0 6px;">Find the perfect print fit for 58mm round badges (bottle openers, mirror keyrings, round magnets). Your cutter cuts a paper disc (normally 70mm); about 58mm of it shows on the front, the next few mm wrap round the side and the rest tucks in behind. The fit test measures exactly where those fall on <i>your</i> machine.</p>
-        <p style="color:#fbbf24; font-size:12px; margin:0 0 14px;">Standalone — nothing is saved to orders. Customer orders still print with the old 58mm template until this fit is switched on for orders.</p>
+        <p style="color:#fbbf24; font-size:12px; margin:0 0 14px;">Standalone — nothing here changes orders. Customer opener/mirror orders print as 70mm circles at the standard fit (front 58mm, photo all the way round); if your fit test finds a different Front, the order sheets can be switched to it.</p>
 
         <div style="border:1px solid #1f2933; border-radius:12px; padding:14px; margin-bottom:12px;">
           <div style="font-weight:700; margin-bottom:8px;">1 · Machine &amp; paper</div>
@@ -2353,7 +2353,11 @@
 
         // Magnet number — events only — as a band flush under the photo (same as the
         // other wrap text), flipped to match. Generated per-tile since it varies.
-        if (showNumber) {
+        // 🎄 A tile with its own label (ornament: "O1 SANTA") prints that in the same band instead.
+        if (item.label) {
+          const tagImg = labelCanvas(String(item.label), PHOTO, LBL_BAND, Math.PI);
+          pdf.addImage(tagImg, 'PNG', pLeft, pBottom + LBL_GAP, PHOTO, LBL_BAND);
+        } else if (showNumber) {
           const numImg = labelCanvas(`#${item.ticket ?? '?'}`, PHOTO, LBL_BAND, Math.PI);
           pdf.addImage(numImg, 'PNG', pLeft, pBottom + LBL_GAP, PHOTO, LBL_BAND);
         }
@@ -2423,37 +2427,36 @@
         }
       }
 
-      // ── Badge template: 58mm circles (bottle openers / mirror keyrings) ──
-      const BG_CUT = 58, BG_PHOTO = 59;   // 58mm cut line, 59mm photo (1mm bleed)
-      const BG_LABEL_H = 4.5;
-      const BG_COLS = 3, BG_ROWS = 4, BG_PER = BG_COLS * BG_ROWS;
-      const BG_GAP_X = 12, BG_GAP_Y = 9;
-      const BG_CELL_W = BG_PHOTO, BG_CELL_H = BG_PHOTO + BG_LABEL_H;
-      const BG_GRID_W = BG_COLS * BG_CELL_W + (BG_COLS - 1) * BG_GAP_X;
-      const BG_LEFT = (PAGE_W - BG_GRID_W) / 2;
+      // ── Badge template: 58mm round badges (bottle openers / mirror keyrings) ──
+      // Each one prints as a circle the size of the cutter (70mm). The customer's round crop is
+      // the 58mm that shows on the front; the photo carries on out to the cut, so the part that
+      // wraps round the edge is photo, not white. OPENER/MIRROR goes on the tucked rim.
+      const BG_FIT = { cut: 70, front: 58, crease: 65, edge: 'wrap' };
 
+      // Customer photo -> one round disc ({ data, mm }); a non-square photo is centre-cropped
+      async function loadBadgeDisc(src, label) {
+        const img = await loadImg(src);
+        const w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) throw new Error('Image could not be decoded');
+        const side = Math.min(w, h), crop = { x: (w - side) / 2, y: (h - side) / 2, w: side, h: side };
+        return R58.renderDisc((ctx, k) => R58.paintPhotoDisc(ctx, k, img, crop, w, h, BG_FIT), { cut: BG_FIT.cut, crease: BG_FIT.crease, tag: label || null });
+      }
+      // Grey stand-in disc (same size) for a photo that failed to load
+      function failedBadgeDisc(who, label) {
+        return R58.renderDisc((ctx, k) => {
+          ctx.fillStyle = '#e5e7eb'; ctx.fillRect(-40, -40, 80, 80);
+          R58.flatText(ctx, k, 'Photo failed', 0, -3, 4.5, '#4b5563');
+          R58.flatText(ctx, k, String(who).toLowerCase(), 0, 4, 3.4, '#4b5563', '600');
+        }, { cut: BG_FIT.cut, crease: BG_FIT.crease, tag: label || null });
+      }
+
+      // 9 discs a page in staggered columns (same sheet as the 58mm Lab), cut line on each
       function layoutBadges(pdf, items, freshStart) {
-        const totalH = BG_ROWS * BG_CELL_H + (BG_ROWS - 1) * BG_GAP_Y;
-        const topMargin = (PAGE_H - totalH) / 2;
-        const rowPitch = BG_CELL_H + BG_GAP_Y;
-        const colPitch = BG_CELL_W + BG_GAP_X;
-        const pageCount = Math.ceil(items.length / BG_PER);
-        for (let p = 0; p < pageCount; p++) {
-          if (p > 0 || freshStart) pdf.addPage();
-          const pageItems = items.slice(p * BG_PER, (p + 1) * BG_PER);
-          for (let k = 0; k < pageItems.length; k++) {
-            const r = Math.floor(k / BG_COLS), col = k % BG_COLS;
-            const x = BG_LEFT + col * colPitch;
-            const y = topMargin + r * rowPitch;
-            pdf.addImage(pageItems[k].data, 'JPEG', x, y, BG_PHOTO, BG_PHOTO);
-            pdf.setDrawColor(120); pdf.setLineWidth(0.3);
-            pdf.circle(x + BG_PHOTO / 2, y + BG_PHOTO / 2, BG_CUT / 2, 'S');
-            if (pageItems[k].label) {
-              pdf.setFont('helvetica', 'bold'); pdf.setTextColor(40); pdf.setFontSize(8);
-              pdf.text(pageItems[k].label, x + BG_PHOTO / 2, y + BG_PHOTO + BG_LABEL_H - 1.2, { align: 'center', baseline: 'middle' });
-            }
-          }
-        }
+        if (freshStart) pdf.addPage();
+        R58.placeDiscs(pdf, R58.layout('letter', BG_FIT.cut), items, [
+          `58MM BADGES - cut on the circle (${BG_FIT.cut} mm) - the middle ${BG_FIT.front} mm shows on the front, the rest wraps round the edge`,
+          items.some(it => it.label) ? 'OPENER / MIRROR is printed on each disc\'s tucked rim (bottom) - read it before pressing.' : '',
+        ].filter(Boolean));
       }
 
       // Compose a PDF from magnet + keyring + badge items and download it
@@ -2465,7 +2468,7 @@
         if (badges.length) { layoutBadges(pdf, badges, started); started = true; }
         const safe = (filenameBase || 'print').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
         pdf.save(`${safe}-print-sheets.pdf`);
-        return Math.ceil(magnets.length / PER_PAGE) + Math.ceil(keyrings.length / KR_PER) + Math.ceil(badges.length / BG_PER);
+        return Math.ceil(magnets.length / PER_PAGE) + Math.ceil(keyrings.length / KR_PER) + Math.ceil(badges.length / R58.layout('letter', BG_FIT.cut).perPage);
       }
 
       // What template does a product need?  'magnet' | 'keyring' | 'badge' | null(skip)
@@ -2474,6 +2477,7 @@
         if (o.productType === 'bundle') return 'badge';   // 58mm openers / mirror keyrings
         if (o.productType === 'large_magnet') return null; // 65×90 template coming separately
         if (o.productType === 'flexi') return null;
+        if (o.productType === 'ornament') return 'magnet'; // 🎄 colour-in ornament: centre photo is a standard 50×50 magnet
         if (String(o.packSize).startsWith('voucher_')) return null;
         return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
       }
@@ -2483,6 +2487,24 @@
         if (k.includes('opener')) return 'OPENER';
         if (k.includes('mirror')) return 'MIRROR';
         return '';
+      }
+
+      // 🎄 Christmas colour-in ornament designs (order.ornamentDesigns holds these keys)
+      const ORNAMENT_DESIGNS = {
+        santa:   { label: 'Santa',           emoji: '🎅' },
+        tree:    { label: 'Christmas Tree',  emoji: '🎄' },
+        present: { label: 'Wrapped Present', emoji: '🎁' },
+        snowman: { label: 'Snowman',         emoji: '⛄' }
+      };
+      const ORNAMENT_KEY_RE = /ornament(\d+)-(santa|tree|present|snowman)\b/i;
+      // Known design key -> { label, emoji }, anything else -> null (never trust the stored value)
+      function ornamentDesign(d) {
+        return typeof d === 'string' && Object.prototype.hasOwnProperty.call(ORNAMENT_DESIGNS, d) ? ORNAMENT_DESIGNS[d] : null;
+      }
+
+      function ornamentLabel(key) {
+        const m = String(key).match(ORNAMENT_KEY_RE);  // …_ornament2-tree.jpg → "O2 TREE"
+        return m ? `O${m[1]} ${m[2].toUpperCase()}` : 'ORNAMENT';
       }
 
       function keyringLabel(key, idx) {
@@ -2521,7 +2543,8 @@
               who,
               ticket: o.raffleNumber,
               isEvent: !!o.eventId,
-              label: kind === 'keyring' ? keyringLabel(img.key, idx) : (kind === 'badge' ? badgeLabel(img.key) : null),
+              label: kind === 'keyring' ? keyringLabel(img.key, idx) : (kind === 'badge' ? badgeLabel(img.key)
+                   : (o.productType === 'ornament' ? ornamentLabel(img.key) : null)),
               src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
             });
           });
@@ -2529,11 +2552,18 @@
         const magnets = [], keyrings = [], badges = [];
         for (let i = 0; i < raw.length; i++) {
           if (onProgress) onProgress(i + 1, raw.length);
+          if (raw[i].kind === 'badge') {
+            let disc;
+            try { disc = await loadBadgeDisc(raw[i].src, raw[i].label); }
+            catch { disc = failedBadgeDisc(raw[i].who, raw[i].label); failed.push({ who: raw[i].who, what: 'photo' }); }
+            badges.push({ ...disc, label: raw[i].label });
+            continue;
+          }
           let data;
           try { data = await loadSquareTile(raw[i].src); }
           catch { data = failedTileDataUrl(raw[i].who); failed.push({ who: raw[i].who, what: 'photo' }); }
           if (raw[i].kind === 'keyring') keyrings.push({ data, label: raw[i].label });
-          else if (raw[i].kind === 'badge') badges.push({ data, label: raw[i].label });
+          else if (raw[i].label) magnets.push({ data, ticket: raw[i].ticket, label: raw[i].label }); // 🎄 ornament tag under the photo
           else magnets.push({ data, ticket: raw[i].ticket });
         }
         const showNumbers = raw.some(r => r.kind === 'magnet' && r.isEvent);
@@ -2641,9 +2671,10 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt"]];
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns"]];
         for (const o of filteredOrders) rows.push([
-            o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || ""
+            o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || "",
+            o.productType || "", Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns.join("|") : ""
         ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
@@ -2708,7 +2739,9 @@
           }
           if (cutoff > 0 && (new Date(o.createdAt).getTime() < cutoff)) return false;
           if (!q) return true;
-          return `${o.orderId} ${o.email} ${o.phone}`.toLowerCase().includes(q);
+          // 🎄 ornament orders are also findable by "ornament" / their design names
+          const ornTxt = o.productType === 'ornament' ? ` ${o.productType} ${(Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns : []).join(' ')}` : '';
+          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}`.toLowerCase().includes(q);
         });
         renderOrders(); 
         if(currentMode === 'orders') updatePackSummary();
@@ -2718,10 +2751,12 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring') continue;
+          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
+          } else if (o.productType === 'ornament') {
+             k = "Christmas Ornament";
           } else if (o.productType === 'keyring') {
              k = "Double-Sided Keyring";
           } else if (o.productType === 'frame' || o.productType === 'frames') {
@@ -2792,6 +2827,10 @@
           } else if (o.productType === 'keyring') {
               packDisplay = `🔑 Keyring${Number(o.packSize) === 2 ? ' ×2' : ''}`;
               style = 'style="color: #fbbf24; font-weight:600;"';
+          } else if (o.productType === 'ornament') {
+              const ornQty = Number(o.packSize) || 1;
+              packDisplay = `🎄 Christmas Ornament${ornQty > 1 ? ` ×${ornQty}` : ''}`;
+              style = 'style="color: #ef4444; font-weight:700;"';
           } else if (o.productType === 'large_magnet') {
               packDisplay = `🧲 ${o.packSize} Large Magnets (65×90)`;
               style = 'style="color: #38bdf8; font-weight:600;"';
@@ -3037,6 +3076,17 @@
               const items = (order.bundleItems || []).map((t, i) => `<div class="field-value">Item ${i + 1}: <span style="font-weight:bold;">${names[t] || t}</span></div>`).join('');
               html += `<div class="field-label" style="color:#10b981;">Bundle — Any 2 for £7.95</div>
                        <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎁 2-piece bundle (58mm)</div>${items}`;
+          } else if (order.productType === 'ornament') {
+              // 🎄 Kids colour in the design; the customer's photo is the 50×50 magnet in the middle
+              const designs = Array.isArray(order.ornamentDesigns) ? order.ornamentDesigns : [];
+              const ornQty = Number(order.packSize) || designs.length || 1;
+              const rows = designs.map((d, i) => {
+                const info = ornamentDesign(d);
+                const thumb = info ? `<img src="./ornament-${d}.svg" alt="" style="width:56px; height:56px; object-fit:contain; background:#fff; border-radius:8px; padding:3px; box-sizing:border-box; flex-shrink:0;">` : '';
+                return `<div class="field-value" style="display:flex; align-items:center; gap:10px;">${thumb}<span>Ornament ${i + 1}: <span style="font-weight:bold;">${info ? `${info.emoji} ${info.label}` : escHtml(d)}</span></span></div>`;
+              }).join('');
+              html += `<div class="field-label" style="color:#ef4444;">Christmas Colour-In Ornament</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎄 ${ornQty} colour-in ornament${ornQty === 1 ? '' : 's'} + photo magnet${ornQty === 1 ? '' : 's'}</div>${rows || '<div class="field-value" style="color:#9ca3af;">Designs not recorded (see filenames)</div>'}`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>
@@ -3092,6 +3142,7 @@
             const others = basketMates.filter(m => m.orderId !== order.orderId).map(m => {
               let lbl = m.productType === 'keyring' ? `🔑 Keyring${Number(m.packSize) === 2 ? ' ×2' : ''}`
                       : m.productType === 'bundle' ? '🎁 Bundle'
+                      : m.productType === 'ornament' ? `🎄 Ornament ×${Number(m.packSize) || 1}`
                       : (m.frameStyle ? `🖼️ ${m.frameStyle.charAt(0).toUpperCase() + m.frameStyle.slice(1)} Frame` : `🧲 ${m.packSize} magnets`);
               return `<a href="#" onclick="loadOrderDetails('${m.orderId}');return false;" style="color:#5eead4; text-decoration:underline;">${lbl} (£${Number(m.price || 0).toFixed(2)})</a>`;
             }).join(' · ');
@@ -3160,7 +3211,9 @@
         let h = '<div class="images-grid">';
         (data.images||[]).forEach(img => {
             const src = `/api/admin-order-image?orderId=${id}&objectKey=${encodeURIComponent(img.key)}&key=${adminKey}`;
-            h += `<div class="image-thumb"><img src="${src}"><a href="${src}&download=1">Download</a></div>`;
+            // 🎄 ornament photo: which ornament + design it goes in (O1 SANTA)
+            const ornCap = ORNAMENT_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#fca5a5;">${escHtml(ornamentLabel(img.key))}</div>` : '';
+            h += `<div class="image-thumb"><img src="${src}">${ornCap}<a href="${src}&download=1">Download</a></div>`;
         });
         document.getElementById("imgs").innerHTML = h + '</div>';
         lastImagesForOrder[id] = data.images;
@@ -3241,7 +3294,7 @@
         // or Letter with every disc well inside the printable area. Middle column at the top.
         function layout(paper = cfg.paper, cut = cfg.cut) {
           const page = paper === 'letter' ? { format: 'letter', W: 215.9, H: 279.4 } : { format: 'a4', W: 210, H: 297 };
-          const P = cut + 2;                         // neighbouring discs 2mm apart
+          const P = cut + 3;                         // neighbouring discs 3mm apart
           const dx = P * Math.sqrt(3) / 2;           // column spacing
           const top = Math.max(17, (page.H - (cut + 2.5 * P)) / 2);
           const mid = page.W / 2, pos = [];
@@ -3332,10 +3385,11 @@
         }
         // Small ID on the tucked rim (6 o'clock) - read it on the cut disc, before pressing. It
         // (and its white backing) must sit wholly past the crease, or it would show on the side
-        // wall, and inside the cut with room for an off-centre punch. A narrow tucked rim
-        // shrinks it; no room at all leaves it off (null).
+        // wall - with ~0.8mm to spare for an off-centre punch, because a tag pulled inward is
+        // visible while one pushed outward is just trimmed on the hidden rim. A narrow tucked
+        // rim shrinks it; no room at all leaves it off (null).
         function tagFit(cut = cfg.cut, crease = cfg.crease) {
-          const inner = crease / 2 + 0.3, outer = cut / 2 - 0.45;
+          const inner = crease / 2 + 0.8, outer = cut / 2 - 0.1;
           const size = Math.min(1.3, outer - inner - 0.3);
           return size < 0.8 ? null : { size, r: inner + (size + 0.3) / 2 };
         }
@@ -3349,11 +3403,12 @@
           ctx.restore();
           arcText(ctx, k, text, r, 'bottom', size, '#111');
         }
-        // One disc as a JPEG: white, clipped to the cut + 1mm bleed (an off-centre punch never
-        // leaves white), `paint(ctx, k)` draws in mm. Returns { data, mm, tagSkipped } to place
-        // at mm×mm.
+        // One disc as a JPEG: a white square with the picture clipped to the cut circle - the
+        // printed circle is exactly the cutter, so it's easy to line up (an off-centre punch only
+        // leaves white in the tucked rim, which is hidden). `paint(ctx, k)` draws in mm.
+        // Returns { data, mm, tagSkipped }; placeDiscs clips it to its circle on the sheet.
         function renderDisc(paint, { res = 12.1, cut = cfg.cut, crease = cfg.crease, tag = null } = {}) {
-          const D = cut + 2, px = Math.round(D * res), k = px / D;
+          const D = cut, px = Math.round(D * res), k = px / D;
           const cv = document.createElement('canvas'); cv.width = cv.height = px;
           const ctx = cv.getContext('2d');
           ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
@@ -3661,11 +3716,11 @@
           const P = pitch, F = Math.min(cfg.face, P);
           return { P, F, cols, rows, W: cols * P, H: rows * P, M: Math.max(1, (TILE - P) / 2 + 1) };
         }
-        // Round badges: same idea, the tile is the cut paper disc (+1mm bleed). They touch at
+        // Round badges: same idea, the tile is the cut paper disc. They touch at
         // one point, so the print spacing is the Front size (+ optional fine-tune). Never
         // clamp F to P - Front is a print size and can be a touch bigger than the spacing.
         function geoRound(arr = cfg.rArr, pitch = roundPitch()) {
-          const P = pitch, F = R58.cfg.front, tileMm = R58.cfg.cut + 2, pieces = [];
+          const P = pitch, F = R58.cfg.front, tileMm = R58.cfg.cut, pieces = [];
           const [kind, spec] = arr.split(':');
           let W, H;
           if (kind === 'hex') {
@@ -4396,7 +4451,7 @@
               // default crop: a square photo (e.g. a customer's 800×800 round crop) is used whole -
               // its circle is the front, as they framed it; otherwise centred and small enough that
               // the whole cut disc is real photo
-              const side = Math.abs(w - h) <= 0.01 * Math.max(w, h) ? Math.min(w, h) : Math.min(w, h) * C.front / (C.cut + 2);
+              const side = Math.abs(w - h) <= 0.01 * Math.max(w, h) ? Math.min(w, h) : Math.min(w, h) * C.front / C.cut;
               const p = { url: URL.createObjectURL(blob), w, h, crop: { x: (w - side) / 2, y: (h - side) / 2, w: side, h: side } };
               p.thumb = await thumb(p);
               photos.push(p);
