@@ -79,12 +79,6 @@
     .fade-up { animation: fadeUp .6s ease both; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-    /* colour studio */
-    .studio-art .r { cursor: pointer; }
-    .studio-art .r:hover { stroke-width: 4.2; }
-    .crayon { width: 34px; height: 34px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 0 0 1px #e8dfcf, 0 3px 8px rgba(0,0,0,.12); transition: transform .15s ease; }
-    .crayon.on { transform: scale(1.18); box-shadow: 0 0 0 2px #1c2b24, 0 4px 12px rgba(0,0,0,.18); }
-
     @media (prefers-reduced-motion: reduce) {
       .hang, .snow, .twinkle, .fade-up { animation: none !important; }
       .snow { display: none; }
@@ -149,24 +143,6 @@
             <div class="w-12 h-12 rounded-full bg-[#e7f1ec] text-pine flex items-center justify-center mx-auto text-xl">🖍️</div>
             <p class="font-semibold mt-3">Colour, hang &amp; keep</p>
             <p class="text-xs text-muted-foreground mt-1">Kids colour it in, then it goes on the tree — or the magnet goes on the fridge.</p>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="studio-title" class="bg-white rounded-3xl border border-border shadow-sm p-5 sm:p-7">
-        <div class="text-center">
-          <h2 id="studio-title" class="font-serif text-2xl sm:text-3xl font-semibold">Try colouring one in</h2>
-          <p class="text-sm text-muted-foreground mt-1">Pick a crayon, then tap the picture. Yours arrives ready to colour!</p>
-        </div>
-        <div id="studio-tabs" class="flex justify-center gap-2 mt-5" role="tablist" aria-label="Ornament designs"></div>
-        <div class="grid sm:grid-cols-[1fr_auto] gap-5 items-center mt-4">
-          <div class="studio-art mx-auto w-full max-w-[250px]" id="studio-art"></div>
-          <div class="flex flex-col items-center gap-4">
-            <div id="studio-palette" class="grid grid-cols-6 sm:grid-cols-2 gap-2 sm:gap-2.5 shrink-0" aria-label="Crayons"></div>
-            <div class="flex flex-wrap justify-center sm:flex-col gap-2">
-              <button type="button" id="studio-magic" class="text-xs font-semibold rounded-full px-3 py-2 bg-[#fbf3df] text-[#8a6a1f] hover:bg-[#f6e7bf] transition-colors">✨ Colour it for me</button>
-              <button type="button" id="studio-reset" class="text-xs font-semibold rounded-full px-3 py-2 bg-secondary text-secondary-foreground hover:bg-[#ebe2d2] transition-colors">↺ Start again</button>
-            </div>
           </div>
         </div>
       </section>
@@ -437,36 +413,6 @@
       }
       snow.innerHTML = html;
     })();
-
-    // ── Colour studio: tap a region to fill it with the chosen crayon ──
-    const CRAYONS = ['#dc2626', '#f97316', '#facc15', '#16a34a', '#0f766e', '#2563eb', '#7c3aed', '#ec4899', '#7c4a1e', '#fcd9b6', '#1f2937', '#ffffff'];
-    const studio = { key: 'santa', crayon: '#dc2626', fills: {} };
-    function renderStudio() {
-      document.getElementById('studio-tabs').innerHTML = DESIGN_KEYS.map(k => `
-        <button type="button" role="tab" aria-selected="${k === studio.key}" onclick="studioPick('${k}')"
-          class="rounded-full px-3 py-1.5 text-xs font-semibold border transition-all ${k === studio.key ? 'bg-pine text-white border-pine' : 'bg-white border-border text-foreground hover:border-pine/40'}">
-          ${DESIGNS[k].emoji} <span class="hidden sm:inline">${DESIGNS[k].label}</span></button>`).join('');
-      const art = document.getElementById('studio-art');
-      art.innerHTML = ornSvg(studio.key, { sample: ['#fde68a', '#fca5a5', '#86efac', '#22c55e'], cls: 'orn-pop' });
-      const fills = studio.fills[studio.key] || {};
-      art.querySelectorAll('.r').forEach((el, i) => { el.dataset.i = i; if (fills[i]) el.style.fill = fills[i]; });
-      document.getElementById('studio-palette').innerHTML = CRAYONS.map(c => `
-        <button type="button" class="crayon ${c === studio.crayon ? 'on' : ''}" style="background:${c}" aria-label="Crayon ${c}" aria-pressed="${c === studio.crayon}" onclick="studioCrayon('${c}')"></button>`).join('');
-    }
-    window.studioPick = (k) => { studio.key = k; renderStudio(); };
-    window.studioCrayon = (c) => { studio.crayon = c; renderStudio(); };
-    document.getElementById('studio-art').addEventListener('click', (e) => {
-      const el = e.target.closest('.r'); if (!el) return;
-      el.style.fill = studio.crayon;
-      studio.fills[studio.key] = studio.fills[studio.key] || {};
-      studio.fills[studio.key][el.dataset.i] = studio.crayon;
-    });
-    document.getElementById('studio-magic').onclick = () => {
-      const fills = (studio.fills[studio.key] = {});
-      document.querySelectorAll('#studio-art .r').forEach((el, i) => setTimeout(() => { el.style.fill = el.dataset.c; fills[el.dataset.i] = el.dataset.c; }, i * 70));
-    };
-    document.getElementById('studio-reset').onclick = () => { studio.fills[studio.key] = {}; renderStudio(); };
-    renderStudio();
 
     // ── Order state ──
     let state = {
