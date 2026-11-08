@@ -2553,8 +2553,8 @@
       // 🎅 Letter from Santa (order.santaLetters holds [{ design, bauble }], one per letter).
       // bauble null = letter + loose Santa Cam magnet; a colour = the Santa Cam set in a hanging bauble.
       const SANTA_LETTER_DESIGNS = {
-        airmail: { label: 'Airmail letter',         emoji: '✉️' },
-        merry:   { label: 'Merry Christmas letter', emoji: '🎄' }
+        airmail: { label: 'Airmail letter',         emoji: '✉️', cam: 'North Pole Santa Cam' },   // the badge always matches the letter,
+        merry:   { label: 'Merry Christmas letter', emoji: '🎄', cam: 'red-hat Santa Cam' }      // whatever the bauble colour
       };
       const SANTA_BAUBLES = {
         red:    { label: 'red',    emoji: '🔴' },
@@ -3228,9 +3228,10 @@
                 else if (bInfo) baubleCount.set(l.bauble, (baubleCount.get(l.bauble) || 0) + 1);
                 else oddBaubles++;
                 const thumb = info ? `<img src="./santa-letter-${l.design}.jpg" alt="" style="width:56px; height:56px; object-fit:cover; border-radius:8px; flex-shrink:0;">` : '';
-                const extra = l.bauble == null ? 'Santa Cam magnet'
-                  : bInfo ? `Santa Cam in a ${bInfo.emoji} ${bInfo.label} bauble`
-                  : `Santa Cam in a bauble (unknown colour: ${escHtml(l.bauble)})`;
+                const cam = info ? info.cam : 'Santa Cam';
+                const extra = l.bauble == null ? `${cam} magnet`
+                  : bInfo ? `${cam} in a ${bInfo.emoji} ${bInfo.label} bauble`
+                  : `${cam} in a bauble (unknown colour: ${escHtml(l.bauble)})`;
                 return `<div class="field-value" style="display:flex; align-items:center; gap:10px; word-break:normal;">${thumb}<span>Letter ${i + 1}: <span style="font-weight:bold;">${info ? `${info.emoji} ${info.label}` : escHtml(l.design)}</span> · ${extra}</span></div>`;
               }).join('');
               // Packing summary, e.g. "Pack: 2× Airmail letter, 1× Merry Christmas letter · 2 Santa Cam magnets · baubles: 1 red"
