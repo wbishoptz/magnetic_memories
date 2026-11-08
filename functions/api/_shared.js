@@ -40,6 +40,66 @@ export function ornamentDesignsText(designs) {
   return [...counts].map(([d, n]) => (n > 1 ? `${n}× ` : '') + ORNAMENT_DESIGNS[d]).join(', ');
 }
 
+// Letter from Santa: each letter comes with a Santa Cam magnet (£4.99), or with the Santa Cam
+// set in a red / green / bronze hanging bauble instead (£6.99). 1-10 letters, any mix.
+export const SANTA_LETTER_DESIGNS = { airmail: 'Airmail letter', merry: 'Merry Christmas letter' };
+export const SANTA_BAUBLES = { red: 'Red', green: 'Green', bronze: 'Bronze' };
+export const SANTA_LETTER_PRICE = 4.99;
+export const SANTA_BAUBLE_PRICE = 6.99;
+export const SANTA_LETTER_MAX = 10;
+
+// One letter -> validated { design, bauble } (bauble null = loose Santa Cam magnet), or null
+function santaLetterItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const { design, bauble } = item;
+  if (typeof design !== 'string' || !Object.hasOwn(SANTA_LETTER_DESIGNS, design)) return null;
+  if (bauble !== null && (typeof bauble !== 'string' || !Object.hasOwn(SANTA_BAUBLES, bauble))) return null;
+  return { design, bauble };
+}
+
+// Validated copy of exactly n letters (n a whole number 1..SANTA_LETTER_MAX, repeats
+// allowed, whitelisted keys only) - or null if anything about it is off
+export function santaLetterItems(raw, n) {
+  if (!Number.isInteger(n) || n < 1 || n > SANTA_LETTER_MAX) return null;
+  if (!Array.isArray(raw) || raw.length !== n) return null;
+  const items = [];
+  for (const item of raw) {
+    const ok = santaLetterItem(item);
+    if (!ok) return null;
+    items.push(ok);
+  }
+  return items;
+}
+
+// Total in £ for the letters (added up in pence so it never picks up float errors), or null
+export function santaLetterTotal(items) {
+  const letters = santaLetterItems(items, Array.isArray(items) ? items.length : 0);
+  if (!letters) return null;
+  const letterPence = Math.round(SANTA_LETTER_PRICE * 100);
+  const baublePence = Math.round(SANTA_BAUBLE_PRICE * 100);
+  let pence = 0;
+  for (const l of letters) pence += l.bauble ? baublePence : letterPence;
+  return pence / 100;
+}
+
+// [{airmail,null},{airmail,null},{merry,'green'}]
+//   -> "2× Airmail letter + Santa Cam magnet, Merry Christmas letter + green bauble"
+// (first-seen order; unknown entries skipped)
+export function santaLetterText(items) {
+  if (!Array.isArray(items)) return "";
+  const counts = new Map();
+  for (const item of items) {
+    const ok = santaLetterItem(item);
+    if (!ok) continue;
+    const key = `${ok.design}|${ok.bauble || ''}`;
+    const prev = counts.get(key);
+    counts.set(key, { ...ok, n: prev ? prev.n + 1 : 1 });
+  }
+  return [...counts.values()].map(({ design, bauble, n }) => (n > 1 ? `${n}× ` : '')
+    + SANTA_LETTER_DESIGNS[design]
+    + (bauble ? ` + ${SANTA_BAUBLES[bauble].toLowerCase()} bauble` : ' + Santa Cam magnet')).join(', ');
+}
+
 export const MOTHERS_PACKAGES = {
   "Box 1": 13.45,
   "Box 2": 25.95,
@@ -123,6 +183,9 @@ export function shopPrice(order) {
     price = LARGE_MAGNET_PACKS.includes(n) ? LARGE_MAGNET_PRICES[n] : null;
   } else if (order.productType === 'ornament') {
     price = ORNAMENT_PACKS.includes(n) ? ORNAMENT_PRICES[n] : null;
+  } else if (order.productType === 'santa_letter') {
+    // Worked out from the stored letters, which must still match the pack size
+    price = santaLetterTotal(santaLetterItems(order.santaLetters, n));
   } else {
     price = STANDARD_PACKS.includes(n) ? STANDARD_PRICES[n] : null;
   }
@@ -228,6 +291,11 @@ function buildProductLabel(order) {
     const designs = ornamentDesignsText(order.ornamentDesigns);
     return `🎄 ${esc(String(order.packSize))} Christmas Colour-In Ornament${n === 1 ? '' : 's'}${designs ? ` — ${esc(designs)}` : ''}`;
   }
+  if (order.productType === 'santa_letter') {
+    const n = Number(order.packSize);
+    const letters = santaLetterText(order.santaLetters);
+    return `🎅 ${esc(String(order.packSize))} Letter${n === 1 ? '' : 's'} from Santa${letters ? ` — ${esc(letters)}` : ''}`;
+  }
   if (order.generatedVoucher) return `🎁 Voucher Purchase (£${order.voucherValue})`;
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
@@ -329,6 +397,7 @@ export async function sendAdminEmail(order, env) {
   let title = `New Order ${order.orderId}`;
   if (order.productType === 'keyring') title = `🔑 KEYRING ORDER`;
   else if (order.productType === 'ornament') title = `🎄 ORNAMENT ORDER`;
+  else if (order.productType === 'santa_letter') title = `🎅 SANTA LETTER ORDER`;
   else if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   else if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
   else if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
@@ -398,6 +467,7 @@ export async function sendPaidTelegram(order, env) {
   let header = "💳 <b>New paid order</b>";
   if (order.productType === 'keyring') header = `🔑 <b>KEYRING ORDER</b>`;
   else if (order.productType === 'ornament') header = `🎄 <b>ORNAMENT ORDER</b>`;
+  else if (order.productType === 'santa_letter') header = `🎅 <b>SANTA LETTER ORDER</b>`;
   else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
   else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
@@ -408,6 +478,10 @@ export async function sendPaidTelegram(order, env) {
   if (order.productType === 'ornament') {
     const designs = ornamentDesignsText(order.ornamentDesigns);
     packLine = `Product: 🎄 ${esc(String(order.packSize))}× Colour-In Ornament${designs ? ` — ${esc(designs)}` : ''}`;
+  }
+  if (order.productType === 'santa_letter') {
+    const letters = santaLetterText(order.santaLetters);
+    packLine = `Product: 🎅 ${esc(String(order.packSize))}× Letter from Santa${letters ? ` — ${esc(letters)}` : ''}`;
   }
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);

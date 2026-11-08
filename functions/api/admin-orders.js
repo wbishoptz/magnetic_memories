@@ -54,6 +54,7 @@ export async function onRequest({ request, env }) {
             frameStyle: o.frameStyle,
             frameSize: o.frameSize,
             ornamentDesigns: o.ornamentDesigns || undefined,
+            santaLetters: o.santaLetters || undefined,
             mothersPackage: o.mothersPackage,
             event: o.event,
             eventId: o.eventId,

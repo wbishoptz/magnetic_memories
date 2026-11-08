@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magnetic Memories | A Letter from Santa</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f3b2c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+  <script src="/pwa.js" defer></script>
+  <meta name="description" content="A letter from Santa with your little one's very own Santa Cam — as a magnet for the fridge or set in a hanging bauble for the tree. Two letter designs, from £4.99." />
+  <meta property="og:title" content="A Letter from Santa – Magnetic Memories" />
+  <meta property="og:description" content="Straight from the North Pole, with a magical Santa Cam magnet — or set in a red, green or bronze bauble. From £4.99." />
+  <meta property="og:image" content="https://magnetic-memories.pages.dev/santa-letter-og.jpg" />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+          colors: {
+            background: "#fbf7f1", foreground: "#1c2b24",
+            primary: "#b4232a", "primary-foreground": "#ffffff",
+            secondary: "#f2ebdf", "secondary-foreground": "#3b342a",
+            border: "#e8dfcf", muted: "#f2ebdf", "muted-foreground": "#6f6758",
+            pine: "#0f3b2c", gold: "#c9a14a", airmail: "#2f4f86",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #fbf7f1; color: #1c2b24; -webkit-tap-highlight-color: transparent; }
+    .gold-glow { box-shadow: 0 6px 24px rgba(180, 35, 42, 0.16); }
+    .btn-gradient { background: linear-gradient(135deg, #b4232a, #d9483b); }
+    .gold-text { background: linear-gradient(120deg, #f5d98b, #c9a14a 55%, #f0cf7a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    /* basket.js only styles .basket-show once the basket is switched on - keep it hidden otherwise */
+    body:not(.mm-basket-mode) .basket-show { display: none; }
+
+    /* airmail envelope stripes, like the letter's own border */
+    .airmail { background: repeating-linear-gradient(135deg, #c8323a 0 14px, #fbf7f1 14px 28px, #2f4f86 28px 42px, #fbf7f1 42px 56px); }
+    .hero-in { background: radial-gradient(120% 90% at 30% 0%, #17573f 0%, #0f3b2c 55%, #0a2a1f 100%); }
+    .snow { position: absolute; top: -12px; border-radius: 9999px; background: #fff; animation: fall linear infinite; pointer-events: none; }
+    @keyframes fall { 0% { transform: translate3d(0, -10px, 0); } 100% { transform: translate3d(18px, 640px, 0); } }
+    .photo-card { background: #fff; padding: 6px; border-radius: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); }
+    .tilt-l { transform: rotate(-5deg); } .tilt-r { transform: rotate(6deg); }
+    .float { animation: float 6s ease-in-out infinite; }
+    .float-2 { animation: float 7s ease-in-out infinite; animation-delay: -2.5s; }
+    @keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+    .fade-up { animation: fadeUp .6s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .swatch { width: 30px; height: 30px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 0 0 1px #e8dfcf, 0 3px 8px rgba(0,0,0,.12); }
+    .swatch-bronze { background: radial-gradient(circle at 35% 30%, #e9b77d, #a8743f 55%, #6e4521); }
+    @media (prefers-reduced-motion: reduce) {
+      .snow, .float, .float-2, .fade-up { animation: none !important; }
+      .snow { display: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-4">
+
+  <header class="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
+    <div class="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
+      <a href="/" aria-label="Back to all products" class="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h1 class="font-serif text-lg font-semibold text-foreground">A Letter from Santa</h1>
+      <div class="w-10"></div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6 max-w-2xl">
+
+    <!-- ── Landing (step 1 only) ── -->
+    <div id="landing" class="space-y-10 mb-10">
+
+      <section class="airmail rounded-3xl p-2.5 shadow-xl fade-up" aria-label="A letter from Santa">
+        <div class="hero-in relative overflow-hidden rounded-[1.15rem] px-5 pt-7 pb-8 sm:px-8">
+          <div id="snow" class="absolute inset-0 overflow-hidden" aria-hidden="true"></div>
+          <div class="relative grid sm:grid-cols-[1.05fr_1fr] gap-7 items-center">
+            <div class="relative h-[270px] sm:h-[360px] sm:order-2" aria-hidden="true">
+              <div class="photo-card tilt-l absolute left-[4%] top-2 w-[54%] sm:w-[66%] float">
+                <img src="./santa-letter-airmail.jpg" alt="" class="rounded-md w-full aspect-[4/5] object-cover object-top" />
+              </div>
+              <div class="photo-card tilt-r absolute right-[2%] top-10 w-[48%] sm:w-[58%] float-2">
+                <img src="./santa-letter-bauble.jpg" alt="" class="rounded-md w-full aspect-[4/5] object-cover" />
+              </div>
+            </div>
+            <div class="text-center sm:text-left sm:order-1">
+              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#f5d98b] border border-[#c9a14a]/50 bg-white/5 rounded-full px-3 py-1">✉️ From the North Pole</span>
+              <h2 class="font-serif text-white text-[2.1rem] leading-tight sm:text-5xl font-semibold mt-4">A Letter from <span class="gold-text italic">Santa</span></h2>
+              <p class="text-emerald-50/85 text-sm sm:text-base mt-3">Santa's sending your little one their very own <b class="text-white">Santa Cam</b> — a magical camera that helps him see when they're being kind, listening carefully and doing their very best.</p>
+              <div class="flex flex-wrap justify-center sm:justify-start gap-2 mt-5 text-xs font-medium">
+                <span class="rounded-full bg-white/10 text-white px-3 py-1.5">2 letter designs</span>
+                <span class="rounded-full bg-white/10 text-white px-3 py-1.5">🧲 Santa Cam magnet</span>
+                <span class="rounded-full bg-[#c9a14a] text-[#1c2b24] px-3 py-1.5 font-semibold">From £4.99</span>
+              </div>
+              <a href="#builder" class="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-pine font-semibold px-6 py-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                Choose your letters <i data-lucide="arrow-down" class="w-4 h-4"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="ways-title">
+        <h2 id="ways-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Two ways to send it</h2>
+        <p class="text-sm text-muted-foreground text-center mt-1">Every letter comes with a Santa Cam — choose how it arrives.</p>
+        <div class="grid sm:grid-cols-2 gap-4 mt-5">
+          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+            <img src="./santa-letter-magnet.jpg" alt="Santa Cam magnet on a letter from Santa" class="w-full aspect-[16/10] object-cover object-[30%_50%]" />
+            <div class="p-5">
+              <div class="flex items-baseline justify-between gap-3">
+                <p class="font-serif text-xl font-semibold">Letter + Santa Cam magnet</p>
+                <p class="text-primary font-bold text-lg">£4.99</p>
+              </div>
+              <p class="text-sm text-muted-foreground mt-1">The Santa Cam comes as a magnet — perfect on the fridge, where it can keep watch all through December.</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+            <img src="./santa-letter-bauble.jpg" alt="Santa Cam set in a green hanging bauble" class="w-full aspect-[16/10] object-cover object-[50%_62%]" />
+            <div class="p-5">
+              <div class="flex items-baseline justify-between gap-3">
+                <p class="font-serif text-xl font-semibold">Letter + Santa Cam bauble</p>
+                <p class="text-primary font-bold text-lg">£6.99</p>
+              </div>
+              <p class="text-sm text-muted-foreground mt-1">The Santa Cam set in a hanging bauble, ready for the tree.</p>
+              <div class="flex items-center gap-3 mt-3 text-xs font-medium text-muted-foreground">
+                <span class="flex items-center gap-1.5"><span class="swatch !w-5 !h-5" style="background:#c8323a"></span>Red</span>
+                <span class="flex items-center gap-1.5"><span class="swatch !w-5 !h-5" style="background:#2f7a55"></span>Green</span>
+                <span class="flex items-center gap-1.5"><span class="swatch swatch-bronze !w-5 !h-5"></span>Bronze</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-muted-foreground text-center mt-4">✍️ Each letter leaves a space after “Dear” for you to write your little one's name — the perfect finishing touch.</p>
+      </section>
+
+      <div id="builder" class="text-center scroll-mt-20 pt-2">
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold">Choose your letters</h2>
+        <p class="text-sm text-muted-foreground mt-1">Pick a design and a Santa Cam for each — up to 10 letters per order.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-center gap-2 mb-8" id="step-indicator"></div>
+
+    <!-- STEP 1: Letters -->
+    <div id="step-1" class="space-y-4">
+      <div id="letters" class="space-y-4"></div>
+      <button type="button" id="add-letter" onclick="addLetter()" class="w-full rounded-2xl border-2 border-dashed border-gold/60 text-[#8a6a1f] font-semibold py-4 hover:bg-[#fbf3df] transition-colors flex items-center justify-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i> Add another letter
+      </button>
+      <p id="max-note" class="hidden text-center text-xs text-muted-foreground">That's the most for one order (10). Need more? Add these to your basket, or place a second order.</p>
+      <p id="subtotal" class="text-center text-sm text-muted-foreground"></p>
+    </div>
+
+    <!-- STEP 2: Delivery -->
+    <div id="step-2" class="text-center space-y-6 hidden">
+      <div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Delivery Method</h2>
+        <p class="text-muted-foreground text-sm">Choose collection for free or have it delivered for just £3.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setDelivery('GI_COLLECT')" id="del-collect" class="p-6 rounded-xl border-2 transition-all duration-300 text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="package" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-collect"></i>
+          <p class="font-semibold text-foreground">Collection</p>
+          <p class="text-xs text-muted-foreground mt-1">Atlantic Suites</p>
+          <p class="text-sm font-semibold text-primary mt-2">Free</p>
+        </button>
+        <button onclick="setDelivery('GI_DELIVER')" id="del-deliver" class="p-6 rounded-xl border-2 transition-all duration-300 text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="truck" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-deliver"></i>
+          <p class="font-semibold text-foreground">Delivery</p>
+          <p class="text-xs text-muted-foreground mt-1">Gibraltar only</p>
+          <p class="text-sm font-semibold text-primary mt-2">£3.00</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Contact -->
+    <div id="step-3" class="text-center space-y-6 hidden">
+      <div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Your Contact Details</h2>
+        <p class="text-muted-foreground text-sm">So we can send you updates about your order.</p>
+      </div>
+      <div class="max-w-sm mx-auto space-y-5 text-left">
+        <div class="space-y-2">
+          <label for="email" class="text-foreground flex items-center gap-2 text-sm font-medium"><i data-lucide="mail" class="w-4 h-4 text-primary"></i> Email Address</label>
+          <input type="email" id="email" placeholder="you@example.com" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+        <div class="space-y-2">
+          <label for="phone" class="text-foreground flex items-center gap-2 text-sm font-medium"><i data-lucide="phone" class="w-4 h-4 text-primary"></i> Phone Number</label>
+          <input type="tel" id="phone" placeholder="+44 7XXX XXXXXX" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4: Review -->
+    <div id="step-4" class="text-center space-y-6 hidden">
+      <div>
+        <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-3xl">🎅</div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Review Your Order</h2>
+        <p class="text-muted-foreground text-sm">Make sure everything looks perfect before submitting.</p>
+      </div>
+
+      <div id="review-items" class="space-y-3 text-left"></div>
+
+      <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
+        <div class="flex items-center justify-between border-b pb-2">
+          <span class="font-medium text-muted-foreground" id="sum-items">Letters</span>
+          <span class="font-bold" id="sum-items-price">£0.00</span>
+        </div>
+        <div class="flex items-center justify-between border-b pb-2" id="sum-discount-row" style="display:none;">
+          <span class="font-medium text-green-600" id="sum-discount-label">Discount</span>
+          <span class="font-bold text-green-600" id="sum-discount-amt">-£0.00</span>
+        </div>
+        <div class="flex items-center justify-between border-b pb-2">
+          <span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span>
+          <span class="font-bold" id="sum-delivery-price">£0.00</span>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="font-bold text-lg">Total</span>
+          <span class="font-bold text-lg text-primary" id="sum-total">£0.00</span>
+        </div>
+      </div>
+
+      <div class="max-w-xs mx-auto mt-4">
+        <div class="flex gap-2">
+          <input id="sl-promo" type="text" placeholder="Promo code" class="flex-1 p-2.5 rounded-lg bg-white border border-border text-center uppercase text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button type="button" onclick="applyPromo()" class="px-4 rounded-lg bg-secondary font-semibold text-sm">Apply</button>
+        </div>
+        <p id="sl-promo-msg" class="text-xs mt-2" style="display:none;"></p>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-10 border-t border-border -mx-4 px-4" style="position:sticky; bottom:0; z-index:8100; background:#fbf7f1; padding-top:0.85rem; padding-bottom:max(0.85rem, env(safe-area-inset-bottom));">
+      <button onclick="goBack()" id="btn-back" class="text-muted-foreground hover:text-foreground font-medium flex items-center gap-2 disabled:opacity-0 transition-opacity">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+      </button>
+      <div class="flex gap-3 items-center">
+        <button id="basket-btn-sl" onclick="submitOrder({addToBasket:true})" class="basket-show mm-hide px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000;">
+          🛒 Add to Basket
+        </button>
+        <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">
+          Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    const DESIGNS = {
+      airmail: { label: 'Airmail', long: 'Airmail letter', sub: '“From the desk of Santa Claus”', icon: '✉️', img: './santa-letter-airmail.jpg' },
+      merry: { label: 'Merry Christmas', long: 'Merry Christmas letter', sub: 'Festive red & green stripes', icon: '🎄', img: './santa-letter-merry.jpg' },
+    };
+    const DESIGN_KEYS = ['airmail', 'merry'];
+    const BAUBLES = {
+      red: { label: 'Red', css: 'background:#c8323a' },
+      green: { label: 'Green', css: 'background:#2f7a55' },
+      bronze: { label: 'Bronze', css: '', cls: 'swatch-bronze' },
+    };
+    const BAUBLE_KEYS = ['red', 'green', 'bronze'];
+    // Keep in sync with SANTA_LETTER_PRICE / SANTA_BAUBLE_PRICE in functions/api/_shared.js (the server charges those)
+    const PENCE = { magnet: 499, bauble: 699 };
+    const MAX_LETTERS = 10;
+    const LABELS = ['Letters', 'Delivery', 'Contact', 'Review'];
+    const TOTAL_STEPS = 4;
+    const money = (p) => '£' + (p / 100).toFixed(2);
+    const itemPence = (it) => it.bauble ? PENCE.bauble : PENCE.magnet;
+    const totalPence = () => state.letters.reduce((s, it) => s + itemPence(it), 0);
+    const camText = (it) => it.bauble ? `Santa Cam in a ${BAUBLES[it.bauble].label.toLowerCase()} bauble` : 'Santa Cam magnet';
+
+    // ── Hero snow ──
+    (function snow() {
+      let html = '';
+      for (let i = 0; i < 30; i++) {
+        const s = 2 + Math.random() * 3.5;
+        html += `<span class="snow" style="left:${Math.random() * 100}%; width:${s}px; height:${s}px; opacity:${0.3 + Math.random() * 0.55}; animation-duration:${7 + Math.random() * 9}s; animation-delay:${-Math.random() * 14}s;"></span>`;
+      }
+      document.getElementById('snow').innerHTML = html;
+    })();
+
+    // ── Order state ──
+    let state = {
+      step: 1,
+      letters: [{ design: 'airmail', bauble: null }],
+      delivery: null,
+      email: '',
+      phone: '',
+      voucherCode: '', discountPct: 0, voucherPence: 0
+    };
+    let submitting = false;
+    const valid = (it) => DESIGN_KEYS.includes(it.design) && (it.bauble === null || BAUBLE_KEYS.includes(it.bauble));
+    const ready = () => state.letters.length >= 1 && state.letters.length <= MAX_LETTERS && state.letters.every(valid);
+
+    // ?design=airmail|merry and ?bauble=red|green|bronze preselect the first letter (homepage / social links)
+    (function preselect() {
+      const q = new URLSearchParams(location.search);
+      if (DESIGN_KEYS.includes(q.get('design'))) state.letters[0].design = q.get('design');
+      if (BAUBLE_KEYS.includes(q.get('bauble'))) state.letters[0].bauble = q.get('bauble');
+    })();
+
+    window.applyPromo = async () => {
+      const code = document.getElementById('sl-promo').value.trim();
+      const msg = document.getElementById('sl-promo-msg');
+      if (!code) return;
+      try {
+        const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        msg.style.display = 'block';
+        if (data.valid) {
+          state.voucherCode = data.code;
+          state.discountPct = data.percent || 0;
+          state.voucherPence = data.percent ? 0 : Math.round((Number(data.value) || 0) * 100);
+          msg.style.color = '#16a34a';
+          msg.textContent = data.percent ? `${data.percent}% off applied! 🎅` : `Voucher applied! −£${data.value}`;
+          document.getElementById('sl-promo').disabled = true;
+          buildReview();
+        } else {
+          state.voucherCode = '';
+          state.discountPct = 0; state.voucherPence = 0;
+          msg.style.color = '#dc2626';
+          msg.textContent = data.error || 'Invalid code';
+        }
+      } catch (e) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Error checking code'; }
+    };
+
+    function render() {
+      document.getElementById('landing').classList.toggle('hidden', state.step !== 1);
+      let indHtml = '';
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const isCompleted = i < state.step, isActive = i === state.step;
+        let cls = "bg-secondary text-muted-foreground";
+        if (isCompleted) cls = "bg-primary text-white";
+        if (isActive) cls = "btn-gradient text-white gold-glow scale-110";
+        indHtml += `
+          <div class="flex items-center gap-1.5">
+            <div class="flex flex-col items-center gap-1">
+              <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${cls}">
+                ${isCompleted ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : i}
+              </div>
+              <span class="text-[10px] hidden sm:block ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}">${LABELS[i - 1]}</span>
+            </div>
+            ${i < TOTAL_STEPS ? `<div class="w-6 sm:w-10 h-px mb-4 ${isCompleted ? 'bg-primary' : 'bg-border'}"></div>` : ''}
+          </div>`;
+      }
+      document.getElementById('step-indicator').innerHTML = indHtml;
+
+      for (let s = 1; s <= TOTAL_STEPS; s++)
+        document.getElementById(`step-${s}`).classList.toggle('hidden', state.step !== s);
+
+      document.getElementById('btn-back').disabled = state.step === 1;
+
+      let canNext = false;
+      if (state.step === 1) canNext = ready();
+      if (state.step === 2) canNext = !!state.delivery;
+      if (state.step === 3) canNext = state.email.includes('@') && state.phone.length > 5;
+      if (state.step === 4) canNext = true;
+
+      const btnNext = document.getElementById('btn-next');
+      btnNext.disabled = !canNext;
+      btnNext.innerHTML = state.step === TOTAL_STEPS
+        ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order'
+        : 'Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>';
+
+      const bb = document.getElementById('basket-btn-sl');
+      if (bb) bb.classList.toggle('mm-hide', !ready());
+
+      lucide.createIcons();
+    }
+
+    // ── Step 1: one card per letter ──
+    function renderLetters() {
+      const n = state.letters.length;
+      document.getElementById('letters').innerHTML = state.letters.map((it, i) => `
+        <div class="bg-white border border-border rounded-3xl p-4 sm:p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <p class="font-serif text-lg font-semibold">Letter ${n > 1 ? i + 1 : ''}<span class="font-sans text-sm font-semibold text-primary ml-2">${money(itemPence(it))}</span></p>
+            ${n > 1 ? `<button type="button" onclick="removeLetter(${i})" aria-label="Remove letter ${i + 1}" class="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1"><i data-lucide="x" class="w-3.5 h-3.5"></i> Remove</button>` : ''}
+          </div>
+
+          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">Letter design</p>
+          <div class="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Design for letter ${i + 1}">
+            ${DESIGN_KEYS.map(k => {
+              const d = DESIGNS[k], on = k === it.design;
+              return `
+              <button type="button" role="radio" aria-checked="${on}" data-k="${i}-d-${k}" onclick="setDesign(${i},'${k}')"
+                class="relative rounded-2xl border-2 overflow-hidden text-left transition-all ${on ? 'border-primary gold-glow' : 'border-border hover:border-primary/40'}">
+                <img src="${d.img}" alt="${d.long}" class="w-full aspect-[4/5] sm:aspect-square object-cover object-top" loading="lazy" />
+                ${on ? '<span class="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow"><i data-lucide="check" class="w-3.5 h-3.5"></i></span>' : ''}
+                <div class="p-2.5">
+                  <p class="font-semibold text-sm">${d.icon} ${d.label}</p>
+                  <p class="text-[11px] text-muted-foreground">${d.sub}</p>
+                </div>
+              </button>`;
+            }).join('')}
+          </div>
+
+          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">Santa Cam</p>
+          <div class="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Santa Cam for letter ${i + 1}">
+            <button type="button" role="radio" aria-checked="${!it.bauble}" data-k="${i}-c-magnet" onclick="setCam(${i}, null)"
+              class="rounded-2xl border-2 p-3 text-left transition-all ${!it.bauble ? 'border-primary bg-primary/5 gold-glow' : 'border-border hover:border-primary/40'}">
+              <p class="font-semibold text-sm">🧲 Magnet</p>
+              <p class="text-[11px] text-muted-foreground">For the fridge</p>
+              <p class="text-primary font-bold text-sm mt-1">£4.99</p>
+            </button>
+            <button type="button" role="radio" aria-checked="${!!it.bauble}" data-k="${i}-c-bauble" onclick="setCam(${i}, '${it.bauble || 'red'}')"
+              class="rounded-2xl border-2 p-3 text-left transition-all ${it.bauble ? 'border-primary bg-primary/5 gold-glow' : 'border-border hover:border-primary/40'}">
+              <p class="font-semibold text-sm">🎄 In a bauble</p>
+              <p class="text-[11px] text-muted-foreground">To hang on the tree</p>
+              <p class="text-primary font-bold text-sm mt-1">£6.99</p>
+            </button>
+          </div>
+
+          ${it.bauble ? `
+          <div class="mt-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Bauble colour</p>
+            <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Bauble colour for letter ${i + 1}">
+              ${BAUBLE_KEYS.map(b => `
+                <button type="button" role="radio" aria-checked="${b === it.bauble}" data-k="${i}-b-${b}" onclick="setCam(${i}, '${b}')"
+                  class="flex items-center gap-2 rounded-full border-2 pl-1.5 pr-3 py-1.5 text-sm font-medium transition-all ${b === it.bauble ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
+                  <span class="swatch ${BAUBLES[b].cls || ''}" style="${BAUBLES[b].css}"></span>${BAUBLES[b].label}
+                </button>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>`).join('');
+
+      const add = document.getElementById('add-letter');
+      add.classList.toggle('hidden', n >= MAX_LETTERS);
+      document.getElementById('max-note').classList.toggle('hidden', n < MAX_LETTERS);
+      document.getElementById('subtotal').innerHTML = `${n} letter${n === 1 ? '' : 's'} · <b class="text-foreground">${money(totalPence())}</b>`;
+      lucide.createIcons();
+    }
+    // after a re-render, put focus back on the same control (keyboard / screen readers)
+    const refocus = (key) => { const el = document.querySelector(`#letters [data-k="${key}"]`); if (el) el.focus({ preventScroll: true }); };
+    window.setDesign = (i, k) => { if (submitting || !DESIGN_KEYS.includes(k)) return; state.letters[i].design = k; renderLetters(); render(); refocus(`${i}-d-${k}`); };
+    window.setCam = (i, b) => {
+      if (submitting || (b !== null && !BAUBLE_KEYS.includes(b))) return;
+      const wasBauble = !!state.letters[i].bauble;
+      state.letters[i].bauble = b; renderLetters(); render();
+      refocus(b === null ? `${i}-c-magnet` : wasBauble ? `${i}-b-${b}` : `${i}-c-bauble`);
+    };
+    window.addLetter = () => {
+      if (submitting || state.letters.length >= MAX_LETTERS) return;
+      const last = state.letters[state.letters.length - 1];
+      state.letters.push({ design: last ? last.design : 'airmail', bauble: last ? last.bauble : null });
+      renderLetters(); render();
+      const cards = document.getElementById('letters').children;
+      cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      refocus(`${state.letters.length - 1}-d-${state.letters[state.letters.length - 1].design}`);
+    };
+    window.removeLetter = (i) => {
+      if (submitting || state.letters.length <= 1) return;
+      state.letters.splice(i, 1); renderLetters(); render();
+      const j = Math.min(i, state.letters.length - 1);
+      refocus(`${j}-d-${state.letters[j].design}`);
+    };
+
+    // ── Options ──
+    window.setDelivery = (val) => {
+      state.delivery = val;
+      const act = "border-primary bg-primary/5 gold-glow", inact = "bg-white border-border";
+      document.getElementById('del-collect').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_COLLECT' ? act : inact}`;
+      document.getElementById('del-deliver').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_DELIVER' ? act : inact}`;
+      document.getElementById('icon-collect').classList.toggle('text-primary', val === 'GI_COLLECT');
+      document.getElementById('icon-deliver').classList.toggle('text-primary', val === 'GI_DELIVER');
+      render();
+    };
+    window.checkContact = () => {
+      state.email = document.getElementById('email').value.trim();
+      state.phone = document.getElementById('phone').value.trim();
+      render();
+    };
+
+    function buildReview() {
+      const isDel = state.delivery === 'GI_DELIVER', p = totalPence(), n = state.letters.length;
+      document.getElementById('review-items').innerHTML = state.letters.map((it, i) => `
+        <div class="bg-white border border-border rounded-2xl p-3 flex items-center gap-3">
+          <img src="${DESIGNS[it.design].img}" alt="" class="w-14 h-16 rounded-lg object-cover object-top border border-border" />
+          <div class="flex-1 min-w-0 text-sm">
+            <p class="font-semibold">${n > 1 ? `Letter ${i + 1} · ` : ''}${DESIGNS[it.design].long}</p>
+            <p class="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">${it.bauble ? `<span class="swatch !w-3.5 !h-3.5 !border-0 ${BAUBLES[it.bauble].cls || ''}" style="${BAUBLES[it.bauble].css}"></span>` : '🧲'} ${camText(it)}</p>
+          </div>
+          <p class="font-semibold text-sm">${money(itemPence(it))}</p>
+        </div>`).join('');
+      document.getElementById('sum-items').innerText = `${n} letter${n === 1 ? '' : 's'} from Santa`;
+      document.getElementById('sum-items-price').innerText = money(p);
+      const discount = state.discountPct ? Math.round(p * state.discountPct / 100) : Math.min(p, state.voucherPence || 0);
+      const dRow = document.getElementById('sum-discount-row');
+      if (discount > 0) {
+        dRow.style.display = 'flex';
+        document.getElementById('sum-discount-label').innerText = `Discount (${state.voucherCode})`;
+        document.getElementById('sum-discount-amt').innerText = `-${money(discount)}`;
+      } else { dRow.style.display = 'none'; }
+      document.getElementById('sum-delivery').innerText = isDel ? 'Delivery' : 'Collection';
+      document.getElementById('sum-delivery-price').innerText = isDel ? '£3.00' : 'Free';
+      document.getElementById('sum-total').innerText = money(p - discount + (isDel ? 300 : 0));
+      window.mmBasketPrefill = { email: state.email, phone: state.phone, shipping: state.delivery };
+    }
+
+    window.goBack = () => {
+      if (submitting || state.step <= 1) return;
+      state.step--; render();
+      if (state.step === 1) document.getElementById('builder').scrollIntoView(); else window.scrollTo({ top: 0 });
+    };
+    window.goNext = () => {
+      if (state.step < TOTAL_STEPS) {
+        state.step++;
+        if (state.step === TOTAL_STEPS) buildReview();
+        render();
+        window.scrollTo({ top: 0 });
+      } else submitOrder();
+    };
+
+    async function submitOrder(opts = {}) {
+      const { addToBasket = false } = opts;
+      if (submitting || !ready()) return;
+      const btn = addToBasket ? document.getElementById('basket-btn-sl') : document.getElementById('btn-next');
+
+      if (!addToBasket && window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
+        const count = window.mmBasket.getCount();
+        if (confirm(`You have ${count} item${count > 1 ? 's' : ''} in your basket. Add this to your basket and pay for everything together?`)) {
+          submitOrder({ addToBasket: true }); return;
+        }
+      }
+
+      submitting = true;
+      btn.disabled = true;
+      btn.innerHTML = addToBasket ? 'Adding...' : '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...';
+
+      try {
+        const letters = state.letters.map(it => ({ design: it.design, bauble: it.bauble || null })), n = letters.length;
+        const payload = {
+          email: addToBasket ? 'basket@draft.local' : state.email,
+          phone: addToBasket ? '00000000000' : state.phone,
+          socialPermission: false,   // nothing personal to share - there's no photo
+          shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
+          productType: 'santa_letter',
+          packSize: n,
+          santaLetters: letters,
+          basketDraft: addToBasket || undefined
+        };
+        const res = await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "We couldn't create your order — please try again."); }
+        const { orderId } = await res.json();
+
+        if (addToBasket) {
+          window.mmBasket.add(orderId, `🎅 Letter from Santa${n > 1 ? ' ×' + n : ''}`, totalPence() / 100);
+          btn.innerHTML = '🛒 Added!';
+          setTimeout(() => { btn.disabled = false; btn.innerHTML = '🛒 Add to Basket'; }, 2000);
+          submitting = false;
+          return;
+        }
+
+        btn.innerText = "Redirecting...";
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'santa_letter', voucherCode: state.voucherCode || undefined }) });
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
+        window.location.href = checkoutUrl;
+      } catch (e) {
+        console.error(e);
+        alert(e.message || "Error creating order. Please try again.");
+        submitting = false;
+        btn.disabled = false;
+        if (addToBasket) btn.innerHTML = '🛒 Add to Basket';
+        render();
+      }
+    }
+
+    // back from Stripe with the Back button (page restored from cache): allow submitting again
+    window.addEventListener('pageshow', (e) => { if (e.persisted) { submitting = false; render(); } });
+
+    renderLetters();
+    render();
+  </script>
+  <script src="./basket.js"></script>
+</body>
+</html>

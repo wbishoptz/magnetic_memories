@@ -5,6 +5,7 @@ import {
   FLEXI_PRICE, MOTHERS_PACKAGES, FRAME_PRICES, VOUCHERS,
   keyringPrice, BUNDLE_PRICE, LARGE_MAGNET_PRICES, promoPercent,
   ORNAMENT_PRICES, ornamentDesignsText,
+  santaLetterItems, santaLetterTotal, santaLetterText,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -87,6 +88,16 @@ export async function onRequestPost({ request, env }) {
       const designs = ornamentDesignsText(kvOrder.ornamentDesigns);
       productName = size === 1 ? 'Christmas Colour-In Ornament' : `${size} Christmas Colour-In Ornaments`;
       productDesc = 'Kids colour it in · your photo magnet in the middle' + (designs ? ' — ' + designs : '');
+    } else if (productType === 'santa_letter') {
+      const size = Number(packSizeRaw);
+      // Priced from the stored letters (which must still match the pack size)
+      const letters = santaLetterItems(kvOrder?.santaLetters, size);
+      price = santaLetterTotal(letters);
+      // Never send a £0 / missing price to Stripe (or open a session for a missing order)
+      if (!kvOrder || !price) return jsonResponse({ error: "Invalid letter order." }, 400);
+      const text = santaLetterText(letters);
+      productName = size === 1 ? 'Letter from Santa' : `${size} Letters from Santa`;
+      productDesc = 'With a Santa Cam from the North Pole' + (text ? ' — ' + text : '');
     } else if (productType === 'large_magnet') {
       const size = Number(packSizeRaw);
       price = LARGE_MAGNET_PRICES[size] || 0;

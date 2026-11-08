@@ -2477,6 +2477,7 @@
         if (o.productType === 'bundle') return 'badge';   // 58mm openers / mirror keyrings
         if (o.productType === 'large_magnet') return null; // 65×90 template coming separately
         if (o.productType === 'flexi') return null;
+        if (o.productType === 'santa_letter') return null; // 🎅 letter + Santa Cam are pre-made: no photos, nothing to print
         if (o.productType === 'ornament') return 'magnet'; // 🎄 colour-in ornament: centre photo is a standard 50×50 magnet
         if (String(o.packSize).startsWith('voucher_')) return null;
         return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
@@ -2505,6 +2506,35 @@
       function ornamentLabel(key) {
         const m = String(key).match(ORNAMENT_KEY_RE);  // …_ornament2-tree.jpg → "O2 TREE"
         return m ? `O${m[1]} ${m[2].toUpperCase()}` : 'ORNAMENT';
+      }
+
+      // 🎅 Letter from Santa (order.santaLetters holds [{ design, bauble }], one per letter).
+      // bauble null = letter + loose Santa Cam magnet; a colour = the Santa Cam set in a hanging bauble.
+      const SANTA_LETTER_DESIGNS = {
+        airmail: { label: 'Airmail letter',         emoji: '✉️' },
+        merry:   { label: 'Merry Christmas letter', emoji: '🎄' }
+      };
+      const SANTA_BAUBLES = {
+        red:    { label: 'red',    emoji: '🔴' },
+        green:  { label: 'green',  emoji: '🟢' },
+        bronze: { label: 'bronze', emoji: '🟤' }
+      };
+      // Known key -> info, anything else -> null (never trust the stored value)
+      function santaLetterDesign(d) {
+        return typeof d === 'string' && Object.prototype.hasOwnProperty.call(SANTA_LETTER_DESIGNS, d) ? SANTA_LETTER_DESIGNS[d] : null;
+      }
+      function santaBauble(b) {
+        return typeof b === 'string' && Object.prototype.hasOwnProperty.call(SANTA_BAUBLES, b) ? SANTA_BAUBLES[b] : null;
+      }
+      function santaLetterList(o) {
+        return Array.isArray(o.santaLetters) ? o.santaLetters.filter(l => l && typeof l === 'object') : [];
+      }
+      function santaLetterQty(o) {
+        return Number(o.packSize) || santaLetterList(o).length || 1;
+      }
+      // CSV cell: "airmail:magnet|merry:red" (known keys only, '?' for anything else)
+      function santaLettersCsv(o) {
+        return santaLetterList(o).map(l => `${santaLetterDesign(l.design) ? l.design : '?'}:${l.bauble == null ? 'magnet' : (santaBauble(l.bauble) ? l.bauble : '?')}`).join('|');
       }
 
       function keyringLabel(key, idx) {
@@ -2671,10 +2701,11 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns"]];
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns", "santaLetters"]];
         for (const o of filteredOrders) rows.push([
             o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || "",
-            o.productType || "", Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns.join("|") : ""
+            o.productType || "", Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns.join("|") : "",
+            o.productType === 'santa_letter' ? santaLettersCsv(o) : ""
         ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
@@ -2741,7 +2772,10 @@
           if (!q) return true;
           // 🎄 ornament orders are also findable by "ornament" / their design names
           const ornTxt = o.productType === 'ornament' ? ` ${o.productType} ${(Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns : []).join(' ')}` : '';
-          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}`.toLowerCase().includes(q);
+          // 🎅 Santa letters: findable by "santa_letter" / "santa letter" / design + bauble colour keys
+          const santaTxt = o.productType === 'santa_letter'
+            ? ` ${o.productType} santa letter ${santaLetterList(o).map(l => `${santaLetterDesign(l.design) ? l.design : ''} ${santaBauble(l.bauble) ? l.bauble : ''}`).join(' ')}` : '';
+          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}${santaTxt}`.toLowerCase().includes(q);
         });
         renderOrders(); 
         if(currentMode === 'orders') updatePackSummary();
@@ -2751,12 +2785,14 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament') continue;
+          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament' && o.productType !== 'santa_letter') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
           } else if (o.productType === 'ornament') {
              k = "Christmas Ornament";
+          } else if (o.productType === 'santa_letter') {
+             k = "Santa Letter";
           } else if (o.productType === 'keyring') {
              k = "Double-Sided Keyring";
           } else if (o.productType === 'frame' || o.productType === 'frames') {
@@ -2765,7 +2801,7 @@
              k = k + "-pack";
              if (o.packType === 'big_picture') k += " (Jigsaw)";
           }
-          counts.set(k, (counts.get(k) || 0) + 1);
+          counts.set(k, (counts.get(k) || 0) + (o.productType === 'santa_letter' ? santaLetterQty(o) : 1));   // letters, not orders
         }
         if (!counts.size) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const parts = Array.from(counts.entries()).sort().map(([k, v]) => `${v}x ${k}`);
@@ -2831,6 +2867,10 @@
               const ornQty = Number(o.packSize) || 1;
               packDisplay = `🎄 Christmas Ornament${ornQty > 1 ? ` ×${ornQty}` : ''}`;
               style = 'style="color: #ef4444; font-weight:700;"';
+          } else if (o.productType === 'santa_letter') {
+              const santaQty = santaLetterQty(o);
+              packDisplay = `🎅 Santa Letter${santaQty > 1 ? ` ×${santaQty}` : ''}`;
+              style = 'style="color: #dc2626; font-weight:700;"';
           } else if (o.productType === 'large_magnet') {
               packDisplay = `🧲 ${o.packSize} Large Magnets (65×90)`;
               style = 'style="color: #38bdf8; font-weight:600;"';
@@ -2851,9 +2891,9 @@
 
           let priceDisplay = typeof o.price === "number" ? o.price.toFixed(2) : "–";
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
-          const selectCell = showSelect
-            ? `<td><input type="checkbox" class="row-select" data-id="${o.orderId}" ${selectedForPrint.has(o.orderId) ? 'checked' : ''} onclick="event.stopPropagation()" style="width:16px; height:16px; cursor:pointer;"></td>`
-            : '';
+          const selectCell = !showSelect ? ''
+            : o.productType === 'santa_letter' ? '<td title="Santa letters have nothing to print"></td>' // 🎅 no photos to combine
+            : `<td><input type="checkbox" class="row-select" data-id="${o.orderId}" ${selectedForPrint.has(o.orderId) ? 'checked' : ''} onclick="event.stopPropagation()" style="width:16px; height:16px; cursor:pointer;"></td>`;
           html += `<tr data-order-id="${o.orderId}" class="${isSelected}">${selectCell}<td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
         html += "</tbody></table></div>";
@@ -3087,6 +3127,37 @@
               }).join('');
               html += `<div class="field-label" style="color:#ef4444;">Christmas Colour-In Ornament</div>
                        <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎄 ${ornQty} colour-in ornament${ornQty === 1 ? '' : 's'} + photo magnet${ornQty === 1 ? '' : 's'}</div>${rows || '<div class="field-value" style="color:#9ca3af;">Designs not recorded (see filenames)</div>'}`;
+          } else if (order.productType === 'santa_letter') {
+              // 🎅 Pre-made letter + Santa Cam: loose magnet (bauble null) or set in a coloured hanging bauble
+              const letters = santaLetterList(order);
+              const santaQty = santaLetterQty(order);
+              const designCount = new Map(), baubleCount = new Map();
+              let magnetCount = 0, oddDesigns = 0, oddBaubles = 0;
+              const rows = letters.map((l, i) => {
+                const info = santaLetterDesign(l.design);
+                const bInfo = santaBauble(l.bauble);
+                if (info) designCount.set(l.design, (designCount.get(l.design) || 0) + 1); else oddDesigns++;
+                if (l.bauble == null) magnetCount++;
+                else if (bInfo) baubleCount.set(l.bauble, (baubleCount.get(l.bauble) || 0) + 1);
+                else oddBaubles++;
+                const thumb = info ? `<img src="./santa-letter-${l.design}.jpg" alt="" style="width:56px; height:56px; object-fit:cover; border-radius:8px; flex-shrink:0;">` : '';
+                const extra = l.bauble == null ? 'Santa Cam magnet'
+                  : bInfo ? `Santa Cam in a ${bInfo.emoji} ${bInfo.label} bauble`
+                  : `Santa Cam in a bauble (unknown colour: ${escHtml(l.bauble)})`;
+                return `<div class="field-value" style="display:flex; align-items:center; gap:10px; word-break:normal;">${thumb}<span>Letter ${i + 1}: <span style="font-weight:bold;">${info ? `${info.emoji} ${info.label}` : escHtml(l.design)}</span> · ${extra}</span></div>`;
+              }).join('');
+              // Packing summary, e.g. "Pack: 2× Airmail letter, 1× Merry Christmas letter · 2 Santa Cam magnets · baubles: 1 red"
+              const packParts = [];
+              const dTxt = Object.keys(SANTA_LETTER_DESIGNS).filter(k => designCount.has(k)).map(k => `${designCount.get(k)}× ${SANTA_LETTER_DESIGNS[k].label}`);
+              if (oddDesigns) dTxt.push(`${oddDesigns}× unknown design`);
+              if (dTxt.length) packParts.push(dTxt.join(', '));
+              if (magnetCount) packParts.push(`${magnetCount} Santa Cam magnet${magnetCount === 1 ? '' : 's'}`);
+              const bTxt = Object.keys(SANTA_BAUBLES).filter(k => baubleCount.has(k)).map(k => `${baubleCount.get(k)} ${SANTA_BAUBLES[k].label}`);
+              if (oddBaubles) bTxt.push(`${oddBaubles} unknown colour`);
+              if (bTxt.length) packParts.push(`baubles: ${bTxt.join(', ')}`);
+              html += `<div class="field-label" style="color:#dc2626;">Letter from Santa</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎅 ${santaQty} letter${santaQty === 1 ? '' : 's'} from Santa</div>${rows || '<div class="field-value" style="color:#9ca3af;">Letters not recorded</div>'}`;
+              if (packParts.length) html += `<div class="field-value" style="background:#111827; padding:8px 10px; border-radius:8px; font-weight:600; word-break:normal;">📦 Pack: ${packParts.join(' · ')}</div>`;
           } else if (order.event === 'MOTHERS_DAY') {
               html += `<div class="field-label" style="color:#be185d;">Mother's Day Package</div>
                        <div class="field-value" style="font-size:1.2em; font-weight:bold;">${order.mothersPackage || "Standard Box"}</div>
@@ -3113,7 +3184,10 @@
               html += `</div>`;
           }
 
-          if (!isVoucher) {
+          const isSantaLetter = order.productType === 'santa_letter'; // 🎅 never has customer photos
+          if (isSantaLetter) {
+             html += `<div class="field-label">Images</div><div class="field-value" style="color:#9ca3af; word-break:normal;">🎅 No photos needed — the letters and Santa Cam are pre-made, so there is nothing to print.</div>`;
+          } else if (!isVoucher) {
              html += `<div class="field-label">Images <button id="download-all-btn" style="font-size:11px;padding:4px 8px;">Download All</button></div><div class="field-value" id="imgs">Loading...</div>`;
           }
           
@@ -3121,6 +3195,7 @@
           const canPrintSheet = !isVoucher
             && order.productType !== 'flexi'
             && order.productType !== 'large_magnet'    // 65×90 template coming separately
+            && !isSantaLetter                           // 🎅 Santa letters: nothing to print
             && !(order.eventId && order.extrasRefunded === true && !isCompleteEventOrder(order)) // refunded, no number: never printed
             && !(addon && isCancelledAddon(order));    // ➕ add-on the guest cancelled: never printed
           if (canPrintSheet) {
@@ -3138,18 +3213,26 @@
           const basketMates = (order.stripeSessionId)
             ? orders.filter(o => o.stripeSessionId === order.stripeSessionId)
             : [];
+          // 🎅 Santa letters have nothing to print: the basket's sheets leave them out
+          const basketPrintMates = basketMates.filter(m => m.productType !== 'santa_letter');
           if (basketMates.length > 1) {
             const others = basketMates.filter(m => m.orderId !== order.orderId).map(m => {
               let lbl = m.productType === 'keyring' ? `🔑 Keyring${Number(m.packSize) === 2 ? ' ×2' : ''}`
                       : m.productType === 'bundle' ? '🎁 Bundle'
                       : m.productType === 'ornament' ? `🎄 Ornament ×${Number(m.packSize) || 1}`
+                      : m.productType === 'santa_letter' ? `🎅 Santa Letter ×${santaLetterQty(m)}`
                       : (m.frameStyle ? `🖼️ ${m.frameStyle.charAt(0).toUpperCase() + m.frameStyle.slice(1)} Frame` : `🧲 ${m.packSize} magnets`);
               return `<a href="#" onclick="loadOrderDetails('${m.orderId}');return false;" style="color:#5eead4; text-decoration:underline;">${lbl} (£${Number(m.price || 0).toFixed(2)})</a>`;
             }).join(' · ');
             html += `<div style="background:rgba(15,118,110,0.18); border:1px solid #0f766e; border-radius:10px; padding:11px 13px; margin:12px 0; font-size:13px; color:#a7f3d0;">
               🛒 <strong>Part of a ${basketMates.length}-item purchase</strong> (paid together). Other item(s): ${others}
             </div>`;
-            html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${basketMates.length} items)</button>`;
+            const nPrint = basketPrintMates.length;
+            if (nPrint === basketMates.length) {
+              html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${basketMates.length} items)</button>`;
+            } else if (nPrint) {
+              html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${nPrint} photo item${nPrint === 1 ? '' : 's'} · 🎅 Santa letters have nothing to print)</button>`;
+            }
           }
 
           html += `<button id="delete-order-btn" class="btn-danger">Delete Order</button>`;
@@ -3170,7 +3253,7 @@
             (events.find(e => e.id === order.eventId) || {}).name);
 
           const printBasketBtn = document.getElementById("print-basket-btn");
-          if (printBasketBtn) printBasketBtn.onclick = () => generateBasketSheet(basketMates, printBasketBtn);
+          if (printBasketBtn) printBasketBtn.onclick = () => generateBasketSheet(basketPrintMates, printBasketBtn);
 
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
@@ -3197,7 +3280,7 @@
              }
           };
           
-          if (!isVoucher) {
+          if (!isVoucher && !isSantaLetter) {  // 🎅 Santa letters have no images area
               const dlBtn = document.getElementById("download-all-btn");
               if(dlBtn) dlBtn.onclick = () => downloadAllImages(orderId, order);
               loadOrderImages(orderId);

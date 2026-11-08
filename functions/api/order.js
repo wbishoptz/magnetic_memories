@@ -6,6 +6,7 @@ import {
   keyringPrice, BUNDLE_PRICE,
   LARGE_MAGNET_PACKS, LARGE_MAGNET_PRICES,
   ORNAMENT_DESIGNS, ORNAMENT_PACKS, ORNAMENT_PRICES,
+  santaLetterItems, santaLetterTotal,
   isStaffRequest, expireCheckoutSession,
   jsonResponse
 } from './_shared.js';
@@ -104,10 +105,13 @@ export async function onRequestPost({ request, env }) {
     // Ornaments are only ever a plain shop order: an event tag or voucher pack would skip
     // their price check below (those branches come first)
     if (productType === 'ornament' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
+    // ... and so are Santa letters (same reason)
+    if (productType === 'santa_letter' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
     const packSize = isVoucher ? packSizeRaw : Number(packSizeRaw);
 
     let price = 0;
     let ornamentDesigns = null; // validated copy, ornament orders only
+    let santaLetters = null; // validated copy, Santa letter orders only
 
     if (eventTag === 'MANUAL') {
       price = 0;
@@ -158,6 +162,12 @@ export async function onRequestPost({ request, env }) {
       }
       ornamentDesigns = [...designs];
       price = ORNAMENT_PRICES[packSize];
+    } else if (productType === 'santa_letter') {
+      // One { design, bauble } per letter (repeats allowed), whitelisted keys only;
+      // priced per letter: Santa Cam magnet or bauble
+      santaLetters = santaLetterItems(body?.santaLetters, packSize);
+      if (!santaLetters) return jsonResponse({ error: "Invalid letters." }, 400);
+      price = santaLetterTotal(santaLetters);
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
@@ -177,6 +187,8 @@ export async function onRequestPost({ request, env }) {
       // ... and ornament orders are never edited after creation (the page never resends an
       // id) - otherwise a checked-out or paid order could be resized under its Stripe session.
       if (productType === 'ornament' || existingOrder.productType === 'ornament') return jsonResponse({ error: "Not allowed." }, 403);
+      // ... and the same goes for Santa letter orders
+      if (productType === 'santa_letter' || existingOrder.productType === 'santa_letter') return jsonResponse({ error: "Not allowed." }, 403);
       // ... and a paid order is never changed here (only drafts / unpaid checkouts are).
       if (['paid', 'printing', 'shipped', 'completed', 'complete'].includes(existingOrder.status)) {
         return jsonResponse({ error: "This order has already been paid." }, 409);
@@ -248,6 +260,7 @@ export async function onRequestPost({ request, env }) {
       bandColors: body?.bandColors || existingOrder.bandColors || null,
       bundleItems: body?.bundleItems || existingOrder.bundleItems || null,
       ornamentDesigns: ornamentDesigns || existingOrder.ornamentDesigns || null,
+      santaLetters: santaLetters || existingOrder.santaLetters || null,
       magnetOrientations: body?.magnetOrientations || existingOrder.magnetOrientations || null,
 
       status: finalStatus,
@@ -267,6 +280,21 @@ export async function onRequestPost({ request, env }) {
       source: existingOrder.source || (eventTag === 'MANUAL' && !body?.orderId ? 'staff' : undefined),
       completedAt: existingOrder.completedAt
     };
+
+    // Ornaments and Santa letters are fixed products: keep only their own fields, so stray
+    // frame / bundle / jigsaw fields in a hand-made request can't relabel the order (e.g. a
+    // £4.99 letter showing up as a frame in Telegram or the admin).
+    if (productType === 'ornament' || productType === 'santa_letter') {
+      // (the same values a normal request stores: undefined ones are simply left out)
+      Object.assign(order, {
+        packType: 'standard', flexiColor: undefined, premadeSelections: undefined, mothersPackage: undefined,
+        frameStyle: undefined, frameSize: undefined, frameColor: undefined, includeMagnets: undefined, customText: null,
+        borderColor: null, bodyColor: null, textColor: null, bandColor: null, bandColors: null,
+        bundleItems: null, magnetOrientations: null,
+        ornamentDesigns: productType === 'ornament' ? ornamentDesigns : null,
+        santaLetters: productType === 'santa_letter' ? santaLetters : null,
+      });
+    }
 
     if (eventTag === 'BINGO' && !order.bingoNumber) {
       try {
@@ -350,6 +378,7 @@ export async function onRequestGet({ request, env }) {
       frameStyle: o.frameStyle,
       frameSize: o.frameSize,
       ornamentDesigns: o.ornamentDesigns || undefined,
+      santaLetters: o.santaLetters || undefined,
       event: o.event,
       bingoNumber: o.bingoNumber,
       createdAt: o.createdAt,

@@ -168,11 +168,12 @@
       }
 
       function statusMessage(status) {
+        const things = currentEventTag === 'SANTA_LETTER' ? 'letters' : currentEventTag === 'ORNAMENT' ? 'ornaments' : 'magnets';
         switch (status) {
           case "checkout_created": return "Waiting for payment...";
-          case "paid": return "We've confirmed your payment. We'll start preparing your magnets shortly.";
-          case "printing": return "We're currently printing your magnets.";
-          case "shipped": return "Your magnets have been shipped.";
+          case "paid": return `We've confirmed your payment. We'll start preparing your ${things} shortly.`;
+          case "printing": return currentEventTag === 'SANTA_LETTER' ? "We're getting your letters ready." : `We're currently printing your ${things}.`;
+          case "shipped": return `Your ${things} have been shipped.`;
           case "complete": return "Your order is complete. Thanks again!";
           default: return "We're processing your order.";
         }
@@ -213,6 +214,7 @@
             // Capture Event for Restart Button
             if (order.event) currentEventTag = order.event;
             if (order.productType === 'ornament') currentEventTag = 'ORNAMENT';
+            if (order.productType === 'santa_letter') currentEventTag = 'SANTA_LETTER';
 
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
@@ -255,6 +257,8 @@
             packMeta.textContent = !order.packSize ? "—"
               : order.productType === 'ornament'
                 ? `${order.packSize} Christmas ornament${Number(order.packSize) === 1 ? '' : 's'}`
+              : order.productType === 'santa_letter'
+                ? `${order.packSize} letter${Number(order.packSize) === 1 ? '' : 's'} from Santa`
                 : `${order.packSize} magnets`;
             priceMeta.textContent = (typeof order.price === "number") ? "£" + order.price.toFixed(2) : "—";
             createdMeta.textContent = order.createdAt || "—";
@@ -310,6 +314,7 @@
             else if (currentEventTag === 'VALENTINES') window.location.href = "/valentines";
             else if (currentEventTag === 'BINGO') window.location.href = "/bingo";
             else if (currentEventTag === 'ORNAMENT') window.location.href = "/christmas-ornaments";
+            else if (currentEventTag === 'SANTA_LETTER') window.location.href = "/santa-letter";
             else window.location.href = "/magnets";
         }
       }
