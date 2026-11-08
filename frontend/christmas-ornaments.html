@@ -12,7 +12,7 @@
   <script src="/pwa.js" defer></script>
   <meta name="description" content="Colour-in Christmas ornaments with your own photo magnet in the middle. Santa, tree, present or snowman — kids colour them in, then hang them on the tree or pop the magnet on the fridge." />
   <meta property="og:title" content="Colour-In Christmas Ornaments – Magnetic Memories" />
-  <meta property="og:description" content="Kids colour it in, your photo sits in the middle. Hang it on the tree or pop the magnet on the fridge. From £7.49 each." />
+  <meta property="og:description" content="Kids colour it in, your photo sits in the middle. Hang it on the tree or pop the magnet on the fridge. From £7.50 each." />
   <meta property="og:image" content="https://magnetic-memories.pages.dev/christmas-ornaments-og.jpg" />
   <meta property="og:type" content="website" />
 
@@ -115,7 +115,7 @@
           <div class="flex flex-wrap justify-center gap-2 mt-5 text-xs font-medium">
             <a href="#designs" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">🎅 🎄 🎁 ⛄ 4 designs</a>
             <a href="#builder" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">Mix &amp; match</a>
-            <a href="#builder" class="rounded-full bg-[#c9a14a] hover:bg-[#d6b05a] text-[#1c2b24] px-3 py-1.5 font-semibold transition-colors">From £7.49 each</a>
+            <a href="#builder" class="rounded-full bg-[#c9a14a] hover:bg-[#d6b05a] text-[#1c2b24] px-3 py-1.5 font-semibold transition-colors">From £7.50 each</a>
           </div>
           <a href="#builder" class="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-pine font-semibold px-6 py-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
             Create yours <i data-lucide="arrow-down" class="w-4 h-4"></i>
@@ -200,7 +200,7 @@
 
     <!-- STEP 1: Ornaments -->
     <div id="step-1" class="space-y-6">
-      <div id="packs" class="grid grid-cols-3 gap-3" role="radiogroup" aria-label="How many ornaments"></div>
+      <div id="packs" class="grid grid-cols-2 sm:grid-cols-4 gap-3" role="radiogroup" aria-label="How many ornaments"></div>
       <div id="items-container" class="space-y-4"></div>
     </div>
 
@@ -361,7 +361,7 @@
     };
     const DESIGN_KEYS = ['santa', 'tree', 'present', 'snowman'];
     // Keep in sync with ORNAMENT_PRICES in functions/api/_shared.js (the server charges those)
-    const PACKS = { 1: 9.95, 2: 17.95, 4: 29.95 };
+    const PACKS = { 1: 8.50, 2: 16.00, 3: 22.50, 4: 30.00 };
     const LABELS = ['Ornaments', 'Delivery', 'Share', 'Contact', 'Review'];
     const TOTAL_STEPS = 5;
     const money = (v) => '£' + v.toFixed(2);

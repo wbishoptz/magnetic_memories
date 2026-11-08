@@ -24,10 +24,10 @@ export const keyringPrice = (qty) => KEYRING_PRICES[Number(qty) === 2 ? 2 : 1];
 // Bottle-opener / mirror-keyring bundle: any 2 for £7.95
 export const BUNDLE_PRICE = 7.95;
 
-// Christmas colour-in ornaments (50x50 magnet in the middle): 1 / 2 / set of 4, any mix of designs
+// Christmas colour-in ornaments (50x50 magnet in the middle): 1 / 2 / 3 / set of 4, any mix of designs
 export const ORNAMENT_DESIGNS = { santa: 'Santa', tree: 'Christmas Tree', present: 'Wrapped Present', snowman: 'Snowman' };
-export const ORNAMENT_PACKS = [1, 2, 4];
-export const ORNAMENT_PRICES = { 1: 9.95, 2: 17.95, 4: 29.95 };
+export const ORNAMENT_PACKS = [1, 2, 3, 4];
+export const ORNAMENT_PRICES = { 1: 8.50, 2: 16.00, 3: 22.50, 4: 30.00 };
 
 // ['santa','snowman','santa'] -> "2× Santa, Snowman" (first-seen order; unknown keys skipped)
 export function ornamentDesignsText(designs) {
