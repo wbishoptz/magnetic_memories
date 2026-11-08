@@ -339,7 +339,7 @@
     window.applyPromo = async () => {
       const code = document.getElementById('sl-promo').value.trim();
       const msg = document.getElementById('sl-promo-msg');
-      if (!code) return;
+      if (!code) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Enter a code first'; return; }
       try {
         const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
         const data = await res.json();

@@ -56,6 +56,7 @@ export async function onRequest({ request, env }) {
             ornamentDesigns: o.ornamentDesigns || undefined,
             santaLetters: o.santaLetters || undefined,
             baubleCards: o.baubleCards || undefined,
+            magnetCards: o.magnetCards || undefined,
             mothersPackage: o.mothersPackage,
             event: o.event,
             eventId: o.eventId,

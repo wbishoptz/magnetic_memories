@@ -7,6 +7,7 @@ import {
   ORNAMENT_PRICES, ornamentDesignsText,
   santaLetterItems, santaLetterTotal, santaLetterText,
   BAUBLE_CARD_PRICES, baubleCardItems, baubleCardText,
+  magnetCardItems, magnetCardTotal, magnetCardText, magnetCardFrames,
   cleanVoucherCode, voucherBalance, holdVoucher, releaseVoucherHolds,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
@@ -111,6 +112,18 @@ export async function onRequestPost({ request, env }) {
       const text = baubleCardText(cards);
       productName = size === 1 ? 'Photo Bauble Card' : `${size} Photo Bauble Cards`;
       productDesc = 'Your photo in a 3D-printed bauble on a Christmas card' + (text ? ' — ' + text : '');
+    } else if (productType === 'magnet_card') {
+      const size = Number(packSizeRaw);
+      // Pack price plus any frames, only while the stored cards still match the pack size
+      const cards = magnetCardItems(kvOrder?.magnetCards, size);
+      price = cards ? magnetCardTotal(cards) : 0;
+      // Never send a £0 / missing price to Stripe (or open a session for a missing order)
+      if (!kvOrder || !price) return jsonResponse({ error: "Invalid magnet card order." }, 400);
+      const text = magnetCardText(cards);
+      const frames = magnetCardFrames(cards);
+      productName = size === 1 ? 'Christmas Magnet Card' : `${size} Christmas Magnet Cards`;
+      productDesc = 'Your photo on a large 2.5×3.5″ magnet on a Christmas card' + (text ? ' — ' + text : '')
+        + (frames ? ` (incl. ${frames} frame${frames === 1 ? '' : 's'})` : '');
     } else if (productType === 'large_magnet') {
       const size = Number(packSizeRaw);
       price = LARGE_MAGNET_PRICES[size] || 0;

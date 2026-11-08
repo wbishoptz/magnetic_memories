@@ -463,7 +463,7 @@
     window.applyPromo = async () => {
       const code = document.getElementById('bc-promo').value.trim();
       const msg = document.getElementById('bc-promo-msg');
-      if (!code) return;
+      if (!code) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Enter a code first'; return; }
       try {
         const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
         const data = await res.json();
@@ -656,6 +656,13 @@
       e.preventDefault();
       f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
     });
+    // keep Tab inside the open crop dialog (cancel ↔ save)
+    document.getElementById('crop-modal').addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const f = [...document.querySelectorAll('#crop-modal button')], i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (document.getElementById('crop-modal').style.display === 'flex') closeCrop(); else closeZoom();
@@ -664,19 +671,23 @@
     // ── Photo upload + square crop (the magnet) ──
     let activeIdx = null, cropper = null;
     const fileInput = document.getElementById('fileInput');
-    window.triggerUpload = (i) => { if (submitting) return; activeIdx = i; fileInput.click(); };
-    window.photoTap = (i) => { if (submitting) return; if (state.items[i].photo) openCrop(i); else window.triggerUpload(i); };
+    const cropOpen = () => document.getElementById('crop-modal').style.display === 'flex';
+    window.triggerUpload = (i) => { if (submitting || cropOpen()) return; activeIdx = i; fileInput.click(); };
+    window.photoTap = (i) => { if (submitting || cropOpen()) return; if (state.items[i].photo) openCrop(i); else window.triggerUpload(i); };
     const revoke = (u) => { if (u) { try { URL.revokeObjectURL(u); } catch (_) {} } };
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
       const f = e.target.files[0]; fileInput.value = '';
       if (!f || activeIdx == null) return;
-      const it = state.items[activeIdx];
-      // instant blob URL (no base64 read) so the crop opens straight away, even for big photos.
-      // The current photo stays until the new one is saved (or the new one turns out unreadable).
+      const idx = activeIdx, it = state.items[idx];
+      // blob URL (no base64 read) so even big photos open quickly - but check the browser can read it
+      // first (e.g. HEIC on desktop Chrome can't), rather than opening an empty cropper
+      const src = URL.createObjectURL(f);
+      try { await loadImg(src); } catch (_) { revoke(src); alert("We couldn't open that photo — please choose a JPG or PNG."); return; }
+      // The current photo stays until the new one is saved
       it.prev = { origSrc: it.origSrc, photo: it.photo };
-      it.origSrc = URL.createObjectURL(f);
+      it.origSrc = src;
       it.photo = null;
-      openCrop(activeIdx);
+      openCrop(idx);
     });
     function openCrop(i) {
       activeIdx = i;

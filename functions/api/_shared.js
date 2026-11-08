@@ -149,6 +149,92 @@ export function baubleCardText(items) {
     + `${BAUBLE_CARD_COLOURS[colour]} bauble · ${BAUBLE_CARD_CARDS[card]} card`).join(', ');
 }
 
+// Christmas magnet cards: the customer's photo on a large 2.5x3.5" magnet (63.5x88.9mm, the
+// Print Lab size), portrait or landscape, mounted on a printed Christmas card. 1 / 2 / 3 for a
+// whole-pack price; each card has its own design, photo and orientation (any mix), and can have
+// a 3D-printed frame added: £5.50 for a single frame, £5.00 each when there are two or more.
+export const MAGNET_CARD_DESIGNS = {
+  stripes: 'Happy Holidays Stripes', green_check: 'Green Gingham', red_check: 'Red Gingham',
+  holly: 'Holly Border', snowy: 'Snowy Santa', tree: 'Christmas Tree',
+};
+export const MAGNET_CARD_ORIENTATIONS = ['portrait', 'landscape'];
+export const MAGNET_CARD_PACKS = [1, 2, 3];
+export const MAGNET_CARD_PRICES = { 1: 4.50, 2: 8.00, 3: 12.00 };
+export const MAGNET_CARD_FRAME_ONE = 5.50;  // one framed card in the order
+export const MAGNET_CARD_FRAME_EACH = 5.00; // per frame, when two or more are framed
+
+// One card -> validated { card, orientation, frame } (exactly those three keys, nothing else;
+// frame is true / false only), or null
+function magnetCardItem(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+  if (Object.keys(item).length !== 3 || !Object.hasOwn(item, 'card')
+      || !Object.hasOwn(item, 'orientation') || !Object.hasOwn(item, 'frame')) return null;
+  const { card, orientation, frame } = item;
+  if (typeof card !== 'string' || !Object.hasOwn(MAGNET_CARD_DESIGNS, card)) return null;
+  if (typeof orientation !== 'string' || !MAGNET_CARD_ORIENTATIONS.includes(orientation)) return null;
+  if (typeof frame !== 'boolean') return null;
+  return { card, orientation, frame };
+}
+
+// Validated copy of exactly n cards (n one of MAGNET_CARD_PACKS, repeats allowed,
+// whitelisted keys only) - or null if anything about it is off
+export function magnetCardItems(list, n) {
+  if (!MAGNET_CARD_PACKS.includes(n)) return null;
+  if (!Array.isArray(list) || list.length !== n) return null;
+  const items = [];
+  for (const item of list) {
+    const ok = magnetCardItem(item);
+    if (!ok) return null;
+    items.push(ok);
+  }
+  return items;
+}
+
+// How many of the cards have a frame added (unknown entries skipped)
+export function magnetCardFrames(items) {
+  if (!Array.isArray(items)) return 0;
+  return items.filter(item => magnetCardItem(item)?.frame === true).length;
+}
+
+// Total in £ for the pack plus its frames (added up in pence so it never picks up float
+// errors), or null if the cards aren't a valid pack. Frames: none £0, one £5.50, two or
+// more £5.00 each - e.g. 3 cards with 2 frames = £12.00 + £10.00 = £22.00
+export function magnetCardTotal(items) {
+  const cards = magnetCardItems(items, Array.isArray(items) ? items.length : 0);
+  if (!cards) return null;
+  const frames = cards.filter(c => c.frame).length;
+  const packPence = Math.round(MAGNET_CARD_PRICES[cards.length] * 100);
+  const framePence = frames === 0 ? 0
+    : frames === 1 ? Math.round(MAGNET_CARD_FRAME_ONE * 100)
+    : frames * Math.round(MAGNET_CARD_FRAME_EACH * 100);
+  return (packPence + framePence) / 100;
+}
+
+// One validated card -> "Holly Border · portrait" (+ " · 🖼️ frame" when framed), for the
+// numbered Telegram lines (C1, C2, ... like its photo, mcard1-…); "" for an unknown entry
+export function magnetCardLine(item) {
+  const ok = magnetCardItem(item);
+  if (!ok) return "";
+  return `${MAGNET_CARD_DESIGNS[ok.card]} · ${ok.orientation}${ok.frame ? ' · 🖼️ frame' : ''}`;
+}
+
+// [{holly,portrait,true},{green_check,landscape,false},{green_check,landscape,false}]
+//   -> "Holly Border card · portrait · framed, 2× Green Gingham card · landscape"
+// (first-seen order; unknown entries skipped)
+export function magnetCardText(items) {
+  if (!Array.isArray(items)) return "";
+  const counts = new Map();
+  for (const item of items) {
+    const ok = magnetCardItem(item);
+    if (!ok) continue;
+    const key = `${ok.card}|${ok.orientation}|${ok.frame ? 1 : 0}`;
+    const prev = counts.get(key);
+    counts.set(key, { ...ok, n: prev ? prev.n + 1 : 1 });
+  }
+  return [...counts.values()].map(({ card, orientation, frame, n }) => (n > 1 ? `${n}× ` : '')
+    + `${MAGNET_CARD_DESIGNS[card]} card · ${orientation}${frame ? ' · framed' : ''}`).join(', ');
+}
+
 export const MOTHERS_PACKAGES = {
   "Box 1": 13.45,
   "Box 2": 25.95,
@@ -238,6 +324,10 @@ export function shopPrice(order) {
   } else if (order.productType === 'bauble_card') {
     // Whole-pack price; the stored baubles must still match the pack size
     price = baubleCardItems(order.baubleCards, n) ? BAUBLE_CARD_PRICES[n] : null;
+  } else if (order.productType === 'magnet_card') {
+    // Pack price plus frames, worked out from the stored cards (which must still match the pack size)
+    const cards = magnetCardItems(order.magnetCards, n);
+    price = cards ? magnetCardTotal(cards) : null;
   } else {
     price = STANDARD_PACKS.includes(n) ? STANDARD_PRICES[n] : null;
   }
@@ -410,6 +500,11 @@ function buildProductLabel(order) {
     const cards = baubleCardText(order.baubleCards);
     return `🎄 ${esc(String(order.packSize))} Photo Bauble Card${n === 1 ? '' : 's'}${cards ? ` — ${esc(cards)}` : ''}`;
   }
+  if (order.productType === 'magnet_card') {
+    const n = Number(order.packSize);
+    const cards = magnetCardText(order.magnetCards);
+    return `🎄 ${esc(String(order.packSize))} Christmas Magnet Card${n === 1 ? '' : 's'}${cards ? ` — ${esc(cards)}` : ''}`;
+  }
   if (order.generatedVoucher) return `🎁 Voucher Purchase (£${order.voucherValue})`;
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
@@ -513,6 +608,7 @@ export async function sendAdminEmail(order, env) {
   else if (order.productType === 'ornament') title = `🎄 ORNAMENT ORDER`;
   else if (order.productType === 'santa_letter') title = `🎅 SANTA LETTER ORDER`;
   else if (order.productType === 'bauble_card') title = `🎄 BAUBLE CARD ORDER`;
+  else if (order.productType === 'magnet_card') title = `🎄 MAGNET CARD ORDER`;
   else if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   else if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
   else if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
@@ -584,6 +680,7 @@ export async function sendPaidTelegram(order, env) {
   else if (order.productType === 'ornament') header = `🎄 <b>ORNAMENT ORDER</b>`;
   else if (order.productType === 'santa_letter') header = `🎅 <b>SANTA LETTER ORDER</b>`;
   else if (order.productType === 'bauble_card') header = `🎄 <b>BAUBLE CARD ORDER</b>`;
+  else if (order.productType === 'magnet_card') header = `🎄 <b>MAGNET CARD ORDER</b>`;
   else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
   else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
@@ -607,6 +704,15 @@ export async function sendPaidTelegram(order, env) {
       return text ? `B${i + 1}: ${esc(text)}` : null;
     }).filter(Boolean);
     packLine = `Product: 🎄 ${esc(String(order.packSize))}× Photo Bauble Card${list.length ? '\n' + list.join('\n') : ''}`;
+  }
+  if (order.productType === 'magnet_card') {
+    // One line per card, numbered like its photo (mcard1-…, "C1" on the print sheet)
+    const cards = Array.isArray(order.magnetCards) ? order.magnetCards : [];
+    const list = cards.map((c, i) => {
+      const text = magnetCardLine(c);
+      return text ? `C${i + 1}: ${esc(text)}` : null;
+    }).filter(Boolean);
+    packLine = `Product: 🎄 ${esc(String(order.packSize))}× Christmas Magnet Card${list.length ? '\n' + list.join('\n') : ''}`;
   }
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);

@@ -11,7 +11,7 @@
 //   2) Optionally email the customer for printing/shipped/complete
 //   3) Return { success: true, order } as JSON
 
-import { ornamentDesignsText, santaLetterText, baubleCardText, esc } from './_shared.js';
+import { ornamentDesignsText, santaLetterText, baubleCardText, magnetCardText, esc } from './_shared.js';
 
 const CUSTOMER_STATUS_MESSAGES = {
   printing: {
@@ -175,6 +175,10 @@ function buildCustomerEmailHtml(order, status, messageDef) {
   // whitelists (escaped, as "Berries & Bow" has an ampersand)
   const baubleCards = order.productType === 'bauble_card' ? baubleCardText(order.baubleCards) : "";
   const baubleLine = `${Number(order.packSize) || 1}× Photo Bauble Card${baubleCards ? ` (${esc(baubleCards)})` : ""}`;
+  // Christmas magnet card orders: same - numeric count, design / orientation / frame text
+  // from the fixed whitelists (escaped like the bauble cards)
+  const magnetCards = order.productType === 'magnet_card' ? magnetCardText(order.magnetCards) : "";
+  const magnetCardLine = `${Number(order.packSize) || 1}× Christmas Magnet Card${magnetCards ? ` (${esc(magnetCards)})` : ""}`;
 
   return `
   <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #111;">
@@ -193,6 +197,8 @@ function buildCustomerEmailHtml(order, status, messageDef) {
       ? `<p><strong>Product:</strong> ${santaLine}</p>`
       : order.productType === 'bauble_card'
       ? `<p><strong>Product:</strong> ${baubleLine}</p>`
+      : order.productType === 'magnet_card'
+      ? `<p><strong>Product:</strong> ${magnetCardLine}</p>`
       : (order.packSize ? `<p><strong>Pack:</strong> ${order.packSize} items</p>` : "")
     }
     <p style="margin-top: 24px; font-size: 13px; color: #555;">

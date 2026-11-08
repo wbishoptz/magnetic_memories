@@ -8,6 +8,7 @@ import {
   ORNAMENT_DESIGNS, ORNAMENT_PACKS, ORNAMENT_PRICES,
   santaLetterItems, santaLetterTotal,
   BAUBLE_CARD_PACKS, BAUBLE_CARD_PRICES, baubleCardItems,
+  MAGNET_CARD_PACKS, magnetCardItems, magnetCardTotal,
   isStaffRequest, expireCheckoutSession,
   jsonResponse
 } from './_shared.js';
@@ -110,12 +111,15 @@ export async function onRequestPost({ request, env }) {
     if (productType === 'santa_letter' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
     // ... and photo bauble cards (same reason)
     if (productType === 'bauble_card' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
+    // ... and Christmas magnet cards (same reason)
+    if (productType === 'magnet_card' && (eventTag || isVoucher)) return jsonResponse({ error: "Invalid pack." }, 400);
     const packSize = isVoucher ? packSizeRaw : Number(packSizeRaw);
 
     let price = 0;
     let ornamentDesigns = null; // validated copy, ornament orders only
     let santaLetters = null; // validated copy, Santa letter orders only
     let baubleCards = null; // validated copy, bauble card orders only
+    let magnetCards = null; // validated copy, magnet card orders only
 
     if (eventTag === 'MANUAL') {
       price = 0;
@@ -179,6 +183,13 @@ export async function onRequestPost({ request, env }) {
       baubleCards = baubleCardItems(body?.baubleCards, packSize);
       if (!baubleCards) return jsonResponse({ error: "Invalid bauble cards." }, 400);
       price = BAUBLE_CARD_PRICES[packSize];
+    } else if (productType === 'magnet_card') {
+      if (!MAGNET_CARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid pack." }, 400);
+      // One { card, orientation, frame } per card (repeats allowed), whitelisted keys only,
+      // nothing else in an item; priced for the whole pack plus any frames
+      magnetCards = magnetCardItems(body?.magnetCards, packSize);
+      if (!magnetCards) return jsonResponse({ error: "Invalid magnet cards." }, 400);
+      price = magnetCardTotal(magnetCards);
     } else {
       if (!STANDARD_PACKS.includes(packSize)) return jsonResponse({ error: "Invalid standard pack." }, 400);
       price = STANDARD_PRICES[packSize];
@@ -202,6 +213,8 @@ export async function onRequestPost({ request, env }) {
       if (productType === 'santa_letter' || existingOrder.productType === 'santa_letter') return jsonResponse({ error: "Not allowed." }, 403);
       // ... and photo bauble card orders
       if (productType === 'bauble_card' || existingOrder.productType === 'bauble_card') return jsonResponse({ error: "Not allowed." }, 403);
+      // ... and Christmas magnet card orders
+      if (productType === 'magnet_card' || existingOrder.productType === 'magnet_card') return jsonResponse({ error: "Not allowed." }, 403);
       // ... and a paid order is never changed here (only drafts / unpaid checkouts are).
       if (['paid', 'printing', 'shipped', 'completed', 'complete'].includes(existingOrder.status)) {
         return jsonResponse({ error: "This order has already been paid." }, 409);
@@ -275,6 +288,7 @@ export async function onRequestPost({ request, env }) {
       ornamentDesigns: ornamentDesigns || existingOrder.ornamentDesigns || null,
       santaLetters: santaLetters || existingOrder.santaLetters || null,
       baubleCards: baubleCards || existingOrder.baubleCards || null,
+      magnetCards: magnetCards || existingOrder.magnetCards || null,
       magnetOrientations: body?.magnetOrientations || existingOrder.magnetOrientations || null,
 
       status: finalStatus,
@@ -295,10 +309,11 @@ export async function onRequestPost({ request, env }) {
       completedAt: existingOrder.completedAt
     };
 
-    // Ornaments, Santa letters and bauble cards are fixed products: keep only their own fields,
-    // so stray frame / bundle / jigsaw fields in a hand-made request can't relabel the order
-    // (e.g. a £4.99 letter showing up as a frame in Telegram or the admin).
-    if (productType === 'ornament' || productType === 'santa_letter' || productType === 'bauble_card') {
+    // Ornaments, Santa letters, bauble cards and magnet cards are fixed products: keep only their
+    // own fields, so stray frame / bundle / jigsaw fields in a hand-made request can't relabel the
+    // order (e.g. a £4.99 letter showing up as a frame in Telegram or the admin).
+    if (productType === 'ornament' || productType === 'santa_letter' || productType === 'bauble_card'
+        || productType === 'magnet_card') {
       // (the same values a normal request stores: undefined ones are simply left out)
       Object.assign(order, {
         packType: 'standard', flexiColor: undefined, premadeSelections: undefined, mothersPackage: undefined,
@@ -308,6 +323,7 @@ export async function onRequestPost({ request, env }) {
         ornamentDesigns: productType === 'ornament' ? ornamentDesigns : null,
         santaLetters: productType === 'santa_letter' ? santaLetters : null,
         baubleCards: productType === 'bauble_card' ? baubleCards : null,
+        magnetCards: productType === 'magnet_card' ? magnetCards : null,
       });
     }
 
@@ -395,6 +411,7 @@ export async function onRequestGet({ request, env }) {
       ornamentDesigns: o.ornamentDesigns || undefined,
       santaLetters: o.santaLetters || undefined,
       baubleCards: o.baubleCards || undefined,
+      magnetCards: o.magnetCards || undefined,
       event: o.event,
       bingoNumber: o.bingoNumber,
       createdAt: o.createdAt,

@@ -2480,6 +2480,7 @@
         if (o.productType === 'santa_letter') return null; // 🎅 letter + Santa Cam are pre-made: no photos, nothing to print
         if (o.productType === 'ornament') return 'magnet'; // 🎄 colour-in ornament: centre photo is a standard 50×50 magnet
         if (o.productType === 'bauble_card') return 'magnet'; // 🎄 photo bauble card: the bauble's window photo is a standard 50×50 magnet
+        if (o.productType === 'magnet_card') return null;   // 🎄 magnet card: a 2.5×3.5″ magnet - prints from its order's Print Lab button
         if (String(o.packSize).startsWith('voucher_')) return null;
         return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
       }
@@ -2548,6 +2549,48 @@
       // CSV cell: "red/berries|silver/wreath" (known keys only, '?' for anything else)
       function baubleCardsCsv(o) {
         return baubleCardList(o).map(b => `${baubleColour(b.colour) ? b.colour : '?'}/${baubleCardDesign(b.card) ? b.card : '?'}`).join('|');
+      }
+
+      // 🎄 Christmas magnet card (order.magnetCards holds [{ card, orientation, frame }], one per
+      // card): the customer's photo as a large 2.5×3.5″ magnet (63.5×88.9mm, the Print Lab size),
+      // portrait or landscape, mounted on the chosen printed card, optionally in a 3D-printed frame.
+      // It prints from the order's own "Print 2.5×3.5″ magnets" button (the Print Lab's sheets),
+      // never on the 50×50 sheets. `tag` is the short form for the print band.
+      const MAGNET_CARD_DESIGNS = {
+        stripes:     { label: 'Happy Holidays Stripes', tag: 'STRIPES' },
+        green_check: { label: 'Green Gingham',          tag: 'GREEN GINGHAM' },
+        red_check:   { label: 'Red Gingham',            tag: 'RED GINGHAM' },
+        holly:       { label: 'Holly Border',           tag: 'HOLLY' },
+        snowy:       { label: 'Snowy Santa',            tag: 'SNOWY SANTA' },
+        tree:        { label: 'Christmas Tree',         tag: 'TREE' }
+      };
+      const MAGNET_CARD_KEY_RE = /mcard(\d+)-(portrait|landscape)-(stripes|green_check|red_check|holly|snowy|tree)(-frame)?\b/i;
+      // Known key -> info, anything else -> null (never trust the stored value)
+      function magnetCardDesign(c) {
+        return typeof c === 'string' && Object.prototype.hasOwnProperty.call(MAGNET_CARD_DESIGNS, c) ? MAGNET_CARD_DESIGNS[c] : null;
+      }
+      function magnetCardOrientation(v) {
+        return v === 'portrait' || v === 'landscape' ? v : null;
+      }
+      function magnetCardList(o) {
+        return Array.isArray(o.magnetCards) ? o.magnetCards.filter(c => c && typeof c === 'object') : [];
+      }
+      function magnetCardQty(o) {
+        return Number(o.packSize) || magnetCardList(o).length || 1;
+      }
+      function magnetCardFrames(o) {
+        return magnetCardList(o).filter(c => c.frame === true).length;
+      }
+      // Tag for the photo: …_mcard2-landscape-green_check-frame.jpg → "C2 GREEN GINGHAM · LANDSCAPE · FRAME".
+      // The longest (that one) is about 46mm at labelCanvas' ~6pt, the longest portrait one
+      // about 44mm - inside even the portrait magnet's 63.5mm band, so it never needs shrinking.
+      function magnetCardLabel(key) {
+        const m = String(key).match(MAGNET_CARD_KEY_RE);
+        return m ? `C${m[1]} ${MAGNET_CARD_DESIGNS[m[3].toLowerCase()].tag} · ${m[2].toUpperCase()}${m[4] ? ' · FRAME' : ''}` : 'MAGNET CARD';
+      }
+      // CSV cell: "holly/portrait/frame|green_check/landscape" (known keys only, '?' for anything else)
+      function magnetCardsCsv(o) {
+        return magnetCardList(o).map(c => `${magnetCardDesign(c.card) ? c.card : '?'}/${magnetCardOrientation(c.orientation) || '?'}${c.frame === true ? '/frame' : ''}`).join('|');
       }
 
       // 🎅 Letter from Santa (order.santaLetters holds [{ design, bauble }], one per letter).
@@ -2744,12 +2787,13 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns", "santaLetters", "baubleCards"]];
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns", "santaLetters", "baubleCards", "magnetCards"]];
         for (const o of filteredOrders) rows.push([
             o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || "",
             o.productType || "", Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns.join("|") : "",
             o.productType === 'santa_letter' ? santaLettersCsv(o) : "",
-            o.productType === 'bauble_card' ? baubleCardsCsv(o) : ""
+            o.productType === 'bauble_card' ? baubleCardsCsv(o) : "",
+            o.productType === 'magnet_card' ? magnetCardsCsv(o) : ""
         ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
@@ -2825,7 +2869,13 @@
                 const c = baubleColour(b.colour), d = baubleCardDesign(b.card);
                 return `${c ? `${b.colour} ${c.label}` : ''} ${d ? `${b.card} ${d.label}` : ''}`;
               }).join(' ')}` : '';
-          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}${santaTxt}${baubleTxt}`.toLowerCase().includes(q);
+          // 🎄 Magnet cards: findable by "magnet_card" / "magnet card" / card keys and names, orientation, "frame"
+          const mcardTxt = o.productType === 'magnet_card'
+            ? ` ${o.productType} magnet card ${magnetCardList(o).map(c => {
+                const d = magnetCardDesign(c.card);
+                return `${d ? `${c.card} ${d.label}` : ''} ${magnetCardOrientation(c.orientation) || ''} ${c.frame === true ? 'frame framed' : ''}`;
+              }).join(' ')}` : '';
+          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}${santaTxt}${baubleTxt}${mcardTxt}`.toLowerCase().includes(q);
         });
         renderOrders(); 
         if(currentMode === 'orders') updatePackSummary();
@@ -2835,7 +2885,7 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament' && o.productType !== 'santa_letter' && o.productType !== 'bauble_card') continue;
+          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament' && o.productType !== 'santa_letter' && o.productType !== 'bauble_card' && o.productType !== 'magnet_card') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
@@ -2843,6 +2893,8 @@
              k = "Christmas Ornament";
           } else if (o.productType === 'bauble_card') {
              k = "Photo Bauble Card";
+          } else if (o.productType === 'magnet_card') {
+             k = "Christmas Magnet Card";
           } else if (o.productType === 'santa_letter') {
              k = "Santa Letter";
           } else if (o.productType === 'keyring') {
@@ -2854,7 +2906,10 @@
              if (o.packType === 'big_picture') k += " (Jigsaw)";
           }
           counts.set(k, (counts.get(k) || 0) + (o.productType === 'santa_letter' ? santaLetterQty(o)   // letters, not orders
-            : o.productType === 'bauble_card' ? baubleCardQty(o) : 1));                                 // 🎄 cards, not orders
+            : o.productType === 'bauble_card' ? baubleCardQty(o)                                        // 🎄 cards, not orders
+            : o.productType === 'magnet_card' ? magnetCardQty(o) : 1));
+          // 🎄 3D-printed frames for magnet cards are their own thing to make: count them too
+          if (o.productType === 'magnet_card' && magnetCardFrames(o)) counts.set("Magnet Card Frame", (counts.get("Magnet Card Frame") || 0) + magnetCardFrames(o));
         }
         if (!counts.size) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const parts = Array.from(counts.entries()).sort().map(([k, v]) => `${v}x ${k}`);
@@ -2924,6 +2979,10 @@
               const bcQty = baubleCardQty(o);
               packDisplay = `🎄 Bauble Card${bcQty > 1 ? ` ×${bcQty}` : ''}`;
               style = 'style="color: #4ade80; font-weight:700;"';
+          } else if (o.productType === 'magnet_card') {
+              const mcQty = magnetCardQty(o), mcFrames = magnetCardFrames(o);
+              packDisplay = `🎄 Magnet Card${mcQty > 1 ? ` ×${mcQty}` : ''}${mcFrames ? ` + 🖼️ ${mcFrames} frame${mcFrames === 1 ? '' : 's'}` : ''}`;
+              style = 'style="color: #fb7185; font-weight:700;"';
           } else if (o.productType === 'santa_letter') {
               const santaQty = santaLetterQty(o);
               packDisplay = `🎅 Santa Letter${santaQty > 1 ? ` ×${santaQty}` : ''}`;
@@ -2950,6 +3009,7 @@
           if (o.usedVoucher) priceDisplay += ` <span class="tag" style="font-size:9px; color:#f0c36a;">VOUCHER</span>`;
           const selectCell = !showSelect ? ''
             : o.productType === 'santa_letter' ? '<td title="Santa letters have nothing to print"></td>' // 🎅 no photos to combine
+            : o.productType === 'magnet_card' ? '<td title="Magnet cards (2.5×3.5″) print from their own order"></td>' // 🎄 not on the 50×50 sheets
             : `<td><input type="checkbox" class="row-select" data-id="${o.orderId}" ${selectedForPrint.has(o.orderId) ? 'checked' : ''} onclick="event.stopPropagation()" style="width:16px; height:16px; cursor:pointer;"></td>`;
           html += `<tr data-order-id="${o.orderId}" class="${isSelected}">${selectCell}<td>${created}</td><td>${statusDisplay}</td><td>${o.email || "–"}</td><td ${style}>${packDisplay}</td><td>${priceDisplay}</td></tr>`;
         }
@@ -3214,6 +3274,38 @@
               html += `<div class="field-label" style="color:#4ade80;">Photo Bauble Card</div>
                        <div class="field-value" style="font-size:1.1em; font-weight:bold; word-break:normal;">🎄 ${bcQty} photo bauble card${bcQty === 1 ? '' : 's'} (bauble + photo magnet + card)</div>${rows || '<div class="field-value" style="color:#9ca3af;">Baubles not recorded (see filenames)</div>'}`;
               html += `<div class="field-value" style="background:#111827; padding:8px 10px; border-radius:8px; font-weight:600; word-break:normal;">📦 Pack: ${packParts.join(' · ')}</div>`;
+          } else if (order.productType === 'magnet_card') {
+              // 🎄 The customer's photo as a large 2.5×3.5″ magnet (portrait or landscape, cropped
+              // by them) on the chosen printed card, optionally in a 3D-printed frame. Card N's photo
+              // is tagged "CN …" and prints from the "Print 2.5×3.5″ magnets" button below.
+              const cards = magnetCardList(order);
+              const mcQty = magnetCardQty(order);
+              const cardCount = new Map();
+              let nPortrait = 0, nLandscape = 0, nFrames = 0, oddCards = 0;
+              const rows = cards.map((c, i) => {
+                const dInfo = magnetCardDesign(c.card);
+                const orient = magnetCardOrientation(c.orientation);
+                if (dInfo) cardCount.set(c.card, (cardCount.get(c.card) || 0) + 1); else oddCards++;
+                if (orient === 'portrait') nPortrait++; else if (orient === 'landscape') nLandscape++;
+                if (c.frame === true) nFrames++;
+                // little magnet outline in its orientation (dashed if unknown)
+                const shape = orient
+                  ? `<span title="${orient}" style="width:${orient === 'portrait' ? 18 : 26}px; height:${orient === 'portrait' ? 26 : 18}px; margin:${orient === 'portrait' ? '0 4px' : '4px 0'}; border-radius:3px; border:2px solid #fb7185; ${c.frame === true ? 'box-shadow:0 0 0 2px #0b1220, 0 0 0 4px #fcd34d; ' : ''}box-sizing:border-box; flex-shrink:0;"></span>`
+                  : `<span style="width:26px; height:26px; border-radius:3px; border:2px dashed #6b7280; box-sizing:border-box; flex-shrink:0;"></span>`;
+                const cardTxt = dInfo ? `${dInfo.label} card` : `card (unknown design: ${escHtml(c.card)})`;
+                const orientTxt = orient || `unknown orientation: ${escHtml(c.orientation)}`;
+                const frameTxt = c.frame === true ? '<span style="color:#fcd34d; font-weight:bold;">🖼️ frame: yes</span>' : '<span style="color:#9ca3af;">frame: no</span>';
+                return `<div class="field-value" style="display:flex; align-items:center; gap:10px; word-break:normal;">${shape}<span>Card ${i + 1}: <span style="font-weight:bold;">${cardTxt}</span> · <span style="font-weight:bold;">${orientTxt}</span> · ${frameTxt} · <span style="white-space:nowrap;">📷 photo C${i + 1}</span></span></div>`;
+              }).join('');
+              // Packing summary, e.g. "Pack: 3 magnets 2.5×3.5″ (2 portrait, 1 landscape) · frames: 2 · cards: 2× Holly Border, 1× Green Gingham"
+              const packParts = [`${mcQty} magnet${mcQty === 1 ? '' : 's'} 2.5×3.5″ ${cards.length ? `(${nPortrait} portrait, ${nLandscape} landscape)` : '(see filenames)'}`];
+              if (cards.length) packParts.push(`frames: ${nFrames}`);
+              const dTxt = Object.keys(MAGNET_CARD_DESIGNS).filter(k => cardCount.has(k)).map(k => `${cardCount.get(k)}× ${MAGNET_CARD_DESIGNS[k].label}`);
+              if (oddCards) dTxt.push(`${oddCards}× unknown design`);
+              if (dTxt.length) packParts.push(`cards: ${dTxt.join(', ')}`);
+              html += `<div class="field-label" style="color:#fb7185;">Christmas Magnet Card</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold; word-break:normal;">🎄 ${mcQty} Christmas magnet card${mcQty === 1 ? '' : 's'} (2.5×3.5″ photo magnet + card${nFrames ? ` · ${nFrames} with a 3D-printed frame` : ''})</div>${rows || '<div class="field-value" style="color:#9ca3af;">Cards not recorded (see filenames)</div>'}`;
+              html += `<div class="field-value" style="background:#111827; padding:8px 10px; border-radius:8px; font-weight:600; word-break:normal;">📦 Pack: ${packParts.join(' · ')}</div>`;
           } else if (order.productType === 'santa_letter') {
               // 🎅 Pre-made letter + Santa Cam: loose magnet (bauble null) or set in a coloured hanging bauble
               const letters = santaLetterList(order);
@@ -3283,6 +3375,7 @@
           const canPrintSheet = !isVoucher
             && order.productType !== 'flexi'
             && order.productType !== 'large_magnet'    // 65×90 template coming separately
+            && order.productType !== 'magnet_card'     // 🎄 2.5×3.5″ magnets: their own Print Lab button below
             && !isSantaLetter                           // 🎅 Santa letters: nothing to print
             && !(order.eventId && order.extrasRefunded === true && !isCompleteEventOrder(order)) // refunded, no number: never printed
             && !(addon && isCancelledAddon(order));    // ➕ add-on the guest cancelled: never printed
@@ -3296,19 +3389,26 @@
               html += `<button id="print-with-addons-btn" class="btn-action" style="width:100%; background:#0b1220; border-color:rgba(252,211,77,0.55); color:#fde68a; font-weight:700;">🖨️ Print ticket #${escHtml(order.raffleNumber)} with its add-on${doneAddons.length === 1 ? '' : 's'} (+${extra} magnet${extra === 1 ? '' : 's'})</button>`;
             }
           }
+          // 🎄 Magnet cards: the 2.5×3.5″ Print Lab's sheets (11×8.5cm mylar cut boxes), each
+          // magnet tagged with its card ("C1 HOLLY · PORTRAIT"); portrait and landscape on their own pages
+          if (order.productType === 'magnet_card') {
+            html += `<button id="print-mcard-btn" class="btn-action" style="width:100%; background:#059669; border-color:#059669; color:#fff; font-weight:700;">🖨️ Print 2.5×3.5″ magnets (${magnetCardQty(order)} · Print Lab sheet)</button>`;
+          }
 
           // Basket: orders paid together (same Stripe checkout) → print everything at once
           const basketMates = (order.stripeSessionId)
             ? orders.filter(o => o.stripeSessionId === order.stripeSessionId)
             : [];
           // 🎅 Santa letters have nothing to print: the basket's sheets leave them out
-          const basketPrintMates = basketMates.filter(m => m.productType !== 'santa_letter');
+          // 🎄 and magnet cards (2.5×3.5″) print from their own order's Print Lab button
+          const basketPrintMates = basketMates.filter(m => m.productType !== 'santa_letter' && m.productType !== 'magnet_card');
           if (basketMates.length > 1) {
             const others = basketMates.filter(m => m.orderId !== order.orderId).map(m => {
               let lbl = m.productType === 'keyring' ? `🔑 Keyring${Number(m.packSize) === 2 ? ' ×2' : ''}`
                       : m.productType === 'bundle' ? '🎁 Bundle'
                       : m.productType === 'ornament' ? `🎄 Ornament ×${Number(m.packSize) || 1}`
                       : m.productType === 'bauble_card' ? `🎄 Bauble Card ×${baubleCardQty(m)}`
+                      : m.productType === 'magnet_card' ? `🎄 Magnet Card ×${magnetCardQty(m)}`
                       : m.productType === 'santa_letter' ? `🎅 Santa Letter ×${santaLetterQty(m)}`
                       : (m.frameStyle ? `🖼️ ${m.frameStyle.charAt(0).toUpperCase() + m.frameStyle.slice(1)} Frame` : `🧲 ${m.packSize} magnets`);
               return `<a href="#" onclick="loadOrderDetails('${m.orderId}');return false;" style="color:#5eead4; text-decoration:underline;">${lbl} (£${Number(m.price || 0).toFixed(2)})</a>`;
@@ -3320,7 +3420,9 @@
             if (nPrint === basketMates.length) {
               html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${basketMates.length} items)</button>`;
             } else if (nPrint) {
-              html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${nPrint} photo item${nPrint === 1 ? '' : 's'} · 🎅 Santa letters have nothing to print)</button>`;
+              const leftOut = [basketMates.some(m => m.productType === 'santa_letter') ? '🎅 Santa letters have nothing to print' : '',
+                basketMates.some(m => m.productType === 'magnet_card') ? '🎄 magnet cards print from their own order' : ''].filter(Boolean).join(' · ');
+              html += `<button id="print-basket-btn" class="btn-action" style="width:100%; background:#0f766e; border-color:#0f766e; color:#fff; font-weight:700;">🖨️ Print whole purchase (${nPrint} photo item${nPrint === 1 ? '' : 's'} · ${leftOut})</button>`;
             }
           }
 
@@ -3343,6 +3445,8 @@
 
           const printBasketBtn = document.getElementById("print-basket-btn");
           if (printBasketBtn) printBasketBtn.onclick = () => generateBasketSheet(basketPrintMates, printBasketBtn);
+          const printMcardBtn = document.getElementById("print-mcard-btn");
+          if (printMcardBtn) printMcardBtn.onclick = () => BIG_LAB.printMagnetCards(order, printMcardBtn);
 
           const updateBtn = document.getElementById("status-update-btn");
           if(updateBtn) updateBtn.onclick = async () => {
@@ -3387,7 +3491,9 @@
             const ornCap = ORNAMENT_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#fca5a5;">${escHtml(ornamentLabel(img.key))}</div>` : '';
             // 🎄 bauble card photo: which bauble + colour + card it goes with (B1 SILVER · WREATH)
             const bcCap = BAUBLE_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#86efac;">${escHtml(baubleCardLabel(img.key))}</div>` : '';
-            h += `<div class="image-thumb"><img src="${src}">${ornCap}${bcCap}<a href="${src}&download=1">Download</a></div>`;
+            // 🎄 magnet card photo: which card + its design, orientation and frame (C1 HOLLY · PORTRAIT · FRAME)
+            const mcCap = MAGNET_CARD_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#fda4af;">${escHtml(magnetCardLabel(img.key))}</div>` : '';
+            h += `<div class="image-thumb"><img src="${src}">${ornCap}${bcCap}${mcCap}<a href="${src}&download=1">Download</a></div>`;
         });
         document.getElementById("imgs").innerHTML = h + '</div>';
         lastImagesForOrder[id] = data.images;
@@ -3672,7 +3778,8 @@
       })();
 
       // ─── 2.5×3.5″ Print Lab (standalone, all client-side — no orders/storage) ───
-      (function () {
+      // Its sheets also print 🎄 magnet card orders: BIG_LAB.printMagnetCards(order, btn).
+      const BIG_LAB = (function () {
         const IN = 25.4;
         const MYLAR_LONG = 110, MYLAR_SHORT = 85;           // 11 × 8.5 cm cut piece
         const PHOTO_LONG = 3.5 * IN, PHOTO_SHORT = 2.5 * IN; // 88.9 × 63.5 mm photo
@@ -3783,7 +3890,9 @@
         };
 
         // ── Draw one 11×8.5cm tile: photo (2.5×3.5) centred, octagon cut, branding ──
-        function drawTile(pdf, x, y, dataUrl, tileW, tileH, photoW, photoH, labels) {
+        // tag (🎄 magnet cards: "C1 HOLLY · PORTRAIT"): printed in a band flush under the photo,
+        // flipped like the top band - the same place the 50×50 sheets put their tags.
+        function drawTile(pdf, x, y, dataUrl, tileW, tileH, photoW, photoH, labels, tag) {
           const offX = (tileW - photoW) / 2, offY = (tileH - photoH) / 2;
           pdf.addImage(dataUrl, 'JPEG', x + offX, y + offY, photoW, photoH);
 
@@ -3798,21 +3907,19 @@
           pdf.addImage(labels.top, 'PNG', x + offX, y + offY - LAB_GAP - LAB_BAND, photoW, LAB_BAND);
           pdf.addImage(labels.left, 'PNG', x + offX - LAB_GAP - LAB_BAND, y + offY, LAB_BAND, photoH);
           pdf.addImage(labels.right, 'PNG', x + offX + photoW + LAB_GAP, y + offY, LAB_BAND, photoH);
+          if (tag) pdf.addImage(labelCanvas(String(tag), photoW, LAB_BAND, Math.PI), 'PNG', x + offX, y + offY + photoH + LAB_GAP, photoW, LAB_BAND);
         }
 
-        document.getElementById('lab-generate').onclick = () => {
-          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
-          if (!labImages.length) { statusEl.textContent = 'Add some photos first.'; return; }
-
-          const portrait = orientation === 'portrait';
+        // ── Lay photos out 4 a page (2×2 tiles) on Letter turned to suit the orientation ──
+        // items: [{ dataUrl, tag? }], all the same orientation. freshStart=true starts on a new
+        // page (also turned to suit), so one PDF can hold portrait pages then landscape pages.
+        // Returns the number of pages laid out.
+        function layoutSheets(pdf, items, portrait, freshStart) {
           const tileW = portrait ? MYLAR_SHORT : MYLAR_LONG;
           const tileH = portrait ? MYLAR_LONG : MYLAR_SHORT;
           const photoW = portrait ? PHOTO_SHORT : PHOTO_LONG;
           const photoH = portrait ? PHOTO_LONG : PHOTO_SHORT;
           const pageW = portrait ? LTR_W : LTR_H, pageH = portrait ? LTR_H : LTR_W;
-
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({ unit: 'mm', format: 'letter', orientation: portrait ? 'portrait' : 'landscape' });
 
           // Branding labels (constant text) sized to this orientation's photo
           const labels = {
@@ -3826,18 +3933,112 @@
           const left = (pageW - gridW) / 2, top = (pageH - gridH) / 2;
 
           let idx = 0;
-          const pages = Math.ceil(labImages.length / PER);
+          const pages = Math.ceil(items.length / PER);
           for (let p = 0; p < pages; p++) {
-            if (p > 0) pdf.addPage();
+            if (p > 0 || freshStart) pdf.addPage('letter', portrait ? 'portrait' : 'landscape');
             for (let r = 0; r < ROWS; r++) for (let cc = 0; cc < COLS; cc++) {
-              const im = labImages[idx]; if (!im) continue;
-              drawTile(pdf, left + cc * (tileW + GAP), top + r * (tileH + GAP), im.dataUrl, tileW, tileH, photoW, photoH, labels);
+              const im = items[idx]; if (!im) continue;
+              drawTile(pdf, left + cc * (tileW + GAP), top + r * (tileH + GAP), im.dataUrl, tileW, tileH, photoW, photoH, labels, im.tag);
               idx++;
             }
           }
+          return pages;
+        }
+
+        document.getElementById('lab-generate').onclick = () => {
+          if (!window.jspdf) { statusEl.textContent = 'PDF library not loaded — refresh and retry.'; return; }
+          if (!labImages.length) { statusEl.textContent = 'Add some photos first.'; return; }
+
+          const portrait = orientation === 'portrait';
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({ unit: 'mm', format: 'letter', orientation: portrait ? 'portrait' : 'landscape' });
+          const pages = layoutSheets(pdf, labImages, portrait, false);
           pdf.save(`big-magnets-${orientation}-print-sheet.pdf`);
           statusEl.textContent = `✅ Downloaded ${pages} sheet(s) · ${labImages.length} photo(s) · ${orientation}.`;
         };
+
+        // ── 🎄 Christmas magnet card orders, straight onto the same sheets ──
+        // The customer already cropped each photo to 2.5:3.5 (portrait) or 3.5:2.5 (landscape);
+        // its filename says which card it is ("mcard2-landscape-green_check-frame.jpg"). Each is
+        // fitted to its magnet (a centre cover-crop: only trims rounding) and tagged under the
+        // photo ("C2 GREEN GINGHAM · LANDSCAPE · FRAME") so it can be matched to its card. One
+        // PDF: the portrait magnets' pages first, then the landscape ones (Letter turned to suit).
+        // A photo that fails to load prints as a grey placeholder and is reported after saving.
+        function failedTile(who, ar) {
+          const longPx = 900, wPx = ar >= 1 ? longPx : Math.round(longPx * ar), hPx = ar >= 1 ? Math.round(longPx / ar) : longPx;
+          const cv = document.createElement('canvas'); cv.width = wPx; cv.height = hPx;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, wPx, hPx);
+          ctx.fillStyle = '#4b5563'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.font = `bold ${Math.round(Math.min(wPx, hPx) * 0.08)}px Arial, Helvetica, sans-serif`;
+          ctx.fillText('Photo failed', wPx / 2, hPx / 2 - Math.min(wPx, hPx) * 0.06);
+          ctx.font = `${Math.round(Math.min(wPx, hPx) * 0.065)}px Arial, Helvetica, sans-serif`;
+          ctx.fillText(String(who).toLowerCase(), wPx / 2, hPx / 2 + Math.min(wPx, hPx) * 0.06);
+          return cv.toDataURL('image/jpeg', 0.92);
+        }
+
+        async function printMagnetCards(order, btn) {
+          const orig = btn ? btn.innerHTML : '';
+          const done = (txt) => { if (btn) { btn.textContent = txt; setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000); } };
+          if (btn) { btn.disabled = true; btn.textContent = 'Gathering photos…'; }
+          try {
+            if (!window.jspdf) throw new Error('PDF library not loaded — refresh and retry.');
+            const who = printWho(order);
+            const res = await fetch(`/api/admin-order-images?orderId=${encodeURIComponent(order.orderId)}`, { headers: { Authorization: `Bearer ${adminKey}` } });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            // Card order (C1, C2, …) from the filename; anything untagged after, in key order
+            const num = (img) => { const m = String(img.key).match(MAGNET_CARD_KEY_RE); return m ? Number(m[1]) : Infinity; };
+            const imgs = (data.images || []).slice().sort((a, b) => (num(a) - num(b)) || String(a.key).localeCompare(String(b.key)));
+            if (!imgs.length) { alert('No photos found for this order yet.'); if (btn) { btn.disabled = false; btn.innerHTML = orig; } return; }
+
+            const sheets = { portrait: [], landscape: [] }, failed = [], notes = [];
+            for (let i = 0; i < imgs.length; i++) {
+              if (btn) btn.textContent = `Loading ${i + 1}/${imgs.length}…`;
+              const m = String(imgs[i].key).match(MAGNET_CARD_KEY_RE);
+              const tag = magnetCardLabel(imgs[i].key);
+              const src = `/api/admin-order-image?orderId=${encodeURIComponent(order.orderId)}&objectKey=${encodeURIComponent(imgs[i].key)}&key=${encodeURIComponent(adminKey)}`;
+              let img = null;
+              try { img = await loadImg(src); if (!img.naturalWidth || !img.naturalHeight) throw new Error('Image could not be decoded'); }
+              catch { img = null; }
+              // The card's orientation from the filename; an untagged photo goes by its own shape
+              const orient = m ? m[2].toLowerCase() : (img && img.naturalWidth > img.naturalHeight ? 'landscape' : 'portrait');
+              const ar = orient === 'portrait' ? (PHOTO_SHORT / PHOTO_LONG) : (PHOTO_LONG / PHOTO_SHORT);
+              let dataUrl;
+              if (img) {
+                const shape = img.naturalWidth / img.naturalHeight;
+                if (Math.abs(Math.log(shape / ar)) > 0.1) notes.push(`• ${tag}: the photo is ${shape > 1.05 ? 'landscape-shaped' : shape < 0.95 ? 'portrait-shaped' : 'square'}, not ${orient} - it was centre-cropped to fit, check it before printing.`);
+                dataUrl = coverCrop(img, ar, Math.min(1200, Math.max(img.naturalWidth, img.naturalHeight)));
+              } else {
+                dataUrl = failedTile(who, ar);
+                failed.push({ who, what: 'photo' });
+              }
+              sheets[orient].push({ dataUrl, tag });
+            }
+            const qty = magnetCardQty(order);
+            if (imgs.length !== qty) notes.unshift(`• ${qty} card${qty === 1 ? '' : 's'} ordered but ${imgs.length} photo${imgs.length === 1 ? '' : 's'} found - every photo was printed.`);
+
+            if (btn) btn.textContent = 'Building PDF…';
+            const first = sheets.portrait.length ? 'portrait' : 'landscape';
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'mm', format: 'letter', orientation: first });
+            let pages = 0;
+            if (sheets.portrait.length) pages += layoutSheets(pdf, sheets.portrait, true, false);
+            if (sheets.landscape.length) pages += layoutSheets(pdf, sheets.landscape, false, pages > 0);
+            const safe = String(order.orderId || 'order').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+            pdf.save(`magnet-cards-${safe}-print-sheet.pdf`);
+            done(`✅ ${pages} sheet(s) downloaded`);
+            const msgs = [];
+            if (failed.length) msgs.push(photoFailureMessage(failed, 'The PDF was saved'));
+            if (notes.length) msgs.push(`${failed.length ? '' : 'The PDF was saved. '}Please check:\n\n${notes.join('\n')}`);
+            if (msgs.length) alert(msgs.join('\n\n'));
+          } catch (e) {
+            alert('Print sheet error: ' + e.message);
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+          }
+        }
+
+        return { printMagnetCards };
       })();
 
       // ─── 🧩 Jigsaw Lab: one photo across several magnets (standalone, nothing saved) ───

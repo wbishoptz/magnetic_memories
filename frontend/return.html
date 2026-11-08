@@ -168,7 +168,7 @@
       }
 
       function statusMessage(status) {
-        const things = currentEventTag === 'SANTA_LETTER' ? 'letters' : currentEventTag === 'ORNAMENT' ? 'ornaments' : currentEventTag === 'BAUBLE_CARD' ? 'bauble cards' : 'magnets';
+        const things = currentEventTag === 'SANTA_LETTER' ? 'letters' : currentEventTag === 'ORNAMENT' ? 'ornaments' : currentEventTag === 'BAUBLE_CARD' ? 'bauble cards' : currentEventTag === 'MAGNET_CARD' ? 'magnet cards' : 'magnets';
         switch (status) {
           case "checkout_created": return "Waiting for payment...";
           case "paid": return `We've confirmed your payment. We'll start preparing your ${things} shortly.`;
@@ -216,6 +216,7 @@
             if (order.productType === 'ornament') currentEventTag = 'ORNAMENT';
             if (order.productType === 'santa_letter') currentEventTag = 'SANTA_LETTER';
             if (order.productType === 'bauble_card') currentEventTag = 'BAUBLE_CARD';
+            if (order.productType === 'magnet_card') currentEventTag = 'MAGNET_CARD';
 
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
@@ -262,6 +263,8 @@
                 ? `${order.packSize} letter${Number(order.packSize) === 1 ? '' : 's'} from Santa`
               : order.productType === 'bauble_card'
                 ? `${order.packSize} photo bauble card${Number(order.packSize) === 1 ? '' : 's'}`
+              : order.productType === 'magnet_card'
+                ? `${order.packSize} Christmas magnet card${Number(order.packSize) === 1 ? '' : 's'}`
                 : `${order.packSize} magnets`;
             priceMeta.textContent = (typeof order.price === "number") ? "£" + order.price.toFixed(2) : "—";
             createdMeta.textContent = order.createdAt || "—";
@@ -319,6 +322,7 @@
             else if (currentEventTag === 'ORNAMENT') window.location.href = "/christmas-ornaments";
             else if (currentEventTag === 'SANTA_LETTER') window.location.href = "/santa-letter";
             else if (currentEventTag === 'BAUBLE_CARD') window.location.href = "/bauble-cards";
+            else if (currentEventTag === 'MAGNET_CARD') window.location.href = "/magnet-cards";
             else window.location.href = "/magnets";
         }
       }
