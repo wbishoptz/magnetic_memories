@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magnetic Memories | Photo Bauble Cards</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f3b2c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+  <script src="/pwa.js" defer></script>
+  <meta name="description" content="Your favourite photo in a keepsake bauble, mounted on a Christmas card. Five bauble colours, three cards — from £6.67 each." />
+  <meta property="og:title" content="Photo Bauble Cards – Magnetic Memories" />
+  <meta property="og:description" content="Your photo in a keepsake bauble, on a Christmas card — a card today, a tree decoration for years to come. From £7.50." />
+  <meta property="og:image" content="https://magnetic-memories.pages.dev/bauble-cards-og.jpg" />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+          colors: {
+            background: "#fbf7f1", foreground: "#1c2b24",
+            primary: "#b4232a", "primary-foreground": "#ffffff",
+            secondary: "#f2ebdf", "secondary-foreground": "#3b342a",
+            border: "#e8dfcf", muted: "#f2ebdf", "muted-foreground": "#6f6758",
+            pine: "#0f3b2c", gold: "#c9a14a",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #fbf7f1; color: #1c2b24; -webkit-tap-highlight-color: transparent; }
+    .gold-glow { box-shadow: 0 6px 24px rgba(180, 35, 42, 0.16); }
+    .btn-gradient { background: linear-gradient(135deg, #b4232a, #d9483b); }
+    .gold-text { background: linear-gradient(120deg, #f5d98b, #c9a14a 55%, #f0cf7a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 8600; display: none; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
+    .cropper-container { height: 300px; width: 100%; background: #f0f0f0; border-radius: 12px; margin: 16px 0; overflow: hidden; }
+    .cropper-container img { display: block; max-width: 100%; }
+    /* basket.js only styles .basket-show once the basket is switched on - keep it hidden otherwise */
+    body:not(.mm-basket-mode) .basket-show { display: none; }
+
+    /* the live preview: card + bauble + the customer's photo */
+    svg.orn { display: block; width: 100%; height: auto; overflow: visible; }
+    .card-pop { filter: drop-shadow(0 10px 20px rgba(60, 40, 10, .18)); }
+    .bauble-pop { filter: drop-shadow(0 12px 16px rgba(0, 0, 0, .38)); }
+    .chip-pop { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .22)); }
+    .pick-flash { animation: pickFlash 1.5s ease-out; }
+    @keyframes pickFlash { 0% { box-shadow: 0 0 0 0 rgba(201, 161, 74, 0); } 18% { box-shadow: 0 0 0 5px rgba(201, 161, 74, .6); } 100% { box-shadow: 0 0 0 16px rgba(201, 161, 74, 0); } }
+
+    /* hero: the five baubles hanging on gold strings, swinging, in falling snow */
+    .hero { background: radial-gradient(120% 90% at 50% 0%, #17573f 0%, #0f3b2c 55%, #0a2a1f 100%); }
+    .hang { transform-origin: 50% 0; animation: swing 4.6s ease-in-out infinite; }
+    .hang:nth-child(2) { animation-duration: 5.2s; animation-delay: -1.3s; }
+    .hang:nth-child(3) { animation-duration: 4.2s; animation-delay: -2.1s; }
+    .hang:nth-child(4) { animation-duration: 5.6s; animation-delay: -0.6s; }
+    .hang:nth-child(5) { animation-duration: 4.9s; animation-delay: -3.2s; }
+    @keyframes swing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+    .string { width: 1.5px; margin: 0 auto; background: linear-gradient(#e9c97a, #c9a14a); }
+    .snow { position: absolute; top: -12px; border-radius: 9999px; background: #fff; opacity: .85; animation: fall linear infinite; pointer-events: none; }
+    @keyframes fall { 0% { transform: translate3d(0, -10px, 0); } 100% { transform: translate3d(18px, 560px, 0); } }
+    .twinkle { position: absolute; color: #f5d98b; animation: twinkle 2.8s ease-in-out infinite; pointer-events: none; }
+    @keyframes twinkle { 0%, 100% { opacity: .15; transform: scale(.7); } 50% { opacity: 1; transform: scale(1); } }
+    .fade-up { animation: fadeUp .6s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hang, .snow, .twinkle, .fade-up, .pick-flash { animation: none !important; }
+      .snow { display: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-4">
+
+  <header class="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
+    <div class="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
+      <a href="/" aria-label="Back to all products" class="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </a>
+      <h1 class="font-serif text-lg font-semibold text-foreground">Photo Bauble Cards</h1>
+      <div class="w-10"></div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6 max-w-2xl">
+
+    <!-- ── Landing (step 1 only) ── -->
+    <div id="landing" class="space-y-10 mb-10">
+
+      <section class="hero relative overflow-hidden rounded-3xl text-center px-5 pt-0 pb-8 shadow-xl fade-up" aria-label="Photo bauble cards">
+        <div id="snow" class="absolute inset-0 overflow-hidden" aria-hidden="true"></div>
+        <span class="twinkle text-lg" style="left:8%; top:34%; animation-delay:-.4s;" aria-hidden="true">✦</span>
+        <span class="twinkle text-sm" style="right:9%; top:30%; animation-delay:-1.6s;" aria-hidden="true">✦</span>
+        <span class="twinkle text-xs" style="left:15%; top:64%; animation-delay:-2.2s;" aria-hidden="true">✦</span>
+        <span class="twinkle text-base" style="right:13%; top:60%; animation-delay:-.9s;" aria-hidden="true">✦</span>
+
+        <div id="hero-hangers" class="relative flex justify-center items-start gap-1.5 sm:gap-4 mx-auto max-w-lg" aria-hidden="true"></div>
+
+        <div class="relative mt-6">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#f5d98b] border border-[#c9a14a]/50 bg-white/5 rounded-full px-3 py-1">✨ New for Christmas</span>
+          <h2 class="font-serif text-white text-[2.1rem] leading-tight sm:text-5xl font-semibold mt-4">Photo <span class="gold-text italic">Bauble</span> Cards</h2>
+          <p class="text-emerald-50/85 text-sm sm:text-base mt-3 max-w-md mx-auto">Your favourite photo in a keepsake bauble, mounted on a Christmas card — a card today, a tree decoration for years to come.</p>
+          <div class="flex flex-wrap justify-center gap-2 mt-5 text-xs font-medium">
+            <a href="#colours" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">🎨 5 colours</a>
+            <a href="#cards" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">💌 3 cards</a>
+            <a href="#builder" class="rounded-full bg-[#c9a14a] hover:bg-[#d6b05a] text-[#1c2b24] px-3 py-1.5 font-semibold transition-colors">From £6.67 each</a>
+          </div>
+          <a href="#builder" class="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-pine font-semibold px-6 py-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+            Create yours <i data-lucide="arrow-down" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </section>
+
+      <section id="colours" aria-labelledby="colours-title" class="scroll-mt-20">
+        <h2 id="colours-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Five bauble colours</h2>
+        <p class="text-sm text-muted-foreground text-center mt-1">Tap one to choose it — every bauble holds a 50mm photo magnet.</p>
+        <div id="colour-row" class="grid grid-cols-5 gap-2 sm:gap-3 mt-5"></div>
+        <div id="tree-gallery" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5"></div>
+      </section>
+
+      <section id="cards" aria-labelledby="cards-title" class="scroll-mt-20">
+        <h2 id="cards-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Three cards to choose from</h2>
+        <p class="text-sm text-muted-foreground text-center mt-1">Your bauble arrives mounted on the card, gift-bagged and ready to give.</p>
+        <div id="card-gallery" class="grid grid-cols-3 gap-2.5 sm:gap-3 mt-5"></div>
+      </section>
+
+      <section aria-labelledby="how-title">
+        <h2 id="how-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">How it works</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+          <div class="bg-white rounded-2xl border border-border p-5 text-center shadow-sm">
+            <div class="w-12 h-12 rounded-full bg-[#fbeee9] text-primary flex items-center justify-center mx-auto text-xl">🎨</div>
+            <p class="font-semibold mt-3">Pick a colour</p>
+            <p class="text-xs text-muted-foreground mt-1">Red, sparkle red, green, silver or sparkle blue — mix them however you like.</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-border p-5 text-center shadow-sm">
+            <div class="w-12 h-12 rounded-full bg-[#fbf3df] text-gold flex items-center justify-center mx-auto text-xl">📷</div>
+            <p class="font-semibold mt-3">Add your photo</p>
+            <p class="text-xs text-muted-foreground mt-1">We print it as a 50mm photo magnet that sits right in the middle of the bauble.</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-border p-5 text-center shadow-sm">
+            <div class="w-12 h-12 rounded-full bg-[#e7f1ec] text-pine flex items-center justify-center mx-auto text-xl">💌</div>
+            <p class="font-semibold mt-3">Choose your card</p>
+            <p class="text-xs text-muted-foreground mt-1">We mount it on your card and bag it up — ready to give, then hang on the tree.</p>
+          </div>
+        </div>
+      </section>
+
+      <div id="builder" class="text-center scroll-mt-20 pt-2">
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold">Create your bauble cards</h2>
+        <p class="text-sm text-muted-foreground mt-1">Choose how many, then a colour, a photo and a card for each.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-center gap-2 mb-8" id="step-indicator"></div>
+
+    <!-- STEP 1: Bauble cards -->
+    <div id="step-1" class="space-y-6">
+      <div id="packs" class="grid grid-cols-3 gap-3" role="radiogroup" aria-label="How many bauble cards"></div>
+      <div id="items-container" class="space-y-4"></div>
+    </div>
+
+    <!-- STEP 2: Delivery -->
+    <div id="step-2" class="text-center space-y-6 hidden">
+      <div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Delivery Method</h2>
+        <p class="text-muted-foreground text-sm">Choose collection for free or have it delivered for just £3.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setDelivery('GI_COLLECT')" id="del-collect" class="p-6 rounded-xl border-2 transition-all duration-300 text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="package" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-collect"></i>
+          <p class="font-semibold text-foreground">Collection</p>
+          <p class="text-xs text-muted-foreground mt-1">Atlantic Suites</p>
+          <p class="text-sm font-semibold text-primary mt-2">Free</p>
+        </button>
+        <button onclick="setDelivery('GI_DELIVER')" id="del-deliver" class="p-6 rounded-xl border-2 transition-all duration-300 text-left bg-white border-border hover:border-primary/40">
+          <i data-lucide="truck" class="w-8 h-8 mb-3 text-muted-foreground" id="icon-deliver"></i>
+          <p class="font-semibold text-foreground">Delivery</p>
+          <p class="text-xs text-muted-foreground mt-1">Gibraltar only</p>
+          <p class="text-sm font-semibold text-primary mt-2">£3.00</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Share -->
+    <div id="step-3" class="text-center space-y-6 hidden">
+      <div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Share the Love?</h2>
+        <p class="text-muted-foreground text-sm">Would you be happy for us to feature your order on our social media?</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+        <button onclick="setSocial(true)" id="soc-yes" class="p-6 rounded-xl border-2 transition-all duration-300 text-center bg-white border-border hover:border-primary/40">
+          <i data-lucide="share-2" class="w-8 h-8 mb-3 mx-auto text-muted-foreground" id="icon-yes"></i>
+          <p class="font-semibold text-foreground">Yes, share it!</p>
+        </button>
+        <button onclick="setSocial(false)" id="soc-no" class="p-6 rounded-xl border-2 transition-all duration-300 text-center bg-white border-border hover:border-primary/40">
+          <i data-lucide="shield-check" class="w-8 h-8 mb-3 mx-auto text-muted-foreground" id="icon-no"></i>
+          <p class="font-semibold text-foreground">No, keep it private</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 4: Contact -->
+    <div id="step-4" class="text-center space-y-6 hidden">
+      <div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Your Contact Details</h2>
+        <p class="text-muted-foreground text-sm">So we can send you updates about your order.</p>
+      </div>
+      <div class="max-w-sm mx-auto space-y-5 text-left">
+        <div class="space-y-2">
+          <label for="email" class="text-foreground flex items-center gap-2 text-sm font-medium"><i data-lucide="mail" class="w-4 h-4 text-primary"></i> Email Address</label>
+          <input type="email" id="email" placeholder="you@example.com" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+        <div class="space-y-2">
+          <label for="phone" class="text-foreground flex items-center gap-2 text-sm font-medium"><i data-lucide="phone" class="w-4 h-4 text-primary"></i> Phone Number</label>
+          <input type="tel" id="phone" placeholder="+44 7XXX XXXXXX" oninput="checkContact()" class="w-full p-3 rounded-lg bg-white border border-border focus:outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: Review -->
+    <div id="step-5" class="text-center space-y-6 hidden">
+      <div>
+        <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-3xl">🎄</div>
+        <h2 class="font-serif text-2xl sm:text-3xl font-semibold mb-2">Review Your Order</h2>
+        <p class="text-muted-foreground text-sm">Make sure everything looks perfect before submitting.</p>
+      </div>
+
+      <div id="review-items" class="flex flex-wrap justify-center gap-3"></div>
+
+      <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
+        <div class="flex items-center justify-between border-b pb-2">
+          <span class="font-medium text-muted-foreground" id="sum-pack">Bauble cards</span>
+          <span class="font-bold" id="sum-pack-price">£0.00</span>
+        </div>
+        <div class="flex items-center justify-between border-b pb-2" id="sum-discount-row" style="display:none;">
+          <span class="font-medium text-green-600" id="sum-discount-label">Discount</span>
+          <span class="font-bold text-green-600" id="sum-discount-amt">-£0.00</span>
+        </div>
+        <div class="flex items-center justify-between border-b pb-2">
+          <span class="font-medium text-muted-foreground" id="sum-delivery">Delivery</span>
+          <span class="font-bold" id="sum-delivery-price">£0.00</span>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="font-bold text-lg">Total</span>
+          <span class="font-bold text-lg text-primary" id="sum-total">£0.00</span>
+        </div>
+      </div>
+
+      <div class="max-w-xs mx-auto mt-4">
+        <div class="flex gap-2">
+          <input id="bc-promo" type="text" placeholder="Promo code" class="flex-1 p-2.5 rounded-lg bg-white border border-border text-center uppercase text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button type="button" onclick="applyPromo()" class="px-4 rounded-lg bg-secondary font-semibold text-sm">Apply</button>
+        </div>
+        <p id="bc-promo-msg" class="text-xs mt-2" style="display:none;"></p>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center mt-10 border-t border-border -mx-4 px-4" style="position:sticky; bottom:0; z-index:8100; background:#fbf7f1; padding-top:0.85rem; padding-bottom:max(0.85rem, env(safe-area-inset-bottom));">
+      <button onclick="goBack()" id="btn-back" class="text-muted-foreground hover:text-foreground font-medium flex items-center gap-2 disabled:opacity-0 transition-opacity">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+      </button>
+      <div class="flex gap-3 items-center">
+        <button id="basket-btn-bc" onclick="submitOrder({addToBasket:true})" class="basket-show mm-hide px-5 py-2.5 rounded-lg font-medium transition-all" style="background:#59c9a5; color:#000;">
+          🛒 Add to Basket
+        </button>
+        <button onclick="goNext()" id="btn-next" disabled class="btn-gradient px-6 py-2.5 rounded-lg text-white font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2">
+          Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <input type="file" id="fileInput" accept="image/*" class="hidden" />
+
+  <div id="zoom" class="fixed inset-0 z-[8700] hidden items-center justify-center bg-black/80 p-4" onclick="if (event.target === this) closeZoom()" role="dialog" aria-modal="true" aria-label="Photo">
+    <div class="relative w-full max-w-md">
+      <button type="button" onclick="closeZoom()" aria-label="Close" class="absolute -top-3 -right-3 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <img id="zoom-img" src="" alt="" class="w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl bg-white" />
+      <div class="flex items-center justify-between gap-3 mt-3">
+        <p id="zoom-cap" class="text-white font-semibold text-sm"></p>
+        <button id="zoom-cta" type="button" class="shrink-0 rounded-full bg-white text-pine font-semibold px-4 py-2.5 text-sm shadow hover:bg-[#fbf3df] transition-colors"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="modal-content">
+      <h3 id="crop-title" class="font-serif text-xl font-semibold mb-1 text-center">Adjust Photo</h3>
+      <p class="text-xs text-center text-muted-foreground">The square is your 50mm photo magnet — it sits in the middle of the bauble.</p>
+      <div class="cropper-container"><img id="crop-image" src="" alt="" /></div>
+      <div class="flex gap-3 justify-center mt-2">
+        <button onclick="closeCrop()" class="px-6 py-2 bg-secondary rounded-lg font-bold text-foreground">Cancel</button>
+        <button id="crop-save" class="px-6 py-2 btn-gradient text-white rounded-lg font-bold">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // ── Product data. Keys must match BAUBLE_CARD_COLOURS / BAUBLE_CARD_CARDS in functions/api/_shared.js ──
+    const COLOURS = {
+      red: { label: 'Red' },
+      sparkle_red: { label: 'Sparkle Red' },
+      green: { label: 'Green' },
+      silver: { label: 'Silver' },
+      blue: { label: 'Sparkle Blue' },
+    };
+    const COLOUR_KEYS = ['red', 'sparkle_red', 'green', 'silver', 'blue'];
+    const CARDS = {
+      berries: { label: 'Berries & Bow', short: 'Berries' },
+      stripes: { label: 'Green Stripes', short: 'Stripes' },
+      wreath: { label: 'Pine Wreath', short: 'Wreath' },
+    };
+    const CARD_KEYS = ['berries', 'stripes', 'wreath'];
+    // bauble-<colour>.webp: the bauble cut out on a transparent background (cx/cy/r = its round body,
+    // quad = the magnet's visible photo area TL/TR/BR/BL, hang = where the string ties on) - all in its own pixels
+    const BMETA = {
+      red: {"w": 480, "h": 534, "cx": 240.0, "cy": 302.0, "r": 220.0, "quad": [[126.3, 189.4], [354.0, 189.2], [353.6, 417.1], [126.6, 417.1]], "hang": [239.9, 20.8]},
+      sparkle_red: {"w": 480, "h": 534, "cx": 240.0, "cy": 302.0, "r": 220.0, "quad": [[127.1, 190.5], [353.3, 190.0], [352.9, 417.2], [126.7, 417.4]], "hang": [240.0, 22.0]},
+      green: {"w": 480, "h": 534, "cx": 240.0, "cy": 302.0, "r": 220.0, "quad": [[126.3, 188.4], [353.4, 190.2], [354.1, 416.2], [126.2, 417.3]], "hang": [241.2, 22.3]},
+      silver: {"w": 480, "h": 534, "cx": 240.0, "cy": 302.0, "r": 220.0, "quad": [[124.9, 187.7], [354.2, 188.4], [355.2, 418.4], [125.4, 417.8]], "hang": [239.2, 20.5]},
+      blue: {"w": 480, "h": 534, "cx": 240.0, "cy": 302.0, "r": 220.0, "quad": [[126.6, 188.1], [353.0, 189.1], [353.6, 416.2], [126.4, 416.1]], "hang": [241.2, 21.9]},
+    };
+    // bauble-card-<card>.jpg: the card photographed flat; bauble = where the bauble's body sits on it
+    const CMETA = {
+      berries: {"w": 720, "h": 1009, "bauble": {"cx": 374.0, "cy": 517.9, "d": 552.0}},
+      stripes: {"w": 720, "h": 985, "bauble": {"cx": 365.3, "cy": 462.4, "d": 542.6}},
+      wreath: {"w": 720, "h": 997, "bauble": {"cx": 349.8, "cy": 369.0, "d": 549.2}},
+    };
+    // photos (from the real thing) for the landing galleries
+    const TREE_SHOTS = [['blue', './bauble-tree-blue.jpg'], ['green', './bauble-tree-green.jpg'], ['silver', './bauble-tree-silver.jpg'], ['sparkle_red', './bauble-tree-sparkle_red.jpg']];
+    const CARD_SHOTS = { berries: ['red', './bauble-card-red-berries.jpg'], stripes: ['green', './bauble-card-green-stripes.jpg'], wreath: ['blue', './bauble-card-blue-wreath.jpg'] };
+
+    // Keep in sync with BAUBLE_CARD_PRICES in functions/api/_shared.js (the server charges those)
+    const PACKS = { 1: 7.50, 2: 14.00, 3: 20.00 };
+    const LABELS = ['Baubles', 'Delivery', 'Share', 'Contact', 'Review'];
+    const TOTAL_STEPS = 5;
+    const money = (v) => '£' + v.toFixed(2);
+    const isColour = (k) => COLOUR_KEYS.includes(k);
+    const isCard = (k) => CARD_KEYS.includes(k);
+    const itemText = (it) => `${COLOURS[it.colour].label} bauble · ${CARDS[it.card].label} card`;
+
+    // One bauble card as an <svg>: the card, the bauble placed on it, and in the bauble's window
+    // the customer's `photo`, an "add photo" prompt (`empty`), or (neither) the sample photo.
+    let svgSeq = 0;
+    function cardArt(it, { photo = null, empty = false, cls = '' } = {}) {
+      const C = CMETA[it.card], B = BMETA[it.colour], id = `bc${++svgSeq}`;
+      const s = (C.bauble.d / 2) / B.r, tx = C.bauble.cx - B.cx * s, ty = C.bauble.cy - B.cy * s;
+      return `<svg class="orn ${cls}" viewBox="0 0 ${C.w} ${C.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${itemText(it)}">`
+        + `<defs><filter id="${id}s" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="${(14 / s).toFixed(1)}" stdDeviation="${(12 / s).toFixed(1)}" flood-color="#2b1d0e" flood-opacity=".32"/></filter></defs>`
+        + `<image href="./bauble-card-${it.card}.jpg" width="${C.w}" height="${C.h}"/>`
+        + `<g transform="translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${s.toFixed(4)})">${baubleInner(it.colour, { photo, empty, id, shadow: `${id}s` })}</g></svg>`;
+    }
+    function baubleInner(colour, { photo = null, empty = false, id, shadow = null }) {
+      const B = BMETA[colour], q = B.quad;
+      const pts = q.map(p => p.join(',')).join(' ');
+      const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
+      const qw = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]);
+      let over = '';
+      if (photo) {
+        // affine-map a 100×100 image through TL/TR/BL (3% bleed), clipped to the exact window
+        const g = (p) => [cx + (p[0] - cx) * 1.03, cy + (p[1] - cy) * 1.03];
+        const [a, b, c] = [g(q[0]), g(q[1]), g(q[3])];
+        const m = [(b[0] - a[0]) / 100, (b[1] - a[1]) / 100, (c[0] - a[0]) / 100, (c[1] - a[1]) / 100, a[0], a[1]].map(v => +v.toFixed(3));
+        over = `<defs><clipPath id="${id}c"><polygon points="${pts}"/></clipPath>`
+          + `<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`
+          + `<g clip-path="url(#${id}c)"><rect x="0" y="0" width="${B.w}" height="${B.h}" fill="#f4f1ec"/>`
+          + `<image href="${photo}" width="100" height="100" preserveAspectRatio="none" transform="matrix(${m.join(' ')})"/>`
+          + `<polygon points="${pts}" fill="url(#${id}g)"/></g>`;
+      } else if (empty) {
+        const k = qw / 76;
+        over = `<polygon points="${pts}" fill="#fbf3df" stroke="#c9a14a" stroke-width="${(2.4 * k).toFixed(1)}" stroke-dasharray="${(6 * k).toFixed(1)} ${(5 * k).toFixed(1)}" stroke-linejoin="round"/>`
+          + `<text x="${cx}" y="${cy - 4 * k}" text-anchor="middle" font-size="${(22 * k).toFixed(1)}" fill="#c9a14a" font-family="Inter, sans-serif">＋</text>`
+          + `<text x="${cx}" y="${cy + 16 * k}" text-anchor="middle" font-size="${(10.5 * k).toFixed(1)}" font-weight="600" fill="#8a6a1f" font-family="Inter, sans-serif">Add photo</text>`;
+      }
+      return `<g${shadow ? ` filter="url(#${shadow})"` : ''}><image href="./bauble-${colour}.webp" width="${B.w}" height="${B.h}"/>${over}</g>`;
+    }
+
+    // ── Landing: hero baubles, colour row, galleries ──
+    (function landing() {
+      const strings = [30, 58, 20, 46, 34];
+      document.getElementById('hero-hangers').innerHTML = COLOUR_KEYS.map((k, i) => {
+        const B = BMETA[k];
+        const dx = (50 - B.hang[0] / B.w * 100).toFixed(1), up = (B.hang[1] / B.w * 100).toFixed(1);
+        return `
+        <div class="hang w-[18%] max-w-[96px] shrink-0">
+          <div class="string" style="height:${strings[i]}px"></div>
+          <div class="bauble-pop" style="transform:translateX(${dx}%); margin-top:-${up}%">
+            <img src="./bauble-${k}.webp" alt="" width="${B.w}" height="${B.h}" class="block w-full h-auto" />
+          </div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('colour-row').innerHTML = COLOUR_KEYS.map(k => `
+        <button type="button" onclick="pickColour('${k}')" aria-label="Choose a ${COLOURS[k].label.toLowerCase()} bauble"
+          class="group flex flex-col items-center gap-1.5 rounded-2xl bg-white border border-border py-3 px-1 shadow-sm hover:border-primary/40 hover:shadow-md transition-all">
+          <img src="./bauble-${k}-sm.webp" alt="" class="w-[78%] h-auto chip-pop transition-transform duration-300 group-hover:-translate-y-0.5" />
+          <span class="text-[11px] sm:text-xs font-semibold leading-tight text-center">${COLOURS[k].label}</span>
+        </button>`).join('');
+
+      document.getElementById('tree-gallery').innerHTML = TREE_SHOTS.map(([k, src]) => `
+        <button type="button" onclick="zoomShot('${src}', '${k}', null)" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+          <span class="block overflow-hidden"><img src="${src}" alt="${COLOURS[k].label} photo bauble hanging on a Christmas tree" width="720" height="900" class="w-full h-auto aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+          <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">${COLOURS[k].label} <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+        </button>`).join('');
+
+      document.getElementById('card-gallery').innerHTML = CARD_KEYS.map(c => {
+        const [k, src] = CARD_SHOTS[c];
+        return `
+        <button type="button" onclick="zoomShot('${src}', '${k}', '${c}')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+          <span class="block overflow-hidden"><img src="${src}" alt="${COLOURS[k].label} bauble on the ${CARDS[c].label} card" width="720" height="960" class="w-full h-auto aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+          <span class="flex items-center justify-center gap-1 px-1.5 py-2 text-[11px] sm:text-xs font-semibold text-center leading-tight">${CARDS[c].label} <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground shrink-0"></i></span>
+        </button>`;
+      }).join('');
+
+      let html = '';
+      for (let i = 0; i < 34; i++) {
+        const sz = 2 + Math.random() * 3.5;
+        html += `<span class="snow" style="left:${Math.random() * 100}%; width:${sz}px; height:${sz}px; opacity:${0.35 + Math.random() * 0.55}; animation-duration:${7 + Math.random() * 9}s; animation-delay:${-Math.random() * 14}s;"></span>`;
+      }
+      document.getElementById('snow').innerHTML = html;
+    })();
+
+    // ── Order state ──
+    const newItem = (colour = 'red', card = 'berries') => ({ colour, card, photo: null, origSrc: null });
+    let state = {
+      step: 1,
+      qty: 1,
+      items: [newItem()],
+      delivery: null,
+      social: null,
+      email: '',
+      phone: '',
+      voucherCode: '', discountPct: 0, voucherValue: 0
+    };
+    const price = () => PACKS[state.qty];
+
+    // ?colour=red|sparkle_red|green|silver|blue and ?card=berries|stripes|wreath preselect the first one
+    (function preselect() {
+      const q = new URLSearchParams(location.search);
+      if (isColour(q.get('colour'))) state.items[0].colour = q.get('colour');
+      if (isCard(q.get('card'))) state.items[0].card = q.get('card');
+    })();
+    // every bauble made so far; the pack shows the first `qty`, so going 3 → 1 → 3 keeps the photos
+    state.pool = state.items.slice();
+
+    window.applyPromo = async () => {
+      const code = document.getElementById('bc-promo').value.trim();
+      const msg = document.getElementById('bc-promo-msg');
+      if (!code) return;
+      try {
+        const res = await fetch('/api/voucher-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        msg.style.display = 'block';
+        if (data.valid) {
+          state.voucherCode = data.code;
+          state.discountPct = data.percent || 0;
+          state.voucherValue = data.percent ? 0 : (Number(data.value) || 0);   // gift voucher balance (£)
+          msg.style.color = '#16a34a';
+          msg.textContent = data.percent ? `${data.percent}% off applied! 🎄` : `Voucher applied! −${money(state.voucherValue)}`;
+          document.getElementById('bc-promo').disabled = true;
+          buildReview();
+        } else {
+          state.voucherCode = '';
+          state.discountPct = 0; state.voucherValue = 0;
+          msg.style.color = '#dc2626';
+          msg.textContent = data.error || 'Invalid code';
+        }
+      } catch (e) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Error checking code'; }
+    };
+
+    const ready = () => state.items.length === state.qty && state.items.every(it => isColour(it.colour) && isCard(it.card) && it.photo);
+
+    function render() {
+      document.getElementById('landing').classList.toggle('hidden', state.step !== 1);
+      let indHtml = '';
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const isCompleted = i < state.step, isActive = i === state.step;
+        let cls = "bg-secondary text-muted-foreground";
+        if (isCompleted) cls = "bg-primary text-white";
+        if (isActive) cls = "btn-gradient text-white gold-glow scale-110";
+        indHtml += `
+          <div class="flex items-center gap-1.5">
+            <div class="flex flex-col items-center gap-1">
+              <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${cls}">
+                ${isCompleted ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : i}
+              </div>
+              <span class="text-[10px] hidden sm:block ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}">${LABELS[i - 1]}</span>
+            </div>
+            ${i < TOTAL_STEPS ? `<div class="w-5 sm:w-8 h-px mb-4 ${isCompleted ? 'bg-primary' : 'bg-border'}"></div>` : ''}
+          </div>`;
+      }
+      document.getElementById('step-indicator').innerHTML = indHtml;
+
+      for (let s = 1; s <= TOTAL_STEPS; s++)
+        document.getElementById(`step-${s}`).classList.toggle('hidden', state.step !== s);
+
+      document.getElementById('btn-back').disabled = state.step === 1;
+
+      let canNext = false;
+      if (state.step === 1) canNext = ready();
+      if (state.step === 2) canNext = !!state.delivery;
+      if (state.step === 3) canNext = state.social !== null;
+      if (state.step === 4) canNext = state.email.includes('@') && state.phone.length > 5;
+      if (state.step === 5) canNext = true;
+
+      const btnNext = document.getElementById('btn-next');
+      btnNext.disabled = !canNext;
+      btnNext.innerHTML = state.step === TOTAL_STEPS
+        ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Submit Order'
+        : 'Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>';
+
+      const bb = document.getElementById('basket-btn-bc');
+      if (bb) bb.classList.toggle('mm-hide', !ready());
+
+      lucide.createIcons();
+    }
+
+    // ── Step 1: how many + one card per bauble ──
+    function renderPacks() {
+      document.getElementById('packs').innerHTML = Object.entries(PACKS).map(([n, p]) => {
+        const sel = Number(n) === state.qty, each = Math.round(p / Number(n) * 100) / 100;
+        return `
+          <button type="button" role="radio" aria-checked="${sel}" onclick="setQty(${n})"
+            class="relative rounded-2xl border-2 p-3 sm:p-4 text-center transition-all ${sel ? 'border-primary bg-primary/5 gold-glow' : 'bg-white border-border hover:border-primary/40'}">
+            ${Number(n) === 3 ? '<span class="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold uppercase tracking-wide bg-gold text-[#1c2b24] px-2 py-0.5 rounded-full">Best value</span>' : ''}
+            <p class="font-serif text-2xl sm:text-3xl font-semibold leading-none">${n}</p>
+            <p class="text-[11px] sm:text-xs font-medium text-muted-foreground mt-1">bauble card${n === '1' ? '' : 's'}</p>
+            <p class="text-primary font-bold mt-1.5">${money(p)}</p>
+            <p class="text-[11px] text-muted-foreground">${Number(n) === 1 ? '&nbsp;' : money(each) + ' each'}</p>
+          </button>`;
+      }).join('');
+    }
+    window.setQty = (n) => {
+      n = Number(n);
+      if (submitting || !PACKS[n]) return;
+      state.qty = n;
+      // a new bauble starts as a copy of the last one's colour + card (most people keep them matching)
+      while (state.pool.length < n) { const last = state.pool[state.pool.length - 1]; state.pool.push(newItem(last.colour, last.card)); }
+      state.items = state.pool.slice(0, n);
+      renderPacks(); renderItems(); render();
+      document.querySelector('#packs [aria-checked="true"]')?.focus({ preventScroll: true });
+    };
+
+    function renderItems() {
+      const n = state.items.length;
+      document.getElementById('items-container').innerHTML = state.items.map((it, i) => `
+        <div class="bg-white border border-border rounded-3xl p-4 sm:p-5 shadow-sm">
+          <div class="flex items-baseline justify-between gap-3">
+            <p class="font-serif text-lg font-semibold leading-tight">${n > 1 ? `Bauble card ${i + 1}` : 'Your bauble card'}</p>
+            <p class="text-[11px] font-medium text-muted-foreground text-right">${COLOURS[it.colour].label} · ${CARDS[it.card].short}</p>
+          </div>
+          <div class="grid sm:grid-cols-[210px_1fr] gap-4 sm:gap-6 mt-3 items-start">
+            <button type="button" data-k="${i}-photo" onclick="photoTap(${i})" aria-label="${it.photo ? 'Re-crop' : 'Add'} the photo for bauble card ${i + 1}"
+              class="block mx-auto w-[64%] max-w-[230px] sm:w-full rounded-xl hover:opacity-95 transition-opacity">
+              ${cardArt(it, { photo: it.photo && it.photo.preview, empty: !it.photo, cls: 'card-pop rounded-md' })}
+            </button>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Bauble colour</p>
+              <div class="grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Bauble colour for card ${i + 1}">
+                ${COLOUR_KEYS.map(k => {
+                  const on = k === it.colour;
+                  return `
+                  <button type="button" role="radio" aria-checked="${on}" aria-label="${COLOURS[k].label}" data-k="${i}-c-${k}" onclick="setColour(${i},'${k}')"
+                    class="flex flex-col items-center gap-1 rounded-xl border-2 pt-1.5 pb-1 transition-all ${on ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
+                    <img src="./bauble-${k}-sm.webp" alt="" class="w-[80%] h-auto chip-pop" />
+                    <span class="text-[9.5px] sm:text-[10px] font-semibold leading-tight text-center px-0.5">${COLOURS[k].label}</span>
+                  </button>`;
+                }).join('')}
+              </div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">Card</p>
+              <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Card for bauble ${i + 1}">
+                ${CARD_KEYS.map(c => {
+                  const on = c === it.card;
+                  return `
+                  <button type="button" role="radio" aria-checked="${on}" data-k="${i}-k-${c}" onclick="setCard(${i},'${c}')"
+                    class="rounded-xl border-2 overflow-hidden transition-all ${on ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
+                    <span class="block bg-[#f6efe3] p-1.5"><img src="./bauble-card-${c}-sm.jpg" alt="" class="w-full aspect-[5/7] object-cover rounded-[2px] shadow-sm" /></span>
+                    <span class="block text-[10px] sm:text-[11px] font-semibold py-1 leading-tight text-center">${CARDS[c].label}</span>
+                  </button>`;
+                }).join('')}
+              </div>
+              <button type="button" onclick="triggerUpload(${i})" class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold ${it.photo ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:opacity-80'}">
+                <i data-lucide="${it.photo ? 'refresh-cw' : 'camera'}" class="w-4 h-4"></i> ${it.photo ? 'Change photo' : 'Add your photo'}
+              </button>
+            </div>
+          </div>
+        </div>`).join('');
+      lucide.createIcons();
+    }
+    // after a re-render, put focus back on the same control (keyboard / screen readers)
+    const refocus = (key) => { const el = document.querySelector(`#items-container [data-k="${key}"]`); if (el) el.focus({ preventScroll: true }); };
+    window.setColour = (i, k) => { if (submitting || !isColour(k)) return; state.items[i].colour = k; renderItems(); render(); refocus(`${i}-c-${k}`); };
+    window.setCard = (i, c) => { if (submitting || !isCard(c)) return; state.items[i].card = c; renderItems(); render(); refocus(`${i}-k-${c}`); };
+
+    // ── Landing choices: apply to the first bauble still without a photo, then take you to it ──
+    function goToItem(i, key) {
+      const card = document.getElementById('items-container').children[i];
+      if (!card) return;
+      card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      card.classList.remove('pick-flash'); void card.offsetWidth; card.classList.add('pick-flash');
+      refocus(key);
+    }
+    const targetItem = () => Math.max(0, state.items.findIndex(it => !it.photo));
+    window.pickColour = (k) => {
+      if (submitting || state.step !== 1 || !isColour(k)) return;
+      const i = targetItem(); state.items[i].colour = k; renderItems(); render(); goToItem(i, `${i}-c-${k}`);
+    };
+    window.pickCard = (c) => {
+      if (submitting || state.step !== 1 || !isCard(c)) return;
+      const i = targetItem(); state.items[i].card = c; renderItems(); render(); goToItem(i, `${i}-k-${c}`);
+    };
+    // gallery photos open large, with a "Choose" button
+    let zoomReturn = null;
+    window.zoomShot = (src, colour, card) => {
+      if (!isColour(colour) || (card !== null && !isCard(card))) return;
+      zoomReturn = document.activeElement;
+      const img = document.getElementById('zoom-img');
+      img.src = src;
+      img.alt = card ? `${COLOURS[colour].label} bauble on the ${CARDS[card].label} card` : `${COLOURS[colour].label} photo bauble on a Christmas tree`;
+      document.getElementById('zoom-cap').textContent = card ? `💌 ${CARDS[card].label} card` : `🎄 ${COLOURS[colour].label} bauble`;
+      const cta = document.getElementById('zoom-cta');
+      cta.textContent = card ? `Choose this card →` : `Choose ${COLOURS[colour].label} →`;
+      cta.onclick = () => { closeZoom(false); card ? pickCard(card) : pickColour(colour); };
+      const z = document.getElementById('zoom');
+      z.classList.remove('hidden'); z.classList.add('flex');
+      cta.focus();
+    };
+    window.closeZoom = (restore = true) => {
+      const z = document.getElementById('zoom');
+      if (z.classList.contains('hidden')) return;
+      z.classList.add('hidden'); z.classList.remove('flex');
+      if (restore && zoomReturn && zoomReturn.isConnected) zoomReturn.focus({ preventScroll: true });
+      zoomReturn = null;
+    };
+    // keep Tab inside the open lightbox (close ↔ choose)
+    document.getElementById('zoom').addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const f = [...document.querySelectorAll('#zoom button')], i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('crop-modal').style.display === 'flex') closeCrop(); else closeZoom();
+    });
+
+    // ── Photo upload + square crop (the magnet) ──
+    let activeIdx = null, cropper = null;
+    const fileInput = document.getElementById('fileInput');
+    window.triggerUpload = (i) => { if (submitting) return; activeIdx = i; fileInput.click(); };
+    window.photoTap = (i) => { if (submitting) return; if (state.items[i].photo) openCrop(i); else window.triggerUpload(i); };
+    const revoke = (u) => { if (u) { try { URL.revokeObjectURL(u); } catch (_) {} } };
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files[0]; fileInput.value = '';
+      if (!f || activeIdx == null) return;
+      const it = state.items[activeIdx];
+      // instant blob URL (no base64 read) so the crop opens straight away, even for big photos.
+      // The current photo stays until the new one is saved (or the new one turns out unreadable).
+      it.prev = { origSrc: it.origSrc, photo: it.photo };
+      it.origSrc = URL.createObjectURL(f);
+      it.photo = null;
+      openCrop(activeIdx);
+    });
+    function openCrop(i) {
+      activeIdx = i;
+      document.getElementById('crop-image').src = state.items[i].origSrc;
+      document.getElementById('crop-modal').style.display = 'flex';
+      if (cropper) cropper.destroy();
+      cropper = new Cropper(document.getElementById('crop-image'), { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+      document.getElementById('crop-save').focus();
+    }
+    const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+    // centre square of the photo, as a JPEG blob (used if the crop is cancelled)
+    async function centreSquare(src) {
+      const img = await loadImg(src), s = Math.min(img.naturalWidth, img.naturalHeight), out = Math.min(1600, s);
+      const cv = document.createElement('canvas'); cv.width = cv.height = out;
+      cv.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, out, out);
+      const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.95));
+      return blob ? { blob, preview: URL.createObjectURL(blob) } : null;
+    }
+    // a new photo is in: forget the one it replaced
+    function dropPrev(it) {
+      if (it.prev) { if (it.prev.origSrc !== it.origSrc) revoke(it.prev.origSrc); if (it.prev.photo) revoke(it.prev.photo.preview); it.prev = null; }
+    }
+    window.closeCrop = async () => {
+      if (cropper) { cropper.destroy(); cropper = null; }
+      document.getElementById('crop-modal').style.display = 'none';
+      const idx = activeIdx, it = state.items[idx];
+      if (it && !it.photo && it.origSrc) {
+        if (it.prev && it.prev.photo) {
+          // cancelled a replacement: keep the photo they already had
+          revoke(it.origSrc); it.origSrc = it.prev.origSrc; it.photo = it.prev.photo; it.prev = null;
+        } else {
+          // cancelled a first photo → use its centre square so the bauble isn't left empty
+          try { it.photo = await centreSquare(it.origSrc); } catch (_) {}
+          if (it.photo) dropPrev(it);
+          else {
+            // the browser couldn't read it (e.g. some HEIC photos)
+            revoke(it.origSrc);
+            if (it.prev) { it.origSrc = it.prev.origSrc; it.photo = it.prev.photo; it.prev = null; } else it.origSrc = null;
+            alert("We couldn't open that photo — please choose a JPG or PNG.");
+          }
+        }
+      }
+      renderItems(); render();
+      refocus(`${idx}-photo`);
+    };
+    document.getElementById('crop-save').onclick = () => {
+      if (!cropper) return;
+      const cv = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 });
+      if (!cv) return;   // the photo is still loading
+      cv.toBlob(blob => {
+        if (!blob) return;
+        const it = state.items[activeIdx];
+        if (it.photo) revoke(it.photo.preview);   // re-crop of the same photo
+        it.photo = { blob, preview: URL.createObjectURL(blob) };
+        dropPrev(it);
+        closeCrop();
+      }, 'image/jpeg', 0.95);
+    };
+
+    // ── Options ──
+    window.setDelivery = (val) => {
+      state.delivery = val;
+      const act = "border-primary bg-primary/5 gold-glow", inact = "bg-white border-border";
+      document.getElementById('del-collect').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_COLLECT' ? act : inact}`;
+      document.getElementById('del-deliver').className = `p-6 rounded-xl border-2 transition-all duration-300 text-left ${val === 'GI_DELIVER' ? act : inact}`;
+      document.getElementById('icon-collect').classList.toggle('text-primary', val === 'GI_COLLECT');
+      document.getElementById('icon-deliver').classList.toggle('text-primary', val === 'GI_DELIVER');
+      render();
+    };
+    window.setSocial = (val) => {
+      state.social = val;
+      const act = "border-primary bg-primary/5 gold-glow", inact = "bg-white border-border";
+      document.getElementById('soc-yes').className = `p-6 rounded-xl border-2 transition-all duration-300 text-center ${val === true ? act : inact}`;
+      document.getElementById('soc-no').className = `p-6 rounded-xl border-2 transition-all duration-300 text-center ${val === false ? act : inact}`;
+      document.getElementById('icon-yes').classList.toggle('text-primary', val === true);
+      document.getElementById('icon-no').classList.toggle('text-primary', val === false);
+      render();
+    };
+    window.checkContact = () => {
+      state.email = document.getElementById('email').value.trim();
+      state.phone = document.getElementById('phone').value.trim();
+      render();
+    };
+
+    function buildReview() {
+      const isDel = state.delivery === 'GI_DELIVER', p = price();
+      document.getElementById('review-items').innerHTML = state.items.map((it, i) => `
+        <div class="bg-white border border-border rounded-2xl p-3 w-[calc(50%-0.375rem)] sm:w-44">
+          <div class="w-28 mx-auto">${cardArt(it, { photo: it.photo ? it.photo.preview : null, cls: 'card-pop rounded-sm' })}</div>
+          <p class="text-xs font-semibold mt-2">${state.items.length > 1 ? `Bauble card ${i + 1}` : 'Your bauble card'}</p>
+          <p class="text-[11px] text-muted-foreground">${COLOURS[it.colour].label} bauble<br>${CARDS[it.card].label} card</p>
+        </div>`).join('');
+      document.getElementById('sum-pack').innerText = state.qty === 1 ? '1 photo bauble card' : `${state.qty} photo bauble cards`;
+      document.getElementById('sum-pack-price').innerText = money(p);
+      // same maths as functions/api/checkout.js: percent codes, or a gift voucher's balance (up to the price)
+      const discount = state.discountPct ? Math.round(p * state.discountPct) / 100 : Math.min(p, state.voucherValue || 0);
+      const dRow = document.getElementById('sum-discount-row');
+      if (discount > 0) {
+        dRow.style.display = 'flex';
+        document.getElementById('sum-discount-label').innerText = `Discount (${state.voucherCode})`;
+        document.getElementById('sum-discount-amt').innerText = `-${money(discount)}`;
+      } else { dRow.style.display = 'none'; }
+      document.getElementById('sum-delivery').innerText = isDel ? 'Delivery' : 'Collection';
+      document.getElementById('sum-delivery-price').innerText = isDel ? '£3.00' : 'Free';
+      document.getElementById('sum-total').innerText = money((p - discount) + (isDel ? 3 : 0));
+      window.mmBasketPrefill = {
+        email: state.email, phone: state.phone, shipping: state.delivery,
+        social: state.social === true ? 'yes' : state.social === false ? 'no' : undefined
+      };
+    }
+
+    window.goBack = () => {
+      if (submitting || state.step <= 1) return;
+      state.step--; render();
+      if (state.step === 1) document.getElementById('builder').scrollIntoView(); else window.scrollTo({ top: 0 });
+    };
+    window.goNext = () => {
+      if (state.step < TOTAL_STEPS) {
+        state.step++;
+        if (state.step === TOTAL_STEPS) buildReview();
+        render();
+        window.scrollTo({ top: 0 });
+      } else submitOrder();
+    };
+
+    let submitting = false;
+    async function submitOrder(opts = {}) {
+      const { addToBasket = false } = opts;
+      if (submitting || !ready()) return;
+      const btn = addToBasket ? document.getElementById('basket-btn-bc') : document.getElementById('btn-next');
+
+      if (!addToBasket && window.mmBasket?.isEnabled() && window.mmBasket?.getCount() > 0) {
+        const count = window.mmBasket.getCount();
+        if (confirm(`You have ${count} item${count > 1 ? 's' : ''} in your basket. Add this to your basket and pay for everything together?`)) {
+          submitOrder({ addToBasket: true }); return;
+        }
+      }
+
+      submitting = true;
+      btn.disabled = true;
+      btn.innerHTML = addToBasket ? 'Adding...' : '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...';
+
+      try {
+        const items = state.items.map(it => ({ colour: it.colour, card: it.card, blob: it.photo.blob })), qty = state.qty, p = price();
+        const payload = {
+          email: addToBasket ? 'basket@draft.local' : state.email,
+          phone: addToBasket ? '00000000000' : state.phone,
+          socialPermission: addToBasket ? 'yes' : state.social,
+          shippingMethod: addToBasket ? 'GI_COLLECT' : state.delivery,
+          productType: 'bauble_card',
+          packSize: qty,
+          baubleCards: items.map(it => ({ colour: it.colour, card: it.card })),
+          basketDraft: addToBasket || undefined
+        };
+        const res = await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "We couldn't create your order — please try again."); }
+        const { orderId } = await res.json();
+
+        // one at a time: the server appends each photo to the order record
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          btn.innerText = `Uploading photo ${i + 1} of ${items.length}...`;
+          const name = `bauble${i + 1}-${it.colour}-${it.card}.jpg`;
+          let ok = false;
+          for (let attempt = 1; attempt <= 4 && !ok; attempt++) {
+            try {
+              const form = new FormData();
+              form.append("file", it.blob, name);
+              const r = await fetch(`/api/upload?orderId=${orderId}&filename=${encodeURIComponent(name)}`, { method: "POST", body: form });
+              if (r.ok) { const j = await r.json().catch(() => ({})); if (j.ok || j.key) ok = true; }
+            } catch (e) {}
+            if (!ok && attempt < 4) await new Promise(res => setTimeout(res, 700 * attempt));
+          }
+          if (!ok) throw new Error("A photo didn't upload — please check your connection and try again.");
+        }
+
+        if (addToBasket) {
+          window.mmBasket.add(orderId, `🎄 Photo Bauble Card${qty > 1 ? 's ×' + qty : ''}`, p);
+          btn.innerHTML = '🛒 Added!';
+          setTimeout(() => { btn.disabled = false; btn.innerHTML = '🛒 Add to Basket'; }, 2000);
+          submitting = false;
+          return;
+        }
+
+        btn.innerText = "Redirecting...";
+        const ckRes = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId, email: state.email, country: state.delivery, productType: 'bauble_card', voucherCode: state.voucherCode || undefined }) });
+        const { checkoutUrl } = ckRes.ok ? await ckRes.json() : {};
+        if (!checkoutUrl) throw new Error("Couldn't start checkout. Your order is saved — please try again.");
+        window.location.href = checkoutUrl;
+      } catch (e) {
+        console.error(e);
+        alert(e.message || "Error creating order. Please try again.");
+        submitting = false;
+        btn.disabled = false;
+        if (addToBasket) btn.innerHTML = '🛒 Add to Basket';
+        render();
+      }
+    }
+
+    // back from Stripe with the Back button (page restored from cache): allow submitting again
+    window.addEventListener('pageshow', (e) => { if (e.persisted) { submitting = false; render(); } });
+
+    renderPacks();
+    renderItems();
+    render();
+  </script>
+  <script src="./basket.js"></script>
+</body>
+</html>

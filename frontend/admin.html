@@ -2353,7 +2353,7 @@
 
         // Magnet number — events only — as a band flush under the photo (same as the
         // other wrap text), flipped to match. Generated per-tile since it varies.
-        // 🎄 A tile with its own label (ornament: "O1 SANTA") prints that in the same band instead.
+        // 🎄 A tile with its own label (ornament: "O1 SANTA", bauble card: "B1 SILVER · WREATH") prints that in the same band instead.
         if (item.label) {
           const tagImg = labelCanvas(String(item.label), PHOTO, LBL_BAND, Math.PI);
           pdf.addImage(tagImg, 'PNG', pLeft, pBottom + LBL_GAP, PHOTO, LBL_BAND);
@@ -2479,6 +2479,7 @@
         if (o.productType === 'flexi') return null;
         if (o.productType === 'santa_letter') return null; // 🎅 letter + Santa Cam are pre-made: no photos, nothing to print
         if (o.productType === 'ornament') return 'magnet'; // 🎄 colour-in ornament: centre photo is a standard 50×50 magnet
+        if (o.productType === 'bauble_card') return 'magnet'; // 🎄 photo bauble card: the bauble's window photo is a standard 50×50 magnet
         if (String(o.packSize).startsWith('voucher_')) return null;
         return 'magnet'; // standard packs, frames, bingo, valentines, mother's day
       }
@@ -2506,6 +2507,47 @@
       function ornamentLabel(key) {
         const m = String(key).match(ORNAMENT_KEY_RE);  // …_ornament2-tree.jpg → "O2 TREE"
         return m ? `O${m[1]} ${m[2].toUpperCase()}` : 'ORNAMENT';
+      }
+
+      // 🎄 Photo bauble card (order.baubleCards holds [{ colour, card }], one per bauble): a flat
+      // printed bauble in the chosen colour, the customer's photo as the 50×50 magnet in its
+      // window, mounted on a printed Christmas card. `tag` is the short form for the print band.
+      const BAUBLE_COLOURS = {
+        red:         { label: 'Red',          tag: 'RED',       swatch: '#b3262e' },
+        sparkle_red: { label: 'Sparkle Red',  tag: 'SPKL RED',  swatch: '#e0182d' },
+        green:       { label: 'Green',        tag: 'GREEN',     swatch: '#1f8a5b' },
+        silver:      { label: 'Silver',       tag: 'SILVER',    swatch: '#c0c4c8' },
+        blue:        { label: 'Sparkle Blue', tag: 'SPKL BLUE', swatch: '#6f9ee8' }
+      };
+      const BAUBLE_CARDS = {
+        berries: { label: 'Berries & Bow', tag: 'BERRIES' },
+        stripes: { label: 'Green Stripes', tag: 'STRIPES' },
+        wreath:  { label: 'Pine Wreath',   tag: 'WREATH' }
+      };
+      const BAUBLE_KEY_RE = /bauble(\d+)-(red|sparkle_red|green|silver|blue)-(berries|stripes|wreath)\b/i;
+      // Known key -> info, anything else -> null (never trust the stored value)
+      function baubleColour(c) {
+        return typeof c === 'string' && Object.prototype.hasOwnProperty.call(BAUBLE_COLOURS, c) ? BAUBLE_COLOURS[c] : null;
+      }
+      function baubleCardDesign(c) {
+        return typeof c === 'string' && Object.prototype.hasOwnProperty.call(BAUBLE_CARDS, c) ? BAUBLE_CARDS[c] : null;
+      }
+      function baubleCardList(o) {
+        return Array.isArray(o.baubleCards) ? o.baubleCards.filter(b => b && typeof b === 'object') : [];
+      }
+      function baubleCardQty(o) {
+        return Number(o.packSize) || baubleCardList(o).length || 1;
+      }
+      // Band tag under the photo: …_bauble2-sparkle_red-stripes.jpg → "B2 SPKL RED · STRIPES".
+      // Short words only: the longest ("B3 SPKL BLUE · BERRIES") is about half the 52mm band at
+      // labelCanvas' ~6pt, so it never needs shrinking.
+      function baubleCardLabel(key) {
+        const m = String(key).match(BAUBLE_KEY_RE);
+        return m ? `B${m[1]} ${BAUBLE_COLOURS[m[2].toLowerCase()].tag} · ${BAUBLE_CARDS[m[3].toLowerCase()].tag}` : 'BAUBLE';
+      }
+      // CSV cell: "red/berries|silver/wreath" (known keys only, '?' for anything else)
+      function baubleCardsCsv(o) {
+        return baubleCardList(o).map(b => `${baubleColour(b.colour) ? b.colour : '?'}/${baubleCardDesign(b.card) ? b.card : '?'}`).join('|');
       }
 
       // 🎅 Letter from Santa (order.santaLetters holds [{ design, bauble }], one per letter).
@@ -2574,7 +2616,8 @@
               ticket: o.raffleNumber,
               isEvent: !!o.eventId,
               label: kind === 'keyring' ? keyringLabel(img.key, idx) : (kind === 'badge' ? badgeLabel(img.key)
-                   : (o.productType === 'ornament' ? ornamentLabel(img.key) : null)),
+                   : (o.productType === 'ornament' ? ornamentLabel(img.key)
+                   : (o.productType === 'bauble_card' ? baubleCardLabel(img.key) : null))),
               src: `/api/admin-order-image?orderId=${o.orderId}&objectKey=${encodeURIComponent(img.key)}&key=${encodeURIComponent(adminKey)}`
             });
           });
@@ -2593,7 +2636,7 @@
           try { data = await loadSquareTile(raw[i].src); }
           catch { data = failedTileDataUrl(raw[i].who); failed.push({ who: raw[i].who, what: 'photo' }); }
           if (raw[i].kind === 'keyring') keyrings.push({ data, label: raw[i].label });
-          else if (raw[i].label) magnets.push({ data, ticket: raw[i].ticket, label: raw[i].label }); // 🎄 ornament tag under the photo
+          else if (raw[i].label) magnets.push({ data, ticket: raw[i].ticket, label: raw[i].label }); // 🎄 ornament / bauble card tag under the photo
           else magnets.push({ data, ticket: raw[i].ticket });
         }
         const showNumbers = raw.some(r => r.kind === 'magnet' && r.isEvent);
@@ -2701,11 +2744,12 @@
 
       document.getElementById("download-csv-btn").addEventListener("click", () => {
         if (!filteredOrders.length) { alert("No orders to export."); return; }
-        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns", "santaLetters"]];
+        const rows = [["orderId", "email", "phone", "packSize", "price", "status", "shipping", "bingoNumber", "createdAt", "productType", "ornamentDesigns", "santaLetters", "baubleCards"]];
         for (const o of filteredOrders) rows.push([
             o.orderId, o.email || "", o.phone || "", o.packSize ?? "", o.price ?? "", o.status || "", o.shippingMethod || "COLLECT", o.bingoNumber || "", o.createdAt || "",
             o.productType || "", Array.isArray(o.ornamentDesigns) ? o.ornamentDesigns.join("|") : "",
-            o.productType === 'santa_letter' ? santaLettersCsv(o) : ""
+            o.productType === 'santa_letter' ? santaLettersCsv(o) : "",
+            o.productType === 'bauble_card' ? baubleCardsCsv(o) : ""
         ]);
         const csv = rows.map(r => r.map(v => String(v).replace(/"/g, '""').includes(",") ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(",")).join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "magnetic-memories-orders.csv";
@@ -2775,7 +2819,13 @@
           // 🎅 Santa letters: findable by "santa_letter" / "santa letter" / design + bauble colour keys
           const santaTxt = o.productType === 'santa_letter'
             ? ` ${o.productType} santa letter ${santaLetterList(o).map(l => `${santaLetterDesign(l.design) ? l.design : ''} ${santaBauble(l.bauble) ? l.bauble : ''}`).join(' ')}` : '';
-          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}${santaTxt}`.toLowerCase().includes(q);
+          // 🎄 Bauble cards: findable by "bauble_card" / "bauble card" / colour + card keys and names
+          const baubleTxt = o.productType === 'bauble_card'
+            ? ` ${o.productType} bauble card ${baubleCardList(o).map(b => {
+                const c = baubleColour(b.colour), d = baubleCardDesign(b.card);
+                return `${c ? `${b.colour} ${c.label}` : ''} ${d ? `${b.card} ${d.label}` : ''}`;
+              }).join(' ')}` : '';
+          return `${o.orderId} ${o.email} ${o.phone}${ornTxt}${santaTxt}${baubleTxt}`.toLowerCase().includes(q);
         });
         renderOrders(); 
         if(currentMode === 'orders') updatePackSummary();
@@ -2785,12 +2835,14 @@
         if (!orders.length) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const counts = new Map();
         for (const o of filteredOrders) {
-          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament' && o.productType !== 'santa_letter') continue;
+          if (!o.packSize && !o.frameStyle && o.productType !== 'keyring' && o.productType !== 'ornament' && o.productType !== 'santa_letter' && o.productType !== 'bauble_card') continue;
           let k = String(o.packSize || o.frameStyle);
           if (k.startsWith("voucher_")) {
              k = "Voucher £" + k.split("_")[1];
           } else if (o.productType === 'ornament') {
              k = "Christmas Ornament";
+          } else if (o.productType === 'bauble_card') {
+             k = "Photo Bauble Card";
           } else if (o.productType === 'santa_letter') {
              k = "Santa Letter";
           } else if (o.productType === 'keyring') {
@@ -2801,7 +2853,8 @@
              k = k + "-pack";
              if (o.packType === 'big_picture') k += " (Jigsaw)";
           }
-          counts.set(k, (counts.get(k) || 0) + (o.productType === 'santa_letter' ? santaLetterQty(o) : 1));   // letters, not orders
+          counts.set(k, (counts.get(k) || 0) + (o.productType === 'santa_letter' ? santaLetterQty(o)   // letters, not orders
+            : o.productType === 'bauble_card' ? baubleCardQty(o) : 1));                                 // 🎄 cards, not orders
         }
         if (!counts.size) { document.getElementById("pack-summary").textContent = "Pack summary: –"; return; }
         const parts = Array.from(counts.entries()).sort().map(([k, v]) => `${v}x ${k}`);
@@ -2867,6 +2920,10 @@
               const ornQty = Number(o.packSize) || 1;
               packDisplay = `🎄 Christmas Ornament${ornQty > 1 ? ` ×${ornQty}` : ''}`;
               style = 'style="color: #ef4444; font-weight:700;"';
+          } else if (o.productType === 'bauble_card') {
+              const bcQty = baubleCardQty(o);
+              packDisplay = `🎄 Bauble Card${bcQty > 1 ? ` ×${bcQty}` : ''}`;
+              style = 'style="color: #4ade80; font-weight:700;"';
           } else if (o.productType === 'santa_letter') {
               const santaQty = santaLetterQty(o);
               packDisplay = `🎅 Santa Letter${santaQty > 1 ? ` ×${santaQty}` : ''}`;
@@ -3127,6 +3184,36 @@
               }).join('');
               html += `<div class="field-label" style="color:#ef4444;">Christmas Colour-In Ornament</div>
                        <div class="field-value" style="font-size:1.1em; font-weight:bold;">🎄 ${ornQty} colour-in ornament${ornQty === 1 ? '' : 's'} + photo magnet${ornQty === 1 ? '' : 's'}</div>${rows || '<div class="field-value" style="color:#9ca3af;">Designs not recorded (see filenames)</div>'}`;
+          } else if (order.productType === 'bauble_card') {
+              // 🎄 Flat printed bauble (chosen colour) with the customer's photo as the 50×50 magnet
+              // in its window, mounted on the chosen printed card. Bauble N's photo is tagged "BN …".
+              const cards = baubleCardList(order);
+              const bcQty = baubleCardQty(order);
+              const colourCount = new Map(), cardCount = new Map();
+              let oddColours = 0, oddCards = 0;
+              const rows = cards.map((b, i) => {
+                const cInfo = baubleColour(b.colour);
+                const dInfo = baubleCardDesign(b.card);
+                if (cInfo) colourCount.set(b.colour, (colourCount.get(b.colour) || 0) + 1); else oddColours++;
+                if (dInfo) cardCount.set(b.card, (cardCount.get(b.card) || 0) + 1); else oddCards++;
+                const swatch = cInfo
+                  ? `<span title="${escHtml(cInfo.label)}" style="width:26px; height:26px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.6), rgba(255,255,255,0) 45%), ${cInfo.swatch}; border:1px solid rgba(255,255,255,0.35); box-sizing:border-box; flex-shrink:0;"></span>`
+                  : `<span style="width:26px; height:26px; border-radius:50%; border:2px dashed #6b7280; box-sizing:border-box; flex-shrink:0;"></span>`;
+                const colourTxt = cInfo ? `${cInfo.label} bauble` : `Bauble (unknown colour: ${escHtml(b.colour)})`;
+                const cardTxt = dInfo ? `${dInfo.label} card` : `card (unknown design: ${escHtml(b.card)})`;
+                return `<div class="field-value" style="display:flex; align-items:center; gap:10px; word-break:normal;">${swatch}<span>Bauble ${i + 1}: <span style="font-weight:bold;">${colourTxt}</span> · <span style="font-weight:bold;">${cardTxt}</span> · <span style="white-space:nowrap;">📷 photo B${i + 1}</span></span></div>`;
+              }).join('');
+              // Packing summary, e.g. "Pack: 3 photo magnets (50×50) · baubles: 2× Red, 1× Silver · cards: 2× Pine Wreath, 1× Green Stripes"
+              const packParts = [`${bcQty} photo magnet${bcQty === 1 ? '' : 's'} (50×50)`];
+              const cTxt = Object.keys(BAUBLE_COLOURS).filter(k => colourCount.has(k)).map(k => `${colourCount.get(k)}× ${BAUBLE_COLOURS[k].label}`);
+              if (oddColours) cTxt.push(`${oddColours}× unknown colour`);
+              if (cTxt.length) packParts.push(`baubles: ${cTxt.join(', ')}`);
+              const dTxt = Object.keys(BAUBLE_CARDS).filter(k => cardCount.has(k)).map(k => `${cardCount.get(k)}× ${BAUBLE_CARDS[k].label}`);
+              if (oddCards) dTxt.push(`${oddCards}× unknown design`);
+              if (dTxt.length) packParts.push(`cards: ${dTxt.join(', ')}`);
+              html += `<div class="field-label" style="color:#4ade80;">Photo Bauble Card</div>
+                       <div class="field-value" style="font-size:1.1em; font-weight:bold; word-break:normal;">🎄 ${bcQty} photo bauble card${bcQty === 1 ? '' : 's'} (bauble + photo magnet + card)</div>${rows || '<div class="field-value" style="color:#9ca3af;">Baubles not recorded (see filenames)</div>'}`;
+              html += `<div class="field-value" style="background:#111827; padding:8px 10px; border-radius:8px; font-weight:600; word-break:normal;">📦 Pack: ${packParts.join(' · ')}</div>`;
           } else if (order.productType === 'santa_letter') {
               // 🎅 Pre-made letter + Santa Cam: loose magnet (bauble null) or set in a coloured hanging bauble
               const letters = santaLetterList(order);
@@ -3220,6 +3307,7 @@
               let lbl = m.productType === 'keyring' ? `🔑 Keyring${Number(m.packSize) === 2 ? ' ×2' : ''}`
                       : m.productType === 'bundle' ? '🎁 Bundle'
                       : m.productType === 'ornament' ? `🎄 Ornament ×${Number(m.packSize) || 1}`
+                      : m.productType === 'bauble_card' ? `🎄 Bauble Card ×${baubleCardQty(m)}`
                       : m.productType === 'santa_letter' ? `🎅 Santa Letter ×${santaLetterQty(m)}`
                       : (m.frameStyle ? `🖼️ ${m.frameStyle.charAt(0).toUpperCase() + m.frameStyle.slice(1)} Frame` : `🧲 ${m.packSize} magnets`);
               return `<a href="#" onclick="loadOrderDetails('${m.orderId}');return false;" style="color:#5eead4; text-decoration:underline;">${lbl} (£${Number(m.price || 0).toFixed(2)})</a>`;
@@ -3296,7 +3384,9 @@
             const src = `/api/admin-order-image?orderId=${id}&objectKey=${encodeURIComponent(img.key)}&key=${adminKey}`;
             // 🎄 ornament photo: which ornament + design it goes in (O1 SANTA)
             const ornCap = ORNAMENT_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#fca5a5;">${escHtml(ornamentLabel(img.key))}</div>` : '';
-            h += `<div class="image-thumb"><img src="${src}">${ornCap}<a href="${src}&download=1">Download</a></div>`;
+            // 🎄 bauble card photo: which bauble + colour + card it goes with (B1 SILVER · WREATH)
+            const bcCap = BAUBLE_KEY_RE.test(String(img.key)) ? `<div style="margin-top:3px; font-size:10px; font-weight:700; color:#86efac;">${escHtml(baubleCardLabel(img.key))}</div>` : '';
+            h += `<div class="image-thumb"><img src="${src}">${ornCap}${bcCap}<a href="${src}&download=1">Download</a></div>`;
         });
         document.getElementById("imgs").innerHTML = h + '</div>';
         lastImagesForOrder[id] = data.images;

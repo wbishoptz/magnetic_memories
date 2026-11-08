@@ -54,15 +54,12 @@
     /* basket.js only styles .basket-show once the basket is switched on - keep it hidden otherwise */
     body:not(.mm-basket-mode) .basket-show { display: none; }
 
-    /* ornament artwork */
+    /* ornament photos: real product cut-outs; the customer's photo is drawn into the magnet window */
     svg.orn { display: block; width: 100%; height: auto; overflow: visible; }
-    .orn .ink { fill: none; stroke: #1f2937; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; }
-    .orn .r { fill: #fff; stroke: #1f2937; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; transition: fill .35s ease; }
-    .orn .win { fill: #eef2f7; stroke: #1f2937; stroke-width: 3.2; }
-    .orn .win-frame { fill: none; stroke: #1f2937; stroke-width: 3.2; }
-    .orn .win-empty { fill: #fbf3df; stroke: #c9a14a; stroke-width: 2.4; stroke-dasharray: 6 5; }
-    .orn .dot { fill: #1f2937; }
     .orn-pop { filter: drop-shadow(0 10px 18px rgba(15, 59, 44, 0.18)); }
+    .hero-pop { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.38)); }
+    .pick-flash { animation: pickFlash 1.5s ease-out; }
+    @keyframes pickFlash { 0% { box-shadow: 0 0 0 0 rgba(201, 161, 74, 0); } 18% { box-shadow: 0 0 0 5px rgba(201, 161, 74, .6); } 100% { box-shadow: 0 0 0 16px rgba(201, 161, 74, 0); } }
 
     /* hero: hanging + swinging ornaments, snow, twinkles */
     .hero { background: radial-gradient(120% 90% at 50% 0%, #17573f 0%, #0f3b2c 55%, #0a2a1f 100%); }
@@ -80,7 +77,7 @@
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
     @media (prefers-reduced-motion: reduce) {
-      .hang, .snow, .twinkle, .fade-up { animation: none !important; }
+      .hang, .snow, .twinkle, .fade-up, .pick-flash { animation: none !important; }
       .snow { display: none; }
     }
   </style>
@@ -116,13 +113,36 @@
           <h2 class="font-serif text-white text-[2rem] leading-tight sm:text-5xl font-semibold mt-4">Colour-In <span class="gold-text italic">Christmas</span> Ornaments</h2>
           <p class="text-emerald-50/85 text-sm sm:text-base mt-3 max-w-md mx-auto">Little ones colour it in, your favourite photo sits in the middle — then hang it on the tree, or pop the magnet on the fridge.</p>
           <div class="flex flex-wrap justify-center gap-2 mt-5 text-xs font-medium">
-            <span class="rounded-full bg-white/10 text-white px-3 py-1.5">🎅 🎄 🎁 ⛄ 4 designs</span>
-            <span class="rounded-full bg-white/10 text-white px-3 py-1.5">Mix &amp; match</span>
-            <span class="rounded-full bg-[#c9a14a] text-[#1c2b24] px-3 py-1.5 font-semibold">From £7.49 each</span>
+            <a href="#designs" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">🎅 🎄 🎁 ⛄ 4 designs</a>
+            <a href="#builder" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">Mix &amp; match</a>
+            <a href="#builder" class="rounded-full bg-[#c9a14a] hover:bg-[#d6b05a] text-[#1c2b24] px-3 py-1.5 font-semibold transition-colors">From £7.49 each</a>
           </div>
           <a href="#builder" class="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-pine font-semibold px-6 py-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
             Create yours <i data-lucide="arrow-down" class="w-4 h-4"></i>
           </a>
+        </div>
+      </section>
+
+      <section id="designs" aria-labelledby="designs-title" class="scroll-mt-20">
+        <h2 id="designs-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Four designs to choose from</h2>
+        <p class="text-sm text-muted-foreground text-center mt-1">Each one holds your photo in the middle — mix and match as you like.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+          <button type="button" onclick="zoomPhoto('santa','tree')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-santa-tree.jpg" alt="Santa ornament with a photo magnet, hanging on a Christmas tree" width="720" height="900" class="w-full h-auto aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎅 Santa <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('tree','tree')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-tree-tree.jpg" alt="Christmas Tree ornament with a photo magnet, hanging on a Christmas tree" width="720" height="900" class="w-full h-auto aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎄 Christmas Tree <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('present','tree')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-present-tree.jpg" alt="Wrapped Present ornament with a photo magnet, hanging on a Christmas tree" width="720" height="900" class="w-full h-auto aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎁 Wrapped Present <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('snowman','tree')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-snowman-tree.jpg" alt="Snowman ornament with a photo magnet, hanging on a Christmas tree" width="720" height="900" class="w-full h-auto aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">⛄ Snowman <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
         </div>
       </section>
 
@@ -144,6 +164,29 @@
             <p class="font-semibold mt-3">Colour, hang &amp; keep</p>
             <p class="text-xs text-muted-foreground mt-1">Kids colour it in, then it goes on the tree — or the magnet goes on the fridge.</p>
           </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="kit-title">
+        <h2 id="kit-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Arrives as a keepsake kit</h2>
+        <p class="text-sm text-muted-foreground text-center mt-1 max-w-md mx-auto">Each ornament comes in its own gift bag with your photo magnet in place and pens ready for colouring.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+          <button type="button" onclick="zoomPhoto('santa','kit')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-santa-kit.jpg" alt="Santa ornament keepsake kit in its gift bag, with colouring pens" width="720" height="960" class="w-full h-auto aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎅 Santa <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('tree','kit')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-tree-kit.jpg" alt="Christmas Tree ornament keepsake kit in its gift bag, with colouring pens" width="720" height="960" class="w-full h-auto aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎄 Christmas Tree <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('present','kit')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-present-kit.jpg" alt="Wrapped Present ornament keepsake kit in its gift bag, with colouring pens" width="720" height="960" class="w-full h-auto aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">🎁 Wrapped Present <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
+          <button type="button" onclick="zoomPhoto('snowman','kit')" class="group block w-full text-left bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <span class="block overflow-hidden"><img src="./ornament-snowman-kit.jpg" alt="Snowman ornament keepsake kit in its gift bag, with colouring pens" width="720" height="960" class="w-full h-auto aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" /></span>
+            <span class="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold">⛄ Snowman <i data-lucide="maximize-2" class="w-3 h-3 text-muted-foreground"></i></span>
+          </button>
         </div>
       </section>
 
@@ -227,7 +270,7 @@
         <p class="text-muted-foreground text-sm">Make sure everything looks perfect before submitting.</p>
       </div>
 
-      <div id="review-items" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+      <div id="review-items" class="flex flex-wrap justify-center gap-3"></div>
 
       <div class="max-w-xs mx-auto space-y-3 text-left text-sm bg-white p-5 rounded-2xl border border-border shadow-sm">
         <div class="flex items-center justify-between border-b pb-2">
@@ -275,9 +318,20 @@
 
   <input type="file" id="fileInput" accept="image/*" class="hidden" />
 
-  <div id="crop-modal" class="modal-overlay">
+  <div id="zoom" class="fixed inset-0 z-[8700] hidden items-center justify-center bg-black/80 p-4" onclick="if (event.target === this) closeZoom()" role="dialog" aria-modal="true" aria-label="Photo">
+    <div class="relative w-full max-w-md">
+      <button type="button" onclick="closeZoom()" aria-label="Close" class="absolute -top-3 -right-3 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center"><i data-lucide="x" class="w-5 h-5"></i></button>
+      <img id="zoom-img" src="" alt="" class="w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl bg-white" />
+      <div class="flex items-center justify-between gap-3 mt-3">
+        <p id="zoom-cap" class="text-white font-semibold text-sm"></p>
+        <button id="zoom-cta" type="button" class="shrink-0 rounded-full bg-white text-pine font-semibold px-4 py-2.5 text-sm shadow hover:bg-[#fbf3df] transition-colors"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="crop-title">
     <div class="modal-content">
-      <h3 class="font-serif text-xl font-semibold mb-1 text-center">Adjust Photo</h3>
+      <h3 id="crop-title" class="font-serif text-xl font-semibold mb-1 text-center">Adjust Photo</h3>
       <p class="text-xs text-center text-muted-foreground">The square is your photo magnet — it sits in the middle of the ornament.</p>
       <div class="cropper-container"><img id="crop-image" src="" alt="" /></div>
       <div class="flex gap-3 justify-center mt-2">
@@ -290,68 +344,14 @@
   <script>
     lucide.createIcons();
 
-    // ── Artwork: colouring-book line art, viewBox 0 0 200 250. Every colourable region is a .r
-    // shape (data-c = its suggested colour); .win is the 50×50 photo magnet in the middle.
-    // Same source as ornament-*.svg (used by the admin).
-    const ART = {
-      tree: `
-        <circle class="ink" cx="100" cy="9" r="6"/>
-        <path class="r" data-c="#7c4a1e" d="M85 208 h30 v24 a5 5 0 0 1 -5 5 h-20 a5 5 0 0 1 -5 -5 Z"/>
-        <path class="r" data-c="#166534" d="M100 102 L12 214 Q56 201 100 214 Q144 201 188 214 Z"/>
-        <path class="r" data-c="#15803d" d="M100 64 L32 150 Q66 139 100 150 Q134 139 168 150 Z"/>
-        <path class="r" data-c="#16a34a" d="M100 38 L56 92 Q78 83 100 92 Q122 83 144 92 Z"/>
-        <path class="r" data-c="#facc15" d="M100 13 L104.4 24.6 L116.6 25.2 L107.1 33 L110.3 44.8 L100 38 L89.7 44.8 L92.9 33 L83.4 25.2 L95.6 24.6 Z"/>
-        <circle class="r" data-c="#dc2626" cx="80" cy="80" r="5"/>
-        <circle class="r" data-c="#2563eb" cx="121" cy="77" r="5"/>
-        <circle class="r" data-c="#f59e0b" cx="47" cy="138" r="6"/>
-        <circle class="r" data-c="#dc2626" cx="153" cy="136" r="6"/>
-        <circle class="r" data-c="#2563eb" cx="29" cy="202" r="6.5"/>
-        <circle class="r" data-c="#f59e0b" cx="171" cy="202" r="6.5"/>
-        <rect class="win" x="62" y="124" width="76" height="76" rx="10"/>`,
-      present: `
-        <circle class="ink" cx="100" cy="9" r="6"/>
-        <path class="r" data-c="#dc2626" d="M100 46 C80 18 50 22 58 42 C64 56 86 54 100 46 Z"/>
-        <path class="r" data-c="#dc2626" d="M100 46 C120 18 150 22 142 42 C136 56 114 54 100 46 Z"/>
-        <path class="r" data-c="#b91c1c" d="M93 50 L78 74 L88 72 L97 56 Z"/>
-        <path class="r" data-c="#b91c1c" d="M107 50 L122 74 L112 72 L103 56 Z"/>
-        <rect class="r" data-c="#15803d" x="28" y="98" width="144" height="138" rx="8"/>
-        <rect class="r" data-c="#16a34a" x="20" y="72" width="160" height="32" rx="7"/>
-        <rect class="r" data-c="#dc2626" x="90" y="72" width="20" height="164"/>
-        <rect class="r" data-c="#dc2626" x="28" y="156" width="144" height="20"/>
-        <circle class="r" data-c="#facc15" cx="100" cy="47" r="9"/>
-        <rect class="win" x="62" y="128" width="76" height="76" rx="10"/>`,
-      snowman: `
-        <circle class="ink" cx="100" cy="7" r="6"/>
-        <path class="ink" d="M40 150 L14 124 M22 132 L10 134 M26 136 L22 120"/>
-        <path class="ink" d="M160 150 L186 124 M178 132 L190 134 M174 136 L178 120"/>
-        <circle class="r" data-c="#f8fafc" cx="100" cy="178" r="66"/>
-        <circle class="r" data-c="#f8fafc" cx="100" cy="84" r="33"/>
-        <rect class="r" data-c="#1f2937" x="76" y="14" width="48" height="34" rx="5"/>
-        <rect class="r" data-c="#dc2626" x="76" y="36" width="48" height="9"/>
-        <rect class="r" data-c="#1f2937" x="60" y="46" width="80" height="11" rx="5.5"/>
-        <circle class="dot" cx="89" cy="78" r="3.6"/><circle class="dot" cx="111" cy="78" r="3.6"/>
-        <path class="r" data-c="#f97316" d="M100 85 L126 90 L100 95 Z"/>
-        <circle class="dot" cx="87" cy="100" r="2.1"/><circle class="dot" cx="93.5" cy="104" r="2.1"/><circle class="dot" cx="100" cy="105.5" r="2.1"/><circle class="dot" cx="106.5" cy="104" r="2.1"/><circle class="dot" cx="113" cy="100" r="2.1"/>
-        <path class="r" data-c="#dc2626" d="M66 112 Q100 128 134 112 L136 124 Q100 140 64 124 Z"/>
-        <path class="r" data-c="#dc2626" d="M114 126 L126 140 L116 146 L106 130 Z"/>
-        <rect class="win" x="62" y="146" width="76" height="76" rx="10"/>`,
-      santa: `
-        <circle class="ink" cx="100" cy="7" r="6"/>
-        <path class="r" data-c="#dc2626" d="M28 246 C26 180 44 134 100 130 C156 134 174 180 172 246 Z"/>
-        <rect class="r" data-c="#f8fafc" x="27" y="232" width="146" height="14" rx="4"/>
-        <rect class="r" data-c="#1f2937" x="30" y="210" width="140" height="14"/>
-        <rect class="r" data-c="#facc15" x="89" y="206" width="22" height="22" rx="3"/>
-        <path class="r" data-c="#dc2626" d="M58 64 C58 36 80 14 104 14 C126 14 142 28 150 46 C155 56 158 64 160 74 L146 64 Z"/>
-        <circle class="r" data-c="#f8fafc" cx="161" cy="78" r="9"/>
-        <rect class="r" data-c="#fcd9b6" x="66" y="72" width="68" height="40" rx="18"/>
-        <rect class="r" data-c="#f8fafc" x="52" y="58" width="96" height="18" rx="9"/>
-        <circle class="dot" cx="88" cy="88" r="3.4"/><circle class="dot" cx="112" cy="88" r="3.4"/>
-        <path class="r" data-c="#f8fafc" d="M62 100 C58 128 78 152 100 154 C122 152 142 128 138 100 C126 110 112 106 100 112 C88 106 74 110 62 100 Z"/>
-        <path class="r" data-c="#f8fafc" d="M100 106 C92 97 78 99 78 107 C86 112 95 110 100 106 C105 110 114 112 122 107 C122 99 108 97 100 106 Z"/>
-        <circle class="r" data-c="#fca5a5" cx="100" cy="99" r="5"/>
-        <rect class="win" x="62" y="134" width="76" height="76" rx="10"/>
-        <circle class="r" data-c="#166534" cx="60" cy="176" r="11"/>
-        <circle class="r" data-c="#166534" cx="140" cy="176" r="11"/>`,
+    // ── Real product photos: ornament-<design>.webp is the ornament cut out on a transparent
+    // background. quad = the magnet's visible photo area in that image's pixels (TL, TR, BR, BL),
+    // hang = where the string ties on. The admin still uses the drawn ornament-*.svg files.
+    const PHOTO = {
+      santa: {"w": 520, "h": 752, "quad": [[138.0, 364.4], [373.4, 361.4], [376.2, 594.1], [141.5, 597.9]], "hang": [255.7, 27.6]},
+      tree: {"w": 520, "h": 584, "quad": [[165.1, 271.3], [351.7, 268.9], [355.6, 456.9], [167.4, 461.0]], "hang": [259.6, 22.2]},
+      present: {"w": 520, "h": 561, "quad": [[144.8, 236.2], [379.1, 231.8], [384.6, 468.6], [150.0, 472.9]], "hang": [258.5, 40.9]},
+      snowman: {"w": 520, "h": 829, "quad": [[151.1, 487.6], [376.4, 493.3], [371.6, 725.3], [143.0, 720.0]], "hang": [277.3, 28.9]},
     };
     const DESIGNS = {
       santa: { label: 'Santa', emoji: '🎅' },
@@ -366,45 +366,53 @@
     const TOTAL_STEPS = 5;
     const money = (v) => '£' + v.toFixed(2);
 
-    // One ornament as an <svg>: line art (or `coloured`), with the photo magnet showing `photo`,
-    // a little sample scene (`sample`), or an "add photo" prompt (`empty`).
+    // One ornament as an <svg>: the product photo, with the customer's `photo` drawn into the magnet
+    // window, or an "add photo" prompt there (`empty`). With neither, the sample photo shows.
     let svgSeq = 0;
-    function ornSvg(key, { coloured = false, photo = null, sample = null, empty = false, cls = '' } = {}) {
-      let inner = ART[key];
-      const m = inner.match(/<rect class="win" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="([\d.]+)"\/>/);
-      const [x, y, w, h, rx] = m.slice(1).map(Number), id = `orn${++svgSeq}`;
-      const clip = `<defs><clipPath id="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/></clipPath></defs>`;
-      const frame = `<rect class="win-frame" x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>`;
+    function ornArt(key, { photo = null, empty = false, cls = '' } = {}) {
+      const P = PHOTO[key], q = P.quad, id = `orn${++svgSeq}`;
+      const pts = q.map(p => p.join(',')).join(' ');
+      const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
+      const qw = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]);
+      let over = '';
       if (photo) {
-        inner = inner.replace(m[0], clip + `<image href="${photo}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>` + frame);
-      } else if (sample) {
-        const [sky1, sky2, hill1, hill2] = sample;
-        inner = inner.replace(m[0], clip + `<g clip-path="url(#${id})">`
-          + `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky1}"/><stop offset="1" stop-color="${sky2}"/></linearGradient></defs>`
-          + `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${id}g)"/>`
-          + `<circle cx="${x + w * 0.72}" cy="${y + h * 0.3}" r="${w * 0.11}" fill="#fff7d6"/>`
-          + `<path d="M${x} ${y + h * 0.78} Q${x + w * 0.3} ${y + h * 0.52} ${x + w * 0.62} ${y + h * 0.74} T${x + w} ${y + h * 0.66} V${y + h} H${x} Z" fill="${hill1}"/>`
-          + `<path d="M${x} ${y + h * 0.9} Q${x + w * 0.45} ${y + h * 0.7} ${x + w} ${y + h * 0.88} V${y + h} H${x} Z" fill="${hill2}"/>`
-          + `<path d="M${x + w / 2} ${y + h * 0.5} c-4 -5 -12 -2 -10 4 c2 5 10 9 10 9 c0 0 8 -4 10 -9 c2 -6 -6 -9 -10 -4 Z" fill="#fff" opacity=".9"/>`
-          + `</g>` + frame);
+        // affine-map a 100×100 image through TL/TR/BL (3% bleed), clipped to the exact window
+        const g = (p) => [cx + (p[0] - cx) * 1.03, cy + (p[1] - cy) * 1.03];
+        const [a, b, c] = [g(q[0]), g(q[1]), g(q[3])];
+        const m = [(b[0] - a[0]) / 100, (b[1] - a[1]) / 100, (c[0] - a[0]) / 100, (c[1] - a[1]) / 100, a[0], a[1]].map(v => +v.toFixed(3));
+        over = `<defs><clipPath id="${id}"><polygon points="${pts}"/></clipPath>`
+          + `<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`
+          + `<g clip-path="url(#${id})"><rect x="0" y="0" width="${P.w}" height="${P.h}" fill="#f4f1ec"/>`
+          + `<image href="${photo}" width="100" height="100" preserveAspectRatio="none" transform="matrix(${m.join(' ')})"/>`
+          + `<polygon points="${pts}" fill="url(#${id}g)"/></g>`;
       } else if (empty) {
-        inner = inner.replace(m[0], `<rect class="win-empty" x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>`
-          + `<text x="${x + w / 2}" y="${y + h / 2 - 4}" text-anchor="middle" font-size="22" fill="#c9a14a" font-family="Inter, sans-serif">＋</text>`
-          + `<text x="${x + w / 2}" y="${y + h / 2 + 16}" text-anchor="middle" font-size="10.5" font-weight="600" fill="#8a6a1f" font-family="Inter, sans-serif">Add photo</text>`);
+        const k = qw / 76;
+        over = `<polygon points="${pts}" fill="#fbf3df" stroke="#c9a14a" stroke-width="${(2.4 * k).toFixed(1)}" stroke-dasharray="${(6 * k).toFixed(1)} ${(5 * k).toFixed(1)}" stroke-linejoin="round"/>`
+          + `<text x="${cx}" y="${cy - 4 * k}" text-anchor="middle" font-size="${(22 * k).toFixed(1)}" fill="#c9a14a" font-family="Inter, sans-serif">＋</text>`
+          + `<text x="${cx}" y="${cy + 16 * k}" text-anchor="middle" font-size="${(10.5 * k).toFixed(1)}" font-weight="600" fill="#8a6a1f" font-family="Inter, sans-serif">Add photo</text>`;
       }
-      if (coloured) inner = inner.replace(/data-c="(#[0-9a-f]{6})"/gi, 'data-c="$1" style="fill:$1"');
-      return `<svg class="orn ${cls}" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${DESIGNS[key].label} ornament">${inner}</svg>`;
+      return `<svg class="orn ${cls}" viewBox="0 0 ${P.w} ${P.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${DESIGNS[key].label} ornament">`
+        + `<image href="./ornament-${key}.webp" width="${P.w}" height="${P.h}"/>${over}</svg>`;
     }
 
     // ── Hero: the four ornaments hanging on gold strings, swinging, in falling snow ──
     (function hero() {
-      const samples = [['#fde68a', '#fca5a5', '#86efac', '#22c55e'], ['#bfdbfe', '#e0e7ff', '#a7f3d0', '#34d399'], ['#fbcfe8', '#fde68a', '#bbf7d0', '#4ade80'], ['#c7d2fe', '#fbcfe8', '#99f6e4', '#2dd4bf']];
       const strings = [26, 54, 38, 62];
-      document.getElementById('hero-hangers').innerHTML = DESIGN_KEYS.map((k, i) => `
-        <div class="hang w-[22%] max-w-[118px]">
+      // true-to-life sizes: every design holds the same 50mm magnet, so scale by the window width
+      const qw = (P) => Math.hypot(P.quad[1][0] - P.quad[0][0], P.quad[1][1] - P.quad[0][1]);
+      const maxQ = Math.max(...DESIGN_KEYS.map(k => qw(PHOTO[k])));
+      document.getElementById('hero-hangers').innerHTML = DESIGN_KEYS.map((k, i) => {
+        const P = PHOTO[k], f = maxQ / qw(P);
+        // line the string up with the ornament's own hanger
+        const dx = (50 - P.hang[0] / P.w * 100).toFixed(1), up = (P.hang[1] / P.w * 100).toFixed(1);
+        return `
+        <div class="hang shrink-0" style="width:${(20 * f).toFixed(1)}%; max-width:${Math.round(106 * f)}px">
           <div class="string" style="height:${strings[i]}px"></div>
-          <div class="orn-pop">${ornSvg(k, { coloured: true, sample: samples[i] })}</div>
-        </div>`).join('');
+          <div class="hero-pop" style="transform:translateX(${dx}%); margin-top:-${up}%">
+            <img src="./ornament-${k}.webp" alt="" width="${P.w}" height="${P.h}" class="block w-full h-auto" />
+          </div>
+        </div>`;
+      }).join('');
       const snow = document.getElementById('snow');
       let html = '';
       for (let i = 0; i < 34; i++) {
@@ -423,7 +431,7 @@
       social: null,
       email: '',
       phone: '',
-      voucherCode: '', discountPct: 0
+      voucherCode: '', discountPct: 0, voucherValue: 0
     };
     const price = () => PACKS[state.qty];
     const isDesign = (k) => DESIGN_KEYS.includes(k);
@@ -447,13 +455,14 @@
         if (data.valid) {
           state.voucherCode = data.code;
           state.discountPct = data.percent || 0;
+          state.voucherValue = data.percent ? 0 : (Number(data.value) || 0);   // gift voucher balance (£)
           msg.style.color = '#16a34a';
-          msg.textContent = data.percent ? `${data.percent}% off applied! 🎄` : `Voucher applied! −£${data.value}`;
+          msg.textContent = data.percent ? `${data.percent}% off applied! 🎄` : `Voucher applied! −${money(state.voucherValue)}`;
           document.getElementById('orn-promo').disabled = true;
           buildReview();
         } else {
           state.voucherCode = '';
-          state.discountPct = 0;
+          state.discountPct = 0; state.voucherValue = 0;
           msg.style.color = '#dc2626';
           msg.textContent = data.error || 'Invalid code';
         }
@@ -529,6 +538,7 @@
       while (state.pool.length < n) state.pool.push({ design: DESIGN_KEYS[state.pool.length % 4], photo: null, origSrc: null });
       state.items = state.pool.slice(0, n);
       renderPacks(); renderItems(); render();
+      document.querySelector('#packs [aria-checked="true"]')?.focus({ preventScroll: true });
     };
 
     function renderItems() {
@@ -536,9 +546,9 @@
       wrap.innerHTML = state.items.map((it, i) => `
         <div class="bg-white border border-border rounded-2xl p-4 sm:p-5 shadow-sm">
           <div class="flex gap-4 sm:gap-6 items-center">
-            <button type="button" onclick="photoTap(${i})" aria-label="${it.photo ? 'Re-crop' : 'Add'} the photo for ornament ${i + 1}"
+            <button type="button" data-k="${i}-photo" onclick="photoTap(${i})" aria-label="${it.photo ? 'Re-crop' : 'Add'} the photo for ornament ${i + 1}"
               class="shrink-0 w-[112px] sm:w-[140px] rounded-2xl bg-[#fbf7f1] p-2 hover:bg-[#f7efe1] transition-colors">
-              ${ornSvg(it.design, { photo: it.photo && it.photo.preview, empty: !it.photo, cls: 'orn-pop' })}
+              ${ornArt(it.design, { photo: it.photo && it.photo.preview, empty: !it.photo, cls: 'orn-pop' })}
             </button>
             <div class="flex-1 min-w-0">
               <p class="font-serif text-lg font-semibold leading-tight">Ornament ${i + 1}</p>
@@ -547,7 +557,7 @@
                 ${DESIGN_KEYS.map(k => `
                   <button type="button" role="radio" aria-checked="${k === it.design}" aria-label="${DESIGNS[k].label}" onclick="setDesign(${i},'${k}')"
                     class="rounded-xl border-2 p-1 transition-all ${k === it.design ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
-                    ${ornSvg(k, { coloured: true, sample: ['#fde68a', '#fca5a5', '#86efac', '#22c55e'] })}
+                    <img src="./ornament-${k}-sm.webp" alt="" class="w-full aspect-[4/5] object-contain" />
                   </button>`).join('')}
               </div>
               <button type="button" onclick="triggerUpload(${i})" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold ${it.photo ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:opacity-80'}">
@@ -558,6 +568,56 @@
         </div>`).join('');
       lucide.createIcons();
     }
+    // ── Gallery photos open large; "Choose" takes you to an ornament with that design (or makes one) ──
+    let zoomReturn = null;
+    window.zoomPhoto = (d, kind) => {
+      if (!isDesign(d)) return;
+      zoomReturn = document.activeElement;
+      const img = document.getElementById('zoom-img');
+      img.src = `./ornament-${d}-${kind}.jpg`;
+      img.alt = `${DESIGNS[d].label} ornament${kind === 'kit' ? ' keepsake kit' : ' on a Christmas tree'}`;
+      document.getElementById('zoom-cap').textContent = `${DESIGNS[d].emoji} ${DESIGNS[d].label}${kind === 'kit' ? ' keepsake kit' : ''}`;
+      const cta = document.getElementById('zoom-cta');
+      cta.textContent = `Choose ${DESIGNS[d].label} →`;
+      cta.onclick = () => { closeZoom(false); pickDesign(d); };
+      const z = document.getElementById('zoom');
+      z.classList.remove('hidden'); z.classList.add('flex');
+      cta.focus();
+    };
+    window.closeZoom = (restore = true) => {
+      const z = document.getElementById('zoom');
+      if (z.classList.contains('hidden')) return;
+      z.classList.add('hidden'); z.classList.remove('flex');
+      if (restore && zoomReturn && zoomReturn.isConnected) zoomReturn.focus({ preventScroll: true });
+      zoomReturn = null;
+    };
+    // keep Tab inside the open lightbox (close ↔ choose)
+    document.getElementById('zoom').addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const f = [...document.querySelectorAll('#zoom button')], i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('crop-modal').style.display === 'flex') closeCrop(); else closeZoom();
+    });
+    window.pickDesign = (d) => {
+      if (submitting || state.step !== 1 || !isDesign(d)) return;
+      // already in the set? go to it (one still waiting for a photo first) - otherwise swap the first one without a photo
+      let i = state.items.findIndex(it => it.design === d && !it.photo);
+      if (i < 0) i = state.items.findIndex(it => it.design === d);
+      if (i < 0) {
+        i = Math.max(0, state.items.findIndex(it => !it.photo));
+        state.items[i].design = d;
+        renderItems(); render();
+      }
+      const card = document.getElementById('items-container').children[i];
+      if (!card) return;
+      card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      card.classList.remove('pick-flash'); void card.offsetWidth; card.classList.add('pick-flash');
+      card.querySelector('[role="radio"][aria-checked="true"]')?.focus({ preventScroll: true });
+    };
     window.setDesign = (i, k) => { if (submitting || !isDesign(k)) return; state.items[i].design = k; renderItems(); render(); };
 
     // ── Photo upload + square crop (the magnet) ──
@@ -583,6 +643,7 @@
       document.getElementById('crop-modal').style.display = 'flex';
       if (cropper) cropper.destroy();
       cropper = new Cropper(document.getElementById('crop-image'), { aspectRatio: 1, viewMode: 1, autoCropArea: 1, dragMode: 'move', background: false });
+      document.getElementById('crop-save').focus();
     }
     const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
     // centre square of the photo, as a JPEG blob (used if the crop is cancelled)
@@ -600,19 +661,25 @@
     window.closeCrop = async () => {
       if (cropper) { cropper.destroy(); cropper = null; }
       document.getElementById('crop-modal').style.display = 'none';
-      const it = state.items[activeIdx];
-      // cancelled a fresh photo → use its centre square so the ornament isn't left empty
+      const idx = activeIdx, it = state.items[idx];
       if (it && !it.photo && it.origSrc) {
-        try { it.photo = await centreSquare(it.origSrc); } catch (_) {}
-        if (it.photo) dropPrev(it);
-        else {
-          // the browser couldn't read it (e.g. some HEIC photos): put the previous photo back
-          revoke(it.origSrc);
-          if (it.prev) { it.origSrc = it.prev.origSrc; it.photo = it.prev.photo; it.prev = null; } else it.origSrc = null;
-          alert("We couldn't open that photo — please choose a JPG or PNG.");
+        if (it.prev && it.prev.photo) {
+          // cancelled a replacement: keep the photo they already had
+          revoke(it.origSrc); it.origSrc = it.prev.origSrc; it.photo = it.prev.photo; it.prev = null;
+        } else {
+          // cancelled a first photo → use its centre square so the ornament isn't left empty
+          try { it.photo = await centreSquare(it.origSrc); } catch (_) {}
+          if (it.photo) dropPrev(it);
+          else {
+            // the browser couldn't read it (e.g. some HEIC photos)
+            revoke(it.origSrc);
+            if (it.prev) { it.origSrc = it.prev.origSrc; it.photo = it.prev.photo; it.prev = null; } else it.origSrc = null;
+            alert("We couldn't open that photo — please choose a JPG or PNG.");
+          }
         }
       }
       renderItems(); render();
+      document.querySelector(`#items-container [data-k="${idx}-photo"]`)?.focus({ preventScroll: true });
     };
     document.getElementById('crop-save').onclick = () => {
       if (!cropper) return;
@@ -656,14 +723,15 @@
     function buildReview() {
       const isDel = state.delivery === 'GI_DELIVER', p = price();
       document.getElementById('review-items').innerHTML = state.items.map((it, i) => `
-        <div class="bg-white border border-border rounded-2xl p-3">
-          <div class="w-24 mx-auto">${ornSvg(it.design, { photo: it.photo ? it.photo.preview : null })}</div>
+        <div class="bg-white border border-border rounded-2xl p-3 w-[calc(50%-0.375rem)] sm:w-[calc(25%-0.5625rem)]">
+          <div class="w-24 mx-auto">${ornArt(it.design, { photo: it.photo ? it.photo.preview : null })}</div>
           <p class="text-xs font-semibold mt-2">Ornament ${i + 1}</p>
           <p class="text-[11px] text-muted-foreground">${DESIGNS[it.design].emoji} ${DESIGNS[it.design].label}</p>
         </div>`).join('');
       document.getElementById('sum-pack').innerText = state.qty === 1 ? '1 ornament' : state.qty === 4 ? 'Set of 4 ornaments' : `${state.qty} ornaments`;
       document.getElementById('sum-pack-price').innerText = money(p);
-      const discount = state.discountPct ? Math.round(p * state.discountPct) / 100 : 0;
+      // same maths as functions/api/checkout.js: percent codes, or a gift voucher's balance (up to the price)
+      const discount = state.discountPct ? Math.round(p * state.discountPct) / 100 : Math.min(p, state.voucherValue || 0);
       const dRow = document.getElementById('sum-discount-row');
       if (discount > 0) {
         dRow.style.display = 'flex';

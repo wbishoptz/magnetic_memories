@@ -59,10 +59,21 @@
     @keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
     .fade-up { animation: fadeUp .6s ease both; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    .swatch { width: 30px; height: 30px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 0 0 1px #e8dfcf, 0 3px 8px rgba(0,0,0,.12); }
-    .swatch-bronze { background: radial-gradient(circle at 35% 30%, #efe3cc, #b9a37f 55%, #7a6548); }
+    /* "two ways" stages + builder tiles */
+    .stage-cream { background: radial-gradient(120% 100% at 30% 10%, #fffaf2 0%, #f4ebdc 60%, #ebdec8 100%); }
+    .stage-pine { background: radial-gradient(120% 95% at 50% 0%, #17573f 0%, #0f3b2c 60%, #0a2a1f 100%); container-type: inline-size; }
+    .letter-shot { box-shadow: 0 14px 28px rgba(60, 40, 10, .22), 0 2px 6px rgba(60, 40, 10, .14); }
+    .bauble-pop { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .38)); }
+    .cam-pop { filter: drop-shadow(0 6px 10px rgba(60, 40, 10, .25)); }
+    .swing { transform-origin: 50% 0; animation: swing 4.8s ease-in-out infinite; }
+    .swing:nth-child(2) { animation-duration: 5.4s; animation-delay: -1.4s; }
+    .swing:nth-child(3) { animation-duration: 4.4s; animation-delay: -2.6s; }
+    @keyframes swing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+    .bstring { width: 1.5px; margin: 0 auto; background: linear-gradient(#e9c97a, #c9a14a); }
+    .pick-flash { animation: pickFlash 1.5s ease-out; }
+    @keyframes pickFlash { 0% { box-shadow: 0 0 0 0 rgba(201, 161, 74, 0); } 18% { box-shadow: 0 0 0 5px rgba(201, 161, 74, .6); } 100% { box-shadow: 0 0 0 16px rgba(201, 161, 74, 0); } }
     @media (prefers-reduced-motion: reduce) {
-      .snow, .float, .float-2, .fade-up { animation: none !important; }
+      .snow, .float, .float-2, .fade-up, .swing, .pick-flash { animation: none !important; }
       .snow { display: none; }
     }
   </style>
@@ -101,9 +112,9 @@
               <h2 class="font-serif text-white text-[2.1rem] leading-tight sm:text-5xl font-semibold mt-4">A Letter from <span class="gold-text italic">Santa</span></h2>
               <p class="text-emerald-50/85 text-sm sm:text-base mt-3">Santa's sending your little one their very own <b class="text-white">Santa Cam</b> — a magical camera that helps him see when they're being kind, listening carefully and doing their very best.</p>
               <div class="flex flex-wrap justify-center sm:justify-start gap-2 mt-5 text-xs font-medium">
-                <span class="rounded-full bg-white/10 text-white px-3 py-1.5">2 letter designs</span>
-                <span class="rounded-full bg-white/10 text-white px-3 py-1.5">🧲 Santa Cam magnet</span>
-                <span class="rounded-full bg-[#c9a14a] text-[#1c2b24] px-3 py-1.5 font-semibold">From £4.99</span>
+                <a href="#builder" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">✉️ 2 letter designs</a>
+                <a href="#ways" class="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 transition-colors">🧲 Magnet or 🎄 bauble</a>
+                <a href="#ways" class="rounded-full bg-[#c9a14a] hover:bg-[#d6b05a] text-[#1c2b24] px-3 py-1.5 font-semibold transition-colors">From £4.99</a>
               </div>
               <a href="#builder" class="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-pine font-semibold px-6 py-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
                 Choose your letters <i data-lucide="arrow-down" class="w-4 h-4"></i>
@@ -113,35 +124,41 @@
         </div>
       </section>
 
-      <section aria-labelledby="ways-title">
+      <section id="ways" aria-labelledby="ways-title" class="scroll-mt-20">
         <h2 id="ways-title" class="font-serif text-2xl sm:text-3xl font-semibold text-center">Two ways to send it</h2>
-        <p class="text-sm text-muted-foreground text-center mt-1">Every letter comes with a Santa Cam — choose how it arrives.</p>
+        <p class="text-sm text-muted-foreground text-center mt-1">Every letter comes with a Santa Cam — tap to choose how it arrives.</p>
         <div class="grid sm:grid-cols-2 gap-4 mt-5">
-          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
-            <img src="./santa-letter-magnet.jpg" alt="Santa Cam magnet on a Merry Christmas letter from Santa" class="w-full aspect-[4/3] object-cover" />
-            <div class="p-5">
+
+          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col">
+            <button type="button" tabindex="-1" aria-hidden="true" onclick="pickCam(null)" class="stage-cream relative aspect-[4/3] w-full flex items-center justify-center overflow-hidden group">
+              <img src="./santa-letter-merry-flat.jpg" alt="" class="letter-shot h-[86%] w-auto -rotate-3 rounded-[3px] transition-transform duration-300 group-hover:-rotate-1 group-hover:scale-[1.02]" />
+            </button>
+            <div class="p-5 flex-1 flex flex-col">
               <div class="flex items-baseline justify-between gap-3">
-                <p class="font-serif text-xl font-semibold">Letter + Santa Cam magnet</p>
+                <p class="font-serif text-xl font-semibold">Santa Cam magnet</p>
                 <p class="text-primary font-bold text-lg">£4.99</p>
               </div>
-              <p class="text-sm text-muted-foreground mt-1">The Santa Cam comes as a magnet — perfect on the fridge, where it can keep watch all through December.</p>
+              <p class="text-sm text-muted-foreground mt-1 flex-1">The letter comes with its Santa Cam as a magnet — perfect on the fridge, where it can keep watch all through December.</p>
+              <button type="button" onclick="pickCam(null)" class="mt-4 w-full rounded-full btn-gradient text-white font-semibold py-3 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                Choose the magnet <i data-lucide="arrow-down" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
-          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
-            <img src="./santa-letter-bauble-tree.jpg" alt="Santa Cam set in a green bauble hanging on a Christmas tree" class="w-full aspect-[4/3] object-cover" loading="lazy" />
-            <div class="p-5">
+
+          <div class="bg-white rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col">
+            <div class="stage-pine relative aspect-[4/3] w-full overflow-hidden">
+              <div id="bauble-stage" class="absolute inset-0"></div>
+            </div>
+            <div class="p-5 flex-1 flex flex-col">
               <div class="flex items-baseline justify-between gap-3">
-                <p class="font-serif text-xl font-semibold">Letter + Santa Cam bauble</p>
+                <p class="font-serif text-xl font-semibold">Santa Cam bauble</p>
                 <p class="text-primary font-bold text-lg">£6.99</p>
               </div>
-              <p class="text-sm text-muted-foreground mt-1">The Santa Cam set in a hanging bauble, ready for the tree.</p>
-              <div class="flex items-center gap-3 mt-3 text-xs font-medium text-muted-foreground">
-                <span class="flex items-center gap-1.5"><span class="swatch !w-5 !h-5" style="background:#b23a37"></span>Red</span>
-                <span class="flex items-center gap-1.5"><span class="swatch !w-5 !h-5" style="background:#2a7f6f"></span>Green</span>
-                <span class="flex items-center gap-1.5"><span class="swatch swatch-bronze !w-5 !h-5"></span>Bronze</span>
-              </div>
+              <p class="text-sm text-muted-foreground mt-1 flex-1">The Santa Cam set in a hanging bauble, ready for the tree. Tap a colour to choose it.</p>
+              <div id="way-colours" class="grid grid-cols-3 gap-2 mt-4" role="group" aria-label="Choose a bauble colour"></div>
             </div>
           </div>
+
         </div>
         <p class="text-xs text-muted-foreground text-center mt-4">✍️ Each letter leaves a space after “Dear” for you to write your little one's name — the perfect finishing touch.</p>
       </section>
@@ -261,17 +278,20 @@
   <script>
     lucide.createIcons();
 
+    // img = the letter photographed flat (with its own Santa Cam on it); cam = that Santa Cam on its own
     const DESIGNS = {
-      airmail: { label: 'Airmail', long: 'Airmail letter', sub: '“From the desk of Santa Claus”', icon: '✉️', img: './santa-letter-airmail.jpg' },
-      merry: { label: 'Merry Christmas', long: 'Merry Christmas letter', sub: 'Festive red & green stripes', icon: '🎄', img: './santa-letter-merry.jpg' },
+      airmail: { label: 'Airmail', long: 'Airmail letter', sub: '“From the desk of Santa Claus”', icon: '✉️', img: './santa-letter-airmail-flat.jpg', cam: './santa-cam-vintage.webp' },
+      merry: { label: 'Merry Christmas', long: 'Merry Christmas letter', sub: 'Festive red & green stripes', icon: '🎄', img: './santa-letter-merry-flat.jpg', cam: './santa-cam-simple.webp' },
     };
     const DESIGN_KEYS = ['airmail', 'merry'];
     const BAUBLES = {
-      red: { label: 'Red', css: 'background:#b23a37' },
-      green: { label: 'Green', css: 'background:#2a7f6f' },
-      bronze: { label: 'Bronze', css: '', cls: 'swatch-bronze' },
+      red: { label: 'Red', img: './santa-bauble-red.webp' },
+      green: { label: 'Green', img: './santa-bauble-green.webp' },
+      bronze: { label: 'Bronze', img: './santa-bauble-bronze.webp' },
     };
     const BAUBLE_KEYS = ['red', 'green', 'bronze'];
+    // bauble photo sizes + where the string ties on (px in each image)
+    const BMETA = { red: {"w": 480, "h": 548, "hang": [240.0, 27.5]}, green: {"w": 480, "h": 548, "hang": [240.0, 27.5]}, bronze: {"w": 480, "h": 548, "hang": [240.0, 27.5]} };
     // Keep in sync with SANTA_LETTER_PRICE / SANTA_BAUBLE_PRICE in functions/api/_shared.js (the server charges those)
     const PENCE = { magnet: 499, bauble: 699 };
     const MAX_LETTERS = 10;
@@ -381,7 +401,40 @@
       lucide.createIcons();
     }
 
+    // ── "Two ways": three baubles hanging on gold strings + colour buttons ──
+    function renderWays() {
+      const strings = [16, 30, 22];   // % of the stage width
+      document.getElementById('bauble-stage').innerHTML = BAUBLE_KEYS.map((b, i) => {
+        const M = BMETA[b], dx = (50 - M.hang[0] / M.w * 100).toFixed(1), up = (M.hang[1] / M.w * 100).toFixed(1);
+        return `
+          <button type="button" tabindex="-1" aria-hidden="true" onclick="pickCam('${b}')" class="swing absolute top-0 block" style="left:${3 + i * 32}%; width:30%;">
+            <span class="bstring block" style="height:${Math.round(strings[i] * 3.4)}px; height:${strings[i]}cqw"></span>
+            <span class="bauble-pop block" style="transform:translateX(${dx}%); margin-top:-${up}%">
+              <img src="${BAUBLES[b].img}" alt="" width="${M.w}" height="${M.h}" class="block w-full h-auto transition-transform duration-300 hover:scale-105" />
+            </span>
+          </button>`;
+      }).join('');
+      document.getElementById('way-colours').innerHTML = BAUBLE_KEYS.map(b => `
+        <button type="button" onclick="pickCam('${b}')" aria-label="Choose the ${BAUBLES[b].label.toLowerCase()} bauble, £6.99"
+          class="flex flex-col items-center gap-1 rounded-2xl border-2 border-border py-2 hover:border-primary/50 hover:bg-primary/5 transition-all">
+          <img src="${BAUBLES[b].img}" alt="" class="h-11 w-auto" />
+          <span class="text-xs font-semibold">${BAUBLES[b].label}</span>
+        </button>`).join('');
+    }
+    // a "two ways" choice sets up the first letter, then takes you to it
+    window.pickCam = (b) => {
+      if (submitting || state.step !== 1 || (b !== null && !BAUBLE_KEYS.includes(b))) return;
+      state.letters[0].bauble = b;
+      renderLetters(); render();
+      const sec = document.querySelector('#letters [data-cam="0"]');
+      if (!sec) return;
+      sec.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      sec.classList.remove('pick-flash'); void sec.offsetWidth; sec.classList.add('pick-flash');
+      refocus(b === null ? '0-c-magnet' : `0-b-${b}`);
+    };
+
     // ── Step 1: one card per letter ──
+    const tick = '<span class="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow"><i data-lucide="check" class="w-3.5 h-3.5"></i></span>';
     function renderLetters() {
       const n = state.letters.length;
       document.getElementById('letters').innerHTML = state.letters.map((it, i) => `
@@ -398,8 +451,8 @@
               return `
               <button type="button" role="radio" aria-checked="${on}" data-k="${i}-d-${k}" onclick="setDesign(${i},'${k}')"
                 class="relative rounded-2xl border-2 overflow-hidden text-left transition-all ${on ? 'border-primary gold-glow' : 'border-border hover:border-primary/40'}">
-                <img src="${d.img}" alt="${d.long}" class="w-full aspect-[4/5] object-cover" loading="lazy" />
-                ${on ? '<span class="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow"><i data-lucide="check" class="w-3.5 h-3.5"></i></span>' : ''}
+                <div class="stage-cream px-[14%] pt-4 pb-3"><img src="${d.img}" alt="${d.long}" class="letter-shot w-full aspect-[5/7] object-cover rounded-[2px]" loading="lazy" /></div>
+                ${on ? tick : ''}
                 <div class="p-2.5">
                   <p class="font-semibold text-sm">${d.icon} ${d.label}</p>
                   <p class="text-[11px] text-muted-foreground">${d.sub}</p>
@@ -408,33 +461,48 @@
             }).join('')}
           </div>
 
-          <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">Santa Cam</p>
-          <div class="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Santa Cam for letter ${i + 1}">
-            <button type="button" role="radio" aria-checked="${!it.bauble}" data-k="${i}-c-magnet" onclick="setCam(${i}, null)"
-              class="rounded-2xl border-2 p-3 text-left transition-all ${!it.bauble ? 'border-primary bg-primary/5 gold-glow' : 'border-border hover:border-primary/40'}">
-              <p class="font-semibold text-sm">🧲 Magnet</p>
-              <p class="text-[11px] text-muted-foreground">For the fridge</p>
-              <p class="text-primary font-bold text-sm mt-1">£4.99</p>
-            </button>
-            <button type="button" role="radio" aria-checked="${!!it.bauble}" data-k="${i}-c-bauble" onclick="setCam(${i}, '${it.bauble || 'red'}')"
-              class="rounded-2xl border-2 p-3 text-left transition-all ${it.bauble ? 'border-primary bg-primary/5 gold-glow' : 'border-border hover:border-primary/40'}">
-              <p class="font-semibold text-sm">🎄 In a bauble</p>
-              <p class="text-[11px] text-muted-foreground">To hang on the tree</p>
-              <p class="text-primary font-bold text-sm mt-1">£6.99</p>
-            </button>
-          </div>
-
-          ${it.bauble ? `
-          <div class="mt-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Bauble colour</p>
-            <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Bauble colour for letter ${i + 1}">
-              ${BAUBLE_KEYS.map(b => `
-                <button type="button" role="radio" aria-checked="${b === it.bauble}" data-k="${i}-b-${b}" onclick="setCam(${i}, '${b}')"
-                  class="flex items-center gap-2 rounded-full border-2 pl-1.5 pr-3 py-1.5 text-sm font-medium transition-all ${b === it.bauble ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
-                  <span class="swatch ${BAUBLES[b].cls || ''}" style="${BAUBLES[b].css}"></span>${BAUBLES[b].label}
-                </button>`).join('')}
+          <div data-cam="${i}" class="rounded-2xl mt-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Santa Cam</p>
+            <div class="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Santa Cam for letter ${i + 1}">
+              <button type="button" role="radio" aria-checked="${!it.bauble}" data-k="${i}-c-magnet" onclick="setCam(${i}, null)"
+                class="relative rounded-2xl border-2 overflow-hidden text-left transition-all ${!it.bauble ? 'border-primary gold-glow' : 'border-border hover:border-primary/40'}">
+                <div class="stage-cream h-24 sm:h-28 flex items-center justify-center"><img src="${DESIGNS[it.design].cam}" alt="" class="cam-pop h-[72%] w-auto" /></div>
+                ${!it.bauble ? tick : ''}
+                <div class="p-2.5">
+                  <p class="font-semibold text-sm">🧲 Magnet</p>
+                  <p class="text-[11px] text-muted-foreground">For the fridge</p>
+                  <p class="text-primary font-bold text-sm mt-0.5">£4.99</p>
+                </div>
+              </button>
+              <button type="button" role="radio" aria-checked="${!!it.bauble}" data-k="${i}-c-bauble" onclick="setCam(${i}, '${it.bauble || 'red'}')"
+                class="relative rounded-2xl border-2 overflow-hidden text-left transition-all ${it.bauble ? 'border-primary gold-glow' : 'border-border hover:border-primary/40'}">
+                <div class="stage-pine h-24 sm:h-28 flex items-center justify-center gap-[3%] px-2">
+                  <img src="${BAUBLES[it.bauble || 'red'].img}" alt="" class="bauble-pop h-[84%] w-auto" />
+                </div>
+                ${it.bauble ? tick : ''}
+                <div class="p-2.5">
+                  <p class="font-semibold text-sm">🎄 In a bauble</p>
+                  <p class="text-[11px] text-muted-foreground">Red, green or bronze</p>
+                  <p class="text-primary font-bold text-sm mt-0.5">£6.99</p>
+                </div>
+              </button>
             </div>
-          </div>` : ''}
+
+            ${it.bauble ? `
+            <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">Bauble colour</p>
+            <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Bauble colour for letter ${i + 1}">
+              ${BAUBLE_KEYS.map(b => {
+                const on = b === it.bauble;
+                return `
+                <button type="button" role="radio" aria-checked="${on}" data-k="${i}-b-${b}" onclick="setCam(${i}, '${b}')"
+                  class="relative flex flex-col items-center gap-1 rounded-2xl border-2 py-2.5 transition-all ${on ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}">
+                  <img src="${BAUBLES[b].img}" alt="" class="h-14 w-auto" />
+                  <span class="text-xs font-semibold">${BAUBLES[b].label}</span>
+                  ${on ? '<span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center"><i data-lucide="check" class="w-3 h-3"></i></span>' : ''}
+                </button>`;
+              }).join('')}
+            </div>` : ''}
+          </div>
         </div>`).join('');
 
       const add = document.getElementById('add-letter');
@@ -488,10 +556,13 @@
       const isDel = state.delivery === 'GI_DELIVER', p = totalPence(), n = state.letters.length;
       document.getElementById('review-items').innerHTML = state.letters.map((it, i) => `
         <div class="bg-white border border-border rounded-2xl p-3 flex items-center gap-3">
-          <img src="${DESIGNS[it.design].img}" alt="" class="w-14 h-16 rounded-lg object-cover object-top border border-border" />
+          <div class="relative shrink-0 w-[60px] h-[72px]">
+            <img src="${DESIGNS[it.design].img}" alt="" class="absolute left-0 top-0 w-[48px] h-[67px] object-cover rounded-[2px] border border-border" />
+            <img src="${it.bauble ? BAUBLES[it.bauble].img : DESIGNS[it.design].cam}" alt="" class="absolute right-0 bottom-0 w-8 h-auto ${it.bauble ? 'bauble-pop' : 'cam-pop'}" />
+          </div>
           <div class="flex-1 min-w-0 text-sm">
             <p class="font-semibold">${n > 1 ? `Letter ${i + 1} · ` : ''}${DESIGNS[it.design].long}</p>
-            <p class="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">${it.bauble ? `<span class="swatch !w-3.5 !h-3.5 !border-0 ${BAUBLES[it.bauble].cls || ''}" style="${BAUBLES[it.bauble].css}"></span>` : '🧲'} ${camText(it)}</p>
+            <p class="text-xs text-muted-foreground mt-0.5">${it.bauble ? '🎄' : '🧲'} ${camText(it)}</p>
           </div>
           <p class="font-semibold text-sm">${money(itemPence(it))}</p>
         </div>`).join('');
@@ -582,6 +653,7 @@
     // back from Stripe with the Back button (page restored from cache): allow submitting again
     window.addEventListener('pageshow', (e) => { if (e.persisted) { submitting = false; render(); } });
 
+    renderWays();
     renderLetters();
     render();
   </script>

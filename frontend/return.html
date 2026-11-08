@@ -168,7 +168,7 @@
       }
 
       function statusMessage(status) {
-        const things = currentEventTag === 'SANTA_LETTER' ? 'letters' : currentEventTag === 'ORNAMENT' ? 'ornaments' : 'magnets';
+        const things = currentEventTag === 'SANTA_LETTER' ? 'letters' : currentEventTag === 'ORNAMENT' ? 'ornaments' : currentEventTag === 'BAUBLE_CARD' ? 'bauble cards' : 'magnets';
         switch (status) {
           case "checkout_created": return "Waiting for payment...";
           case "paid": return `We've confirmed your payment. We'll start preparing your ${things} shortly.`;
@@ -215,6 +215,7 @@
             if (order.event) currentEventTag = order.event;
             if (order.productType === 'ornament') currentEventTag = 'ORNAMENT';
             if (order.productType === 'santa_letter') currentEventTag = 'SANTA_LETTER';
+            if (order.productType === 'bauble_card') currentEventTag = 'BAUBLE_CARD';
 
             loadingBlock.classList.add("hidden");
             errorBlock.classList.add("hidden");
@@ -259,6 +260,8 @@
                 ? `${order.packSize} Christmas ornament${Number(order.packSize) === 1 ? '' : 's'}`
               : order.productType === 'santa_letter'
                 ? `${order.packSize} letter${Number(order.packSize) === 1 ? '' : 's'} from Santa`
+              : order.productType === 'bauble_card'
+                ? `${order.packSize} photo bauble card${Number(order.packSize) === 1 ? '' : 's'}`
                 : `${order.packSize} magnets`;
             priceMeta.textContent = (typeof order.price === "number") ? "£" + order.price.toFixed(2) : "—";
             createdMeta.textContent = order.createdAt || "—";
@@ -315,6 +318,7 @@
             else if (currentEventTag === 'BINGO') window.location.href = "/bingo";
             else if (currentEventTag === 'ORNAMENT') window.location.href = "/christmas-ornaments";
             else if (currentEventTag === 'SANTA_LETTER') window.location.href = "/santa-letter";
+            else if (currentEventTag === 'BAUBLE_CARD') window.location.href = "/bauble-cards";
             else window.location.href = "/magnets";
         }
       }

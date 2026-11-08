@@ -11,7 +11,7 @@
 //   2) Optionally email the customer for printing/shipped/complete
 //   3) Return { success: true, order } as JSON
 
-import { ornamentDesignsText, santaLetterText } from './_shared.js';
+import { ornamentDesignsText, santaLetterText, baubleCardText, esc } from './_shared.js';
 
 const CUSTOMER_STATUS_MESSAGES = {
   printing: {
@@ -171,6 +171,10 @@ function buildCustomerEmailHtml(order, status, messageDef) {
   // Santa letter orders: same - numeric count, letter and bauble names from the fixed whitelists
   const santaLetters = order.productType === 'santa_letter' ? santaLetterText(order.santaLetters) : "";
   const santaLine = `${Number(order.packSize) || 1}× Letter from Santa${santaLetters ? ` (${santaLetters})` : ""}`;
+  // Photo bauble card orders: same - numeric count, colour and card names from the fixed
+  // whitelists (escaped, as "Berries & Bow" has an ampersand)
+  const baubleCards = order.productType === 'bauble_card' ? baubleCardText(order.baubleCards) : "";
+  const baubleLine = `${Number(order.packSize) || 1}× Photo Bauble Card${baubleCards ? ` (${esc(baubleCards)})` : ""}`;
 
   return `
   <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #111;">
@@ -187,6 +191,8 @@ function buildCustomerEmailHtml(order, status, messageDef) {
       ? `<p><strong>Product:</strong> ${ornamentLine}</p>`
       : order.productType === 'santa_letter'
       ? `<p><strong>Product:</strong> ${santaLine}</p>`
+      : order.productType === 'bauble_card'
+      ? `<p><strong>Product:</strong> ${baubleLine}</p>`
       : (order.packSize ? `<p><strong>Pack:</strong> ${order.packSize} items</p>` : "")
     }
     <p style="margin-top: 24px; font-size: 13px; color: #555;">

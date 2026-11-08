@@ -100,6 +100,55 @@ export function santaLetterText(items) {
     + (bauble ? ` + ${SANTA_BAUBLES[bauble].toLowerCase()} bauble` : ' + Santa Cam magnet')).join(', ');
 }
 
+// Photo bauble cards: a flat 3D-printed bauble with the customer's photo on a 50x50 magnet in
+// its window (the same magnet as the ornament), mounted on a printed Christmas card.
+// 1 / 2 / 3 for a whole-pack price; each bauble has its own colour, photo and card (any mix).
+export const BAUBLE_CARD_COLOURS = { red: 'Red', sparkle_red: 'Sparkle Red', green: 'Green', silver: 'Silver', blue: 'Sparkle Blue' };
+export const BAUBLE_CARD_CARDS = { berries: 'Berries & Bow', stripes: 'Green Stripes', wreath: 'Pine Wreath' };
+export const BAUBLE_CARD_PACKS = [1, 2, 3];
+export const BAUBLE_CARD_PRICES = { 1: 7.50, 2: 14.00, 3: 20.00 };
+
+// One bauble -> validated { colour, card } (exactly those two keys, nothing else), or null
+function baubleCardItem(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+  if (Object.keys(item).length !== 2 || !Object.hasOwn(item, 'colour') || !Object.hasOwn(item, 'card')) return null;
+  const { colour, card } = item;
+  if (typeof colour !== 'string' || !Object.hasOwn(BAUBLE_CARD_COLOURS, colour)) return null;
+  if (typeof card !== 'string' || !Object.hasOwn(BAUBLE_CARD_CARDS, card)) return null;
+  return { colour, card };
+}
+
+// Validated copy of exactly n baubles (n one of BAUBLE_CARD_PACKS, repeats allowed,
+// whitelisted keys only) - or null if anything about it is off
+export function baubleCardItems(list, n) {
+  if (!BAUBLE_CARD_PACKS.includes(n)) return null;
+  if (!Array.isArray(list) || list.length !== n) return null;
+  const items = [];
+  for (const item of list) {
+    const ok = baubleCardItem(item);
+    if (!ok) return null;
+    items.push(ok);
+  }
+  return items;
+}
+
+// [{red,wreath},{silver,stripes},{silver,stripes}]
+//   -> "Red bauble · Pine Wreath card, 2× Silver bauble · Green Stripes card"
+// (first-seen order; unknown entries skipped)
+export function baubleCardText(items) {
+  if (!Array.isArray(items)) return "";
+  const counts = new Map();
+  for (const item of items) {
+    const ok = baubleCardItem(item);
+    if (!ok) continue;
+    const key = `${ok.colour}|${ok.card}`;
+    const prev = counts.get(key);
+    counts.set(key, { ...ok, n: prev ? prev.n + 1 : 1 });
+  }
+  return [...counts.values()].map(({ colour, card, n }) => (n > 1 ? `${n}× ` : '')
+    + `${BAUBLE_CARD_COLOURS[colour]} bauble · ${BAUBLE_CARD_CARDS[card]} card`).join(', ');
+}
+
 export const MOTHERS_PACKAGES = {
   "Box 1": 13.45,
   "Box 2": 25.95,
@@ -186,6 +235,9 @@ export function shopPrice(order) {
   } else if (order.productType === 'santa_letter') {
     // Worked out from the stored letters, which must still match the pack size
     price = santaLetterTotal(santaLetterItems(order.santaLetters, n));
+  } else if (order.productType === 'bauble_card') {
+    // Whole-pack price; the stored baubles must still match the pack size
+    price = baubleCardItems(order.baubleCards, n) ? BAUBLE_CARD_PRICES[n] : null;
   } else {
     price = STANDARD_PACKS.includes(n) ? STANDARD_PRICES[n] : null;
   }
@@ -353,6 +405,11 @@ function buildProductLabel(order) {
     const letters = santaLetterText(order.santaLetters);
     return `🎅 ${esc(String(order.packSize))} Letter${n === 1 ? '' : 's'} from Santa${letters ? ` — ${esc(letters)}` : ''}`;
   }
+  if (order.productType === 'bauble_card') {
+    const n = Number(order.packSize);
+    const cards = baubleCardText(order.baubleCards);
+    return `🎄 ${esc(String(order.packSize))} Photo Bauble Card${n === 1 ? '' : 's'}${cards ? ` — ${esc(cards)}` : ''}`;
+  }
   if (order.generatedVoucher) return `🎁 Voucher Purchase (£${order.voucherValue})`;
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
@@ -455,6 +512,7 @@ export async function sendAdminEmail(order, env) {
   if (order.productType === 'keyring') title = `🔑 KEYRING ORDER`;
   else if (order.productType === 'ornament') title = `🎄 ORNAMENT ORDER`;
   else if (order.productType === 'santa_letter') title = `🎅 SANTA LETTER ORDER`;
+  else if (order.productType === 'bauble_card') title = `🎄 BAUBLE CARD ORDER`;
   else if (order.event === 'BINGO') title = `🎱 BINGO ORDER #${order.bingoNumber}`;
   else if (order.event === 'VALENTINES') title = `💘 VALENTINES ORDER`;
   else if (order.event === 'MOTHERS_DAY') title = `🌸 MOTHER'S DAY ORDER`;
@@ -525,6 +583,7 @@ export async function sendPaidTelegram(order, env) {
   if (order.productType === 'keyring') header = `🔑 <b>KEYRING ORDER</b>`;
   else if (order.productType === 'ornament') header = `🎄 <b>ORNAMENT ORDER</b>`;
   else if (order.productType === 'santa_letter') header = `🎅 <b>SANTA LETTER ORDER</b>`;
+  else if (order.productType === 'bauble_card') header = `🎄 <b>BAUBLE CARD ORDER</b>`;
   else if (order.event === 'BINGO') header = `🎱 <b>BINGO ORDER #${order.bingoNumber}</b>`;
   else if (order.event === 'VALENTINES') header = `💘 <b>VALENTINES ORDER</b>`;
   else if (order.event === 'MOTHERS_DAY') header = `🌸 <b>MOTHER'S DAY ORDER</b>`;
@@ -539,6 +598,15 @@ export async function sendPaidTelegram(order, env) {
   if (order.productType === 'santa_letter') {
     const letters = santaLetterText(order.santaLetters);
     packLine = `Product: 🎅 ${esc(String(order.packSize))}× Letter from Santa${letters ? ` — ${esc(letters)}` : ''}`;
+  }
+  if (order.productType === 'bauble_card') {
+    // One line per bauble, numbered like its photo (bauble1-…, "B1" on the print sheet)
+    const cards = Array.isArray(order.baubleCards) ? order.baubleCards : [];
+    const list = cards.map((b, i) => {
+      const text = baubleCardText([b]);
+      return text ? `B${i + 1}: ${esc(text)}` : null;
+    }).filter(Boolean);
+    packLine = `Product: 🎄 ${esc(String(order.packSize))}× Photo Bauble Card${list.length ? '\n' + list.join('\n') : ''}`;
   }
   if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
     const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);

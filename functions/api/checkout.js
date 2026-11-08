@@ -6,6 +6,7 @@ import {
   keyringPrice, BUNDLE_PRICE, LARGE_MAGNET_PRICES, promoPercent,
   ORNAMENT_PRICES, ornamentDesignsText,
   santaLetterItems, santaLetterTotal, santaLetterText,
+  BAUBLE_CARD_PRICES, baubleCardItems, baubleCardText,
   cleanVoucherCode, voucherBalance, holdVoucher, releaseVoucherHolds,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
@@ -100,6 +101,16 @@ export async function onRequestPost({ request, env }) {
       const text = santaLetterText(letters);
       productName = size === 1 ? 'Letter from Santa' : `${size} Letters from Santa`;
       productDesc = 'With a Santa Cam from the North Pole' + (text ? ' — ' + text : '');
+    } else if (productType === 'bauble_card') {
+      const size = Number(packSizeRaw);
+      // Whole-pack price, only while the stored baubles still match the pack size
+      const cards = baubleCardItems(kvOrder?.baubleCards, size);
+      price = cards ? BAUBLE_CARD_PRICES[size] : 0;
+      // Never send a £0 / missing price to Stripe (or open a session for a missing order)
+      if (!kvOrder || !price) return jsonResponse({ error: "Invalid bauble card order." }, 400);
+      const text = baubleCardText(cards);
+      productName = size === 1 ? 'Photo Bauble Card' : `${size} Photo Bauble Cards`;
+      productDesc = 'Your photo in a 3D-printed bauble on a Christmas card' + (text ? ' — ' + text : '');
     } else if (productType === 'large_magnet') {
       const size = Number(packSizeRaw);
       price = LARGE_MAGNET_PRICES[size] || 0;

@@ -183,6 +183,7 @@ export async function onRequestPost({ request, env }) {
       if (order.productType === 'keyring') name = 'Double-Sided Photo Keyring';
       else if (order.productType === 'ornament') name = Number(order.packSize) === 1 ? 'Christmas Colour-In Ornament' : `${order.packSize} Christmas Colour-In Ornaments`;
       else if (order.productType === 'santa_letter') name = Number(order.packSize) === 1 ? 'Letter from Santa' : `${Number(order.packSize)} Letters from Santa`;
+      else if (order.productType === 'bauble_card') name = Number(order.packSize) === 1 ? 'Photo Bauble Card' : `${Number(order.packSize)} Photo Bauble Cards`;
       else if (order.productType === 'frame' || order.productType === 'frames' || order.frameStyle) {
         const style = (order.frameStyle || '').charAt(0).toUpperCase() + (order.frameStyle || '').slice(1);
         name = `${style} Frame (${order.frameSize || '?'} slots)`;
