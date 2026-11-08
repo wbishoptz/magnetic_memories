@@ -231,6 +231,63 @@ export async function expireCheckoutSession(env, sessionId) {
   return null;
 }
 
+// ─── Gift vouchers ─────────────────────────────────────────────────────────
+// Stored as voucher:<CODE> (upper case, e.g. MM-ABCD) = { value, balance, redeemed, ... }.
+
+const pounds = (n) => Math.round(Number(n) * 100) / 100;
+
+// The code as it's stored, whatever the customer typed ('' when there's none)
+export function cleanVoucherCode(code) {
+  return code == null ? '' : String(code).trim().toUpperCase();
+}
+
+// What's left to spend (a legacy voucher without a balance is worth its value)
+export function voucherBalance(voucher) {
+  if (!voucher || voucher.redeemed) return 0;
+  const b = typeof voucher.balance === 'number' ? voucher.balance : Number(voucher.value);
+  return Number.isFinite(b) && b > 0 ? pounds(b) : 0;
+}
+
+// A Stripe checkout that takes money off a gift voucher leaves a hold,
+// voucherhold:<CODE>:<sessionId>, until the webhook takes the amount off the balance.
+// A voucher pays for one checkout at a time: before it's used again, every other
+// checkout still holding it is expired (so two open checkouts can't both spend it).
+// The hold outlives Stripe's 24h sessions and its 3 days of webhook retries.
+const HOLD_TTL = 60 * 60 * 24 * 5;
+const holdPrefix = (code) => `voucherhold:${code}:`;
+export const voucherHoldKey = (code, sessionId) => holdPrefix(code) + sessionId;
+
+export async function holdVoucher(env, code, sessionId, amount, orderIds) {
+  try {
+    await env.ORDERS_KV.put(voucherHoldKey(code, sessionId),
+      JSON.stringify({ code, sessionId, amount, orderIds, at: new Date().toISOString() }),
+      { expirationTtl: HOLD_TTL, metadata: { amount } });
+  } catch (err) {
+    console.error("Voucher hold failed:", code, sessionId, err);
+  }
+}
+
+// Frees a voucher for a new checkout by expiring the other checkouts holding it. Returns
+// the amount still owed by ones that were paid but haven't reached the webhook yet (to
+// keep off the balance), or null if Stripe couldn't say (refuse, and let them retry).
+export async function releaseVoucherHolds(env, code, voucher) {
+  const settled = new Set((voucher?.redemptions || []).map(r => r.sessionId).filter(Boolean));
+  let pending = 0;
+  let cursor;
+  do {
+    const list = await env.ORDERS_KV.list({ prefix: holdPrefix(code), cursor });
+    for (const k of list.keys) {
+      const sessionId = k.name.slice(holdPrefix(code).length);
+      const result = settled.has(sessionId) ? 'settled' : await expireCheckoutSession(env, sessionId);
+      if (result === 'complete') pending += Number(k.metadata?.amount) || 0;
+      else if (result) await env.ORDERS_KV.delete(k.name); // expired, or already taken off
+      else return null;
+    }
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+  return pounds(pending);
+}
+
 export function esc(str) {
   if (!str) return "";
   return String(str)

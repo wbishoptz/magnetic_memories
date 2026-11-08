@@ -2,12 +2,19 @@
 // Creates one Stripe checkout session for multiple draft orders (basket).
 // Body: { orderIds, email, phone, shippingMethod, socialPermission, voucherCode? }
 
-import { jsonResponse, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail, shopPrice, expireCheckoutSession } from './_shared.js';
+import {
+  jsonResponse, promoPercent, sendAdminEmail, sendPaidTelegram, sendPaidEmail, shopPrice, expireCheckoutSession,
+  cleanVoucherCode, voucherBalance, holdVoucher, releaseVoucherHolds,
+} from './_shared.js';
+
+const pounds = (n) => Math.round(Number(n) * 100) / 100;
 
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { orderIds, email, phone, shippingMethod, socialPermission, voucherCode } = body;
+    const { orderIds, email, phone, shippingMethod, socialPermission } = body;
+    // Gift vouchers are stored upper case (voucher:MM-ABCD): use that form everywhere below
+    const voucherCode = cleanVoucherCode(body.voucherCode);
 
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
       return jsonResponse({ error: 'No items in basket.' }, 400);
@@ -89,19 +96,22 @@ export async function onRequestPost({ request, env }) {
         // Percentage sale code (e.g. SUN20) — applied to every line item below
         discountAmount = Math.round(itemsTotal * promoPct) / 100;
       } else {
-        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        voucherKey = `voucher:${voucherCode}`;
         const vRaw = await env.ORDERS_KV.get(voucherKey);
         if (vRaw) {
           voucherData = JSON.parse(vRaw);
-          const balance = typeof voucherData.balance === 'number' ? voucherData.balance : voucherData.value;
-          if (!voucherData.redeemed && balance > 0) {
-            discountAmount = Math.min(itemsTotal, balance);
+          const balance = voucherBalance(voucherData);
+          if (balance > 0) {
+            // One checkout at a time per voucher (any other open one is expired)
+            const pending = await releaseVoucherHolds(env, voucherCode, voucherData);
+            if (pending === null) return jsonResponse({ error: 'Basket checkout failed - please try again.' }, 503);
+            discountAmount = pounds(Math.min(itemsTotal, Math.max(0, balance - pending)));
           }
         }
       }
     }
 
-    const finalItemsTotal = Math.max(0, itemsTotal - discountAmount);
+    const finalItemsTotal = Math.max(0, pounds(itemsTotal - discountAmount));
 
     // Shipping cost
     let shipCost = 0;
@@ -116,11 +126,11 @@ export async function onRequestPost({ request, env }) {
 
     // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this)
     if (discountAmount > 0 && finalItemsTotal === 0 && shipCost === 0 && voucherData) {
-      const balance = typeof voucherData.balance === 'number' ? voucherData.balance : voucherData.value;
-      const newBalance = balance - discountAmount;
-      voucherData.balance = Math.max(0, newBalance);
+      voucherData.balance = Math.max(0, pounds(voucherBalance(voucherData) - discountAmount));
       if (voucherData.balance <= 0) voucherData.redeemed = true;
       voucherData.usedByOrder = firstOrderId;
+      voucherData.redemptions = [...(voucherData.redemptions || []),
+        { sessionId: null, orderId: firstOrderId, amount: discountAmount, at: new Date().toISOString() }];
       await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
       for (const order of orders) {
@@ -147,15 +157,28 @@ export async function onRequestPost({ request, env }) {
     params.append('cancel_url', cancelUrl);
     params.append('customer_email', email);
     params.append('metadata[basketOrderIds]', allOrderIds);
-    if (voucherCode && discountAmount > 0) params.append('metadata[usedVoucher]', voucherCode);
+
+    // Item prices. Percentage code: take % off each item. Gift voucher: spend it on the
+    // items in order (as much of each as is left), so the basket total drops by all of it.
+    let voucherLeft = promoPct > 0 ? 0 : discountAmount;
+    const itemPrices = orders.map(order => {
+      const base = Number(order.price) || 0;
+      if (promoPct > 0) return Math.round(base * (100 - promoPct)) / 100;
+      const take = Math.min(voucherLeft, base);
+      voucherLeft = pounds(voucherLeft - take);
+      return Math.max(0, pounds(base - take));
+    });
+    const voucherUsed = promoPct > 0 ? 0 : pounds(discountAmount - voucherLeft);
+
+    if (voucherCode && discountAmount > 0) {
+      params.append('metadata[usedVoucher]', voucherCode);
+      // What the gift voucher took off: the webhook takes exactly this off its balance
+      if (voucherData) params.append('metadata[voucherDiscount]', voucherUsed.toFixed(2));
+    }
 
     // Product line items
     orders.forEach((order, i) => {
-      const base = Number(order.price) || 0;
-      // Percentage code: take % off each item. Gift voucher: subtract balance from the first item.
-      const itemPrice = promoPct > 0
-        ? Math.round(base * (100 - promoPct)) / 100
-        : Math.max(0, base - (i === 0 ? discountAmount : 0));
+      const itemPrice = itemPrices[i];
       let name = '';
       if (order.productType === 'keyring') name = 'Double-Sided Photo Keyring';
       else if (order.productType === 'ornament') name = Number(order.packSize) === 1 ? 'Christmas Colour-In Ornament' : `${order.packSize} Christmas Colour-In Ornaments`;
@@ -209,6 +232,10 @@ export async function onRequestPost({ request, env }) {
     if (!stripeRes.ok) {
       console.error('Stripe basket checkout error:', session);
       return jsonResponse({ error: 'Failed to create checkout.' }, 500);
+    }
+
+    if (voucherData && voucherUsed > 0) {
+      await holdVoucher(env, voucherCode, session.id, voucherUsed, orders.map(o => o.orderId));
     }
 
     // Save the session ID on every item (not just the first): if any item is changed later,

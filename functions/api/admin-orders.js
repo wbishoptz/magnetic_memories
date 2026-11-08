@@ -81,6 +81,7 @@ export async function onRequest({ request, env }) {
             bingoNumber: o.bingoNumber,
             stripeSessionId: o.stripeSessionId,
             price: o.price,
+            shippingMethod: o.shippingMethod,
             wasRecovered: o.wasRecovered,
             usedVoucher: o.usedVoucher,
             // NEW: Pass this flag so Admin knows if email was sent

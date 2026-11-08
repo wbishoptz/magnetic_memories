@@ -1,7 +1,7 @@
 import {
   verifyStripeSignature,
   sendPaidEmail, sendBingoEmail, sendVoucherEmail, sendAdminEmail, sendPaidTelegram,
-  sendTelegramText
+  sendTelegramText, cleanVoucherCode, voucherBalance, voucherHoldKey,
 } from './_shared.js';
 import {
   UUID_RE, completeGuestOrder, loadOrder, loadEvent, formatGBP, toPence, round2, retrieveSession, addRefundNeeded,
@@ -36,6 +36,13 @@ export const onRequestPost = async ({ request, env }) => {
         return json({ received: true, ignored: true, guestExtras: true });
       }
       return await handleGuestExtras(session, env);
+    }
+
+    // A checkout that held a gift voucher ran out (or was expired): it can't spend it now
+    if (type === "checkout.session.expired" && session?.id && session.metadata?.usedVoucher) {
+      const code = cleanVoucherCode(session.metadata.usedVoucher);
+      if (env.ORDERS_KV) await env.ORDERS_KV.delete(voucherHoldKey(code, session.id));
+      return json({ received: true, voucherReleased: true });
     }
 
     if (type !== "checkout.session.completed" || !session) {
@@ -94,17 +101,34 @@ export const onRequestPost = async ({ request, env }) => {
 
     // Voucher redemption: customer used a voucher (partial discount paid via Stripe)
     if (session.metadata?.usedVoucher) {
-      const code = session.metadata.usedVoucher;
+      const code = cleanVoucherCode(session.metadata.usedVoucher);
       const vKey = `voucher:${code}`;
       const vRaw = await env.ORDERS_KV.get(vKey);
       if (vRaw) {
         const vData = JSON.parse(vRaw);
-        // The voucher balance was fully consumed (discountAmount = full balance)
-        vData.balance = 0;
-        vData.redeemed = true;
-        vData.usedByOrder = orderId;
-        await env.ORDERS_KV.put(vKey, JSON.stringify(vData));
+        const redemptions = Array.isArray(vData.redemptions) ? vData.redemptions : [];
+        // Stripe can deliver the same event more than once: take each session off only once
+        if (!redemptions.some(r => r.sessionId === session.id)) {
+          const discount = Number(session.metadata.voucherDiscount);
+          if (session.metadata.voucherDiscount != null && Number.isFinite(discount) && discount >= 0) {
+            // Take off only what this checkout used: the rest stays to spend
+            vData.balance = Math.max(0, round2(voucherBalance(vData) - discount));
+            if (vData.balance <= 0) vData.redeemed = true;
+          } else {
+            // Checkout opened before voucherDiscount was recorded: it spent the whole balance
+            vData.balance = 0;
+            vData.redeemed = true;
+          }
+          vData.usedByOrder = orderId;
+          vData.redemptions = [...redemptions, {
+            sessionId: session.id, orderId,
+            amount: Number.isFinite(discount) ? discount : null,
+            at: new Date().toISOString(),
+          }];
+          await env.ORDERS_KV.put(vKey, JSON.stringify(vData));
+        }
       }
+      await env.ORDERS_KV.delete(voucherHoldKey(code, session.id));
     }
 
     // --- Basket: mark all basket orders paid ---

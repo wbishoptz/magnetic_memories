@@ -6,6 +6,7 @@ import {
   keyringPrice, BUNDLE_PRICE, LARGE_MAGNET_PRICES, promoPercent,
   ORNAMENT_PRICES, ornamentDesignsText,
   santaLetterItems, santaLetterTotal, santaLetterText,
+  cleanVoucherCode, voucherBalance, holdVoucher, releaseVoucherHolds,
   jsonResponse,
   sendPaidEmail, sendBingoEmail, sendAdminEmail, sendPaidTelegram
 } from './_shared.js';
@@ -14,7 +15,8 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json().catch(() => null);
     const orderId = body?.orderId;
-    const voucherCode = body?.voucherCode;
+    // Gift vouchers are stored upper case (voucher:MM-ABCD): use that form everywhere below
+    const voucherCode = cleanVoucherCode(body?.voucherCode);
     let eventTag = body?.event || null;
 
     if (!orderId) return jsonResponse({ error: "Missing orderId." }, 400);
@@ -201,13 +203,17 @@ export async function onRequestPost({ request, env }) {
         discountAmount = Math.round(price * pct) / 100;
         finalPrice = Math.max(0, price - discountAmount);
       } else {
-        voucherKey = `voucher:${voucherCode.trim().toUpperCase()}`;
+        voucherKey = `voucher:${voucherCode}`;
         const vRaw = await env.ORDERS_KV.get(voucherKey);
         if (vRaw) {
           voucherData = JSON.parse(vRaw);
-          const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-          if (!voucherData.redeemed && currentBalance > 0) {
-            discountAmount = Math.min(price, currentBalance);
+          const currentBalance = voucherBalance(voucherData);
+          if (currentBalance > 0) {
+            // One checkout at a time per voucher (any other open one is expired)
+            const pending = await releaseVoucherHolds(env, voucherCode, voucherData);
+            if (pending === null) return jsonResponse({ error: "Checkout failed - please try again." }, 503);
+            const available = Math.max(0, Math.round((currentBalance - pending) * 100) / 100);
+            discountAmount = Math.min(price, available);
             finalPrice = Math.max(0, price - discountAmount);
           }
         }
@@ -217,11 +223,12 @@ export async function onRequestPost({ request, env }) {
     // Fully covered by a GIFT VOUCHER — skip Stripe (percentage codes never hit this).
     // Not when there's delivery to pay: that still goes through Stripe (as in basket checkout).
     if (voucherCode && discountAmount > 0 && finalPrice === 0 && shipCost === 0 && voucherData) {
-      const currentBalance = (typeof voucherData.balance === 'number') ? voucherData.balance : voucherData.value;
-      const newBalance = currentBalance - discountAmount;
+      const newBalance = Math.round((voucherBalance(voucherData) - discountAmount) * 100) / 100;
       voucherData.balance = newBalance;
       if (newBalance <= 0) { voucherData.redeemed = true; voucherData.balance = 0; }
       voucherData.usedByOrder = orderId;
+      voucherData.redemptions = [...(voucherData.redemptions || []),
+        { sessionId: null, orderId, amount: discountAmount, at: new Date().toISOString() }];
       await env.ORDERS_KV.put(voucherKey, JSON.stringify(voucherData));
 
       kvOrder.status = "paid";
@@ -250,7 +257,11 @@ export async function onRequestPost({ request, env }) {
       params.append("metadata[isVoucher]", "true");
       params.append("metadata[voucherValue]", String(price));
     }
-    if (voucherCode) params.append("metadata[usedVoucher]", voucherCode);
+    if (discountAmount > 0) {
+      params.append("metadata[usedVoucher]", voucherCode);
+      // What the gift voucher took off: the webhook takes exactly this off its balance
+      if (voucherData) params.append("metadata[voucherDiscount]", discountAmount.toFixed(2));
+    }
 
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "gbp");
@@ -297,6 +308,8 @@ export async function onRequestPost({ request, env }) {
       console.error("Stripe error:", session);
       return jsonResponse({ error: "Failed to create checkout." }, 500);
     }
+
+    if (voucherData && discountAmount > 0) await holdVoucher(env, voucherCode, session.id, discountAmount, [orderId]);
 
     kvOrder.stripeSessionId = session.id;
     // Keep the delivery that was charged on the order (only missing on old/hand-made orders)
